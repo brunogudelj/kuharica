@@ -1,5 +1,5 @@
 /* Čiste funkcije koje iz stanja rade novo stanje. Poništavanje = povratak prethodnog stanja. */
-import { CYCLE, PBY, PREP_INV } from "../data";
+import { CYCLE, ITEMS, PBY, PREP_INV } from "../data";
 import type { CustomRecipe, Item } from "../data";
 import { allRecipes, recipeOf } from "./recipes";
 import type { AppData, CostEntry } from "../state/model";
@@ -194,4 +194,21 @@ export function removeRecipe(src: AppData, id: string): Result {
   d.recipes = d.recipes.filter((x) => x.id !== id);
   d.plan.days = d.plan.days.map((x) => (x.r === id && !x.done ? { r: "", done: false } : x));
   return { data: d, msg: `${r?.n ?? "Recept"} je obrisan.` };
+}
+
+/** Kreni od nule: sakrij sve ugrađene namirnice, obriši vlastite, sve količine, cijene i pripremljeno.
+ * Recepti, plan, omleti i troškovi ostaju. */
+export function resetItems(src: AppData): Result {
+  const d = clone(src);
+  d.items = { custom: [], hidden: ITEMS.map((i) => i.id), over: {} };
+  d.stock = {};
+  d.prepStock = {};
+  return { data: d, msg: "Zaliha je prazna. Kreni s dodavanjem." };
+}
+
+/** Vrati ugrađenu namirnicu iz kataloga i odmah upiši količinu */
+export function restoreItem(src: AppData, id: string, startQty = 0): Result {
+  const r = setHidden(src, id, false);
+  if (startQty > 0) setQty(r.data, id, startQty);
+  return r;
 }

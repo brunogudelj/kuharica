@@ -6,7 +6,7 @@ import { clone } from "../state/model";
 import type { AppData } from "../state/model";
 import { pc, price, qty, status } from "../logic/inventory";
 import { hiddenItems, isCustom, visibleItems } from "../logic/items";
-import { buy, editItem, removeItem, setHidden, setQty } from "../logic/actions";
+import { buy, editItem, removeItem, resetItems, setHidden, setQty } from "../logic/actions";
 import { eur, fmt, pfmt, round } from "../logic/format";
 import { Filters, Note, SrcTag, StatusPill, Stepper } from "../components/ui";
 import { ItemForm, OmFields, omPatch } from "../components/ItemForm";
@@ -286,6 +286,7 @@ export function ZalihaTab() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const items = visibleItems(data);
   const hidden = hiddenItems(data);
   const counts = { out: 0, low: 0, ok: 0 };
@@ -379,14 +380,60 @@ export function ZalihaTab() {
             </div>
           ))
         ) : term ? (
+          !hidden.some((i) => i.n.toLowerCase().includes(term)) && (
+            <Note>
+              Nema namirnice „{q.trim()}”.{" "}
+              <button type="button" className="linkbtn" onClick={() => setAdding(true)}>
+                Dodaj je
+              </button>
+            </Note>
+          )
+        ) : items.length === 0 ? (
           <Note>
-            Nema namirnice „{q.trim()}”.{" "}
-            <button type="button" className="linkbtn" onClick={() => setAdding(true)}>
-              Dodaj je
-            </button>
+            <strong>Zaliha je prazna.</strong> U tražilicu upiši što imaš, npr. „jaja”. Ako je to u katalogu, vratiš ga
+            jednim klikom, a ako nije, dodaš novu namirnicu.
           </Note>
         ) : (
           <Note>Ništa nije nisko. Sve je na zalihi.</Note>
+        )}
+        {term && hidden.some((i) => i.n.toLowerCase().includes(term)) && (
+          <div className="group">
+            <div className="ghead">
+              <h2>Iz kataloga</h2>
+              <span className="count">skriveno, vrati jednim klikom</span>
+            </div>
+            <div className="list">
+              {hidden
+                .filter((i) => i.n.toLowerCase().includes(term))
+                .map((i) => (
+                  <div key={i.id} className="lrow">
+                    <div className="ln">
+                      <b>{i.n}</b>
+                      <small>
+                        {CATS[i.cat]} · {i.u} · pakiranje {fmt(i.pack, i.u)}
+                      </small>
+                    </div>
+                    <button
+                      type="button"
+                      className="cookbtn"
+                      onClick={() => {
+                        const r = setHidden(data, i.id, false);
+                        apply(r.data, r.msg);
+                        setOpen(i.id);
+                      }}
+                    >
+                      Vrati
+                    </button>
+                  </div>
+                ))}
+            </div>
+            <p className="sub">
+              Nije to što tražiš?{" "}
+              <button type="button" className="linkbtn" onClick={() => setAdding(true)}>
+                Dodaj novu namirnicu „{q.trim()}”
+              </button>
+            </p>
+          </div>
         )}
       </div>
 
@@ -430,6 +477,45 @@ export function ZalihaTab() {
           </div>
         </details>
       )}
+
+      <div className="group">
+        <h2>Kreni od nule</h2>
+        {confirmReset ? (
+          <div className="confirm" role="alertdialog" aria-label="Potvrda brisanja zalihe">
+            <b>Obrisati sve namirnice?</b>
+            <span className="sub">
+              Sakrit će se sve ugrađene namirnice, obrisat će se tvoje dodane namirnice te sve količine, cijene i
+              pripremljeno. Recepti, plan, omleti i troškovi ostaju. Ugrađene namirnice uvijek možeš vratiti preko
+              tražilice.
+            </span>
+            <div className="btnrow">
+              <button
+                type="button"
+                className="btn danger"
+                onClick={() => {
+                  const r = resetItems(data);
+                  apply(r.data, r.msg);
+                  setConfirmReset(false);
+                  setQ("");
+                  window.scrollTo({ top: 0 });
+                }}
+              >
+                Da, obriši sve
+              </button>
+              <button type="button" className="btn ghost" onClick={() => setConfirmReset(false)}>
+                Odustani
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="btnrow">
+            <button type="button" className="btn ghost danger" onClick={() => setConfirmReset(true)}>
+              Obriši sve namirnice
+            </button>
+            <span className="count">prazna zaliha, popunjavaš sam</span>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

@@ -1122,3 +1122,8 @@ code {
   font: inherit;
   font-size: 0.92rem;
 }
+.btn.danger:not(.ghost) {
+  background: var(--out);
+  border-color: var(--out);
+  color: var(--paper);
+}

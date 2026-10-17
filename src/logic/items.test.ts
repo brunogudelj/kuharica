@@ -65,3 +65,28 @@ describe("ugrađene namirnice", () => {
     expect(shopping(d).some((r) => r.i.id === "piletina")).toBe(false);
   });
 });
+
+describe("kreni od nule", () => {
+  it("sakrije katalog, obriše vlastite, količine i pripremljeno; recepti i troškovi ostaju", async () => {
+    const { resetItems, restoreItem, saveRecipe } = await import("./actions");
+    let d = addItem(defaultData(), kobasice(), 100).data;
+    d.stock.piletina = { qty: 500, price: 9.99 };
+    d.prepStock.riza = 2;
+    d.costs["2026-10"] = [{ id: "a", t: 1, shop: "K", amount: 5, note: "", est: false }];
+    d = saveRecipe(d, { id: "r-a-1", n: "A", c: "Riža", d: "", use: { piletina: 100 }, extra: [], st: [] }).data;
+    d = resetItems(d).data;
+    expect(visibleItems(d)).toEqual([]);
+    expect(d.items.custom).toEqual([]);
+    expect(d.stock).toEqual({});
+    expect(d.prepStock).toEqual({});
+    expect(d.recipes.length).toBe(1);
+    expect(d.costs["2026-10"].length).toBe(1);
+    // bez minimuma; na popisu je samo ono što traže isplanirani omleti
+    expect(shopping(d).every((r) => r.forPlan)).toBe(true);
+    d.plan.om = d.plan.om.map((o) => ({ ...o, done: true }));
+    expect(shopping(d)).toEqual([]);
+    d = restoreItem(d, "jaja", 10).data;
+    expect(visibleItems(d).map((i) => i.id)).toEqual(["jaja"]);
+    expect(qty(d, "jaja")).toBe(10);
+  });
+});
