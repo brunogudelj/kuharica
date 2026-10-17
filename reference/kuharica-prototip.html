@@ -1,0 +1,1501 @@
+<title>Wok i Air Fryer Kuharica</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;700&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: jedna kolona kao kuhinjska bilježnica; kartice Plan, Zaliha, Kupovina, Recepti, Prep; naljepnice za mjesto čuvanja */
+:root{
+  --paper:#f3f5f2; --card:#ffffff; --ink:#1d2622; --muted:#5d6b64; --line:#d9dfdb;
+  --accent:#1f6b5c; --accent-ink:#ffffff;
+  --frz:#d8e9f5; --frz-ink:#1c4a6b; --fri:#dcefdc; --fri-ink:#25582a;
+  --dry:#f6e8c8; --dry-ink:#6b4a12; --fre:#f8dede; --fre-ink:#7a2626;
+  --ok:#25582a; --ok-bg:#dcefdc; --low:#7a5410; --low-bg:#f6e8c8; --out:#8a2222; --out-bg:#f8dede;
+  --display:"Familjen Grotesk",system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#141a17; --card:#1c2420; --ink:#e7ece9; --muted:#9aa9a1; --line:#2f3a35;
+  --accent:#5cc0a8; --accent-ink:#0d1714;
+  --frz:#1d3446; --frz-ink:#a9d3f0; --fri:#1f3822; --fri-ink:#a9dcae;
+  --dry:#3d3220; --dry-ink:#ecd29b; --fre:#422426; --fre-ink:#f2b3b3;
+  --ok:#a9dcae; --ok-bg:#1f3822; --low:#ecd29b; --low-bg:#3d3220; --out:#f2b3b3; --out-bg:#422426; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#141a17; --card:#1c2420; --ink:#e7ece9; --muted:#9aa9a1; --line:#2f3a35;
+  --accent:#5cc0a8; --accent-ink:#0d1714;
+  --frz:#1d3446; --frz-ink:#a9d3f0; --fri:#1f3822; --fri-ink:#a9dcae;
+  --dry:#3d3220; --dry-ink:#ecd29b; --fre:#422426; --fre-ink:#f2b3b3;
+  --ok:#a9dcae; --ok-bg:#1f3822; --low:#ecd29b; --low-bg:#3d3220; --out:#f2b3b3; --out-bg:#422426; color-scheme:dark}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--paper)}
+.wrap{max-width:760px;margin:0 auto;padding-block:20px 90px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:1.9rem;font-weight:700}
+h2{font-size:1.3rem}
+h3{font-size:1.08rem}
+.sub{color:var(--muted);margin:4px 0 0}
+.day{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.day div{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.day b{display:block;font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.day span{font-size:.92rem}
+nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);padding-block:6px;display:flex;gap:6px;overflow-x:auto}
+nav button{font:700 .95rem var(--display);border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 14px;border-radius:999px;cursor:pointer;white-space:nowrap}
+nav button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+nav .badge{font:500 .72rem var(--mono);margin-left:4px}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+section{display:flex;flex-direction:column;gap:14px}
+.note{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px;font-size:.93rem;color:var(--muted)}
+.note strong{color:var(--ink)}
+.group{display:flex;flex-direction:column;gap:6px}
+.ghead{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.tag{font-family:var(--mono);font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:4px;white-space:nowrap}
+.t-frz{background:var(--frz);color:var(--frz-ink)}.t-fri{background:var(--fri);color:var(--fri-ink)}
+.t-dry{background:var(--dry);color:var(--dry-ink)}.t-fre{background:var(--fre);color:var(--fre-ink)}
+.list{background:var(--card);border:1px solid var(--line);border-radius:8px}
+.count{font-family:var(--mono);font-size:.8rem;color:var(--muted)}
+.src{font-family:var(--mono);font-size:.7rem;padding:2px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.src.a{border-color:var(--accent);color:var(--accent)}
+.src.b{border-color:var(--fri-ink);color:var(--fri-ink)}
+.pill{font:500 .7rem var(--mono);text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.p-ok{background:var(--ok-bg);color:var(--ok)}.p-low{background:var(--low-bg);color:var(--low)}.p-out{background:var(--out-bg);color:var(--out)}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.summary div{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0}
+.summary b{display:block;font:700 1.5rem var(--display);font-variant-numeric:tabular-nums}
+.summary span{font-size:.82rem;color:var(--muted)}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.filters button{font:500 .88rem var(--body);border:1px solid var(--line);background:var(--card);color:var(--ink);padding:6px 12px;border-radius:999px;cursor:pointer}
+.filters button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);font-weight:700}
+
+/* Zaliha */
+.row{padding:10px 12px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.row:first-child{border-top:0}
+.rtop{display:flex;gap:10px;align-items:center}
+.rname{flex:1;min-width:0;background:none;border:0;padding:0;text-align:left;color:var(--ink);font:inherit;cursor:pointer}
+.rname b{display:block}
+.rname small{display:flex;gap:6px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:.82rem}
+.stepper{display:flex;align-items:center;gap:2px;flex:none}
+.stepper button{width:34px;height:34px;border-radius:6px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:700 1.1rem var(--mono);cursor:pointer}
+.qty{min-width:66px;text-align:center;font:500 .92rem var(--mono);font-variant-numeric:tabular-nums}
+.edit{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;background:var(--paper);border-radius:6px;padding:10px}
+.edit label{display:flex;flex-direction:column;gap:2px;font-size:.8rem;color:var(--muted);min-width:0}
+.edit input{font:500 .95rem var(--mono);padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);width:100%;box-sizing:border-box}
+.edit .btn{align-self:end}
+
+/* Plan */
+.plan .prow{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;padding:10px 12px;border-top:1px solid var(--line)}
+.plan .prow:first-child{border-top:0}
+.dname{font:700 .95rem var(--display)}
+.dname small{display:block;font:500 .66rem var(--mono);text-transform:uppercase;color:var(--muted)}
+.pmid{min-width:0;display:flex;flex-direction:column;gap:3px}
+select{font:inherit;font-size:.92rem;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);width:100%;min-width:0}
+.prow.done select{text-decoration:line-through;color:var(--muted)}
+.miss{font-size:.8rem;color:var(--out)}
+.ready{font-size:.8rem;color:var(--ok)}
+.cookbtn{font:700 .82rem var(--display);border:1px solid var(--accent);background:transparent;color:var(--accent);padding:6px 10px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.cookbtn.on{background:var(--accent);color:var(--accent-ink)}
+.ctrl{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.ctrl label{display:flex;flex-direction:column;gap:2px;font-size:.8rem;color:var(--muted)}
+.hist li{font-size:.9rem}
+.hist{margin:0;padding-left:18px;color:var(--muted)}
+
+/* Kupovina */
+.srow{display:flex;gap:10px;align-items:center;padding:10px 12px;border-top:1px solid var(--line)}
+.srow:first-child{border-top:0}
+.srow .sn{flex:1;min-width:0}
+.srow .sn small{display:block;color:var(--muted);font-size:.82rem}
+.srow .sq{font:500 .86rem var(--mono);text-align:right;white-space:nowrap}
+.total{font:700 1rem var(--display)}
+
+/* Recepti */
+details.rec{background:var(--card);border:1px solid var(--line);border-radius:8px}
+details.rec summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;gap:10px;align-items:center;justify-content:space-between}
+details.rec summary::-webkit-details-marker{display:none}
+.rtitle{min-width:0;display:flex;flex-direction:column;gap:3px}
+.meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-family:var(--mono);font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.carb{padding:2px 7px;border-radius:4px;background:var(--paper);border:1px solid var(--line)}
+.chev{font-family:var(--mono);color:var(--muted);flex:none}
+details[open] .chev{transform:rotate(90deg)}
+.rbody{padding:0 14px 14px;display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line)}
+.rbody h4{font:700 .78rem var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin:12px 0 4px}
+.rbody ul,.rbody ol{margin:0;padding-left:20px}
+.rbody li{margin:2px 0}
+.g{font-family:var(--mono);font-size:.88em;font-variant-numeric:tabular-nums}
+.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.split>div{background:var(--paper);border-radius:6px;padding:8px 10px;min-width:0}
+
+.prep{counter-reset:p;display:flex;flex-direction:column;gap:10px}
+.prep .step{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
+.prep .step::before{counter-increment:p;content:counter(p);font:700 1.3rem var(--display);color:var(--accent);grid-row:span 2}
+.prep .step p{margin:0;font-size:.93rem;color:var(--muted)}
+.prep .keep{grid-column:2;font-family:var(--mono);font-size:.74rem;color:var(--ink)}
+.shops{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.shop{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.shop a{color:var(--accent);font-weight:700}
+.shop p{margin:0;font-size:.88rem;color:var(--muted)}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{font:700 .9rem var(--display);border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);padding:8px 14px;border-radius:6px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+textarea{width:100%;box-sizing:border-box;min-height:160px;font:500 .85rem var(--mono);background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:10px}
+.empty{color:var(--muted);font-style:italic;padding:12px}
+.toast{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:0 max(16px,env(safe-area-inset-right,0px)) calc(14px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:flex;justify-content:center;pointer-events:none}
+.toast div{pointer-events:auto;background:var(--ink);color:var(--paper);border-radius:8px;padding:10px 14px;display:flex;gap:12px;align-items:center;max-width:560px;font-size:.92rem;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+.toast button{background:none;border:0;color:var(--paper);font:700 .9rem var(--display);text-decoration:underline;cursor:pointer}
+.status{font-size:.82rem;color:var(--muted)}
+.servrow{background:var(--paper);border-radius:6px;padding:8px 10px;margin-top:12px}
+.presets{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
+.preset{display:flex;flex-direction:column;gap:2px;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--ink);font:inherit;cursor:pointer;min-width:0}
+.preset small{color:var(--muted);font-size:.84rem}
+.preset .num{text-align:left;color:var(--accent);margin-top:4px;font-size:.8rem}
+.preset.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.filters button small{color:var(--muted);font-size:.78rem}
+.omh{font:700 .74rem var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin:8px 0 2px}
+.omlist .rbody{border-top:0}
+.stepper.inline{display:inline-flex;gap:4px;margin-top:4px}
+.stepper.inline button{width:30px;height:28px}
+.omrow{grid-template-columns:44px 1fr 16px}
+.ompick{background:none;border:0;padding:0;text-align:left;color:var(--ink);font:inherit;cursor:pointer;min-width:0}
+.ompick .num{text-align:left;font-size:.78rem;color:var(--muted)}
+.omrow.sel{background:var(--paper);box-shadow:inset 3px 0 0 var(--accent)}
+.omrow.done .ompick b{text-decoration:line-through;color:var(--muted)}
+.summary.four{grid-template-columns:repeat(2,1fr)}
+@media (min-width:640px){.summary.four{grid-template-columns:repeat(4,1fr)}}
+.summary small{display:block;font-size:.76rem;color:var(--muted);margin-top:2px}
+.bar{padding:10px 12px;border-top:1px solid var(--line);display:grid;grid-template-columns:110px 1fr auto;gap:10px;align-items:center}
+.bar:first-child{border-top:0}
+.track{height:10px;background:var(--paper);border-radius:999px;overflow:hidden}
+.fill{height:100%;background:var(--accent);border-radius:999px}
+.num{font:500 .88rem var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.crow{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:10px 12px;border-top:1px solid var(--line)}
+.crow:first-child{border-top:0}
+.crow small{display:block;color:var(--muted);font-size:.8rem}
+.save{color:var(--ok)}
+.lrow{display:flex;gap:10px;align-items:center;padding:9px 12px;border-top:1px solid var(--line)}
+.lrow:first-child{border-top:0}
+.lrow .ln{flex:1;min-width:0}
+.lrow .ln small{display:block;color:var(--muted);font-size:.8rem}
+.del{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;width:30px;height:30px;cursor:pointer;font:700 1rem var(--mono)}
+.tl{list-style:none;padding:0;margin:12px 0 0;display:flex;flex-direction:column;gap:8px}
+.tl li{display:grid;grid-template-columns:44px 1fr;gap:10px;font-size:.93rem}
+.tl b{color:var(--accent)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:12px}
+.facts div{background:var(--paper);border-radius:6px;padding:8px 10px;min-width:0}
+.facts b{display:block;font:500 .68rem var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.facts span{font-size:.9rem}
+.tip{background:var(--paper);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;padding:8px 12px;font-size:.92rem}
+.uses{display:flex;gap:6px;flex-wrap:wrap}
+.uses span{font-size:.82rem;padding:2px 8px;border-radius:999px;border:1px solid var(--line)}
+.prepline{font-size:.88rem;color:var(--muted)}
+.prepline b{color:var(--accent)}
+@media (prefers-reduced-motion:no-preference){details .chev{transition:transform .15s}}
+@media (max-width:420px){.summary b{font-size:1.25rem}.qty{min-width:56px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Wok i Air Fryer Kuharica</h1>
+    <p class="sub">Jedno kuhanje dnevno do 30 min, podijeljeno u ručak i večeru. Ciklus ugljikohidrata: riža → krumpir → tjestenina → riža → krumpir.</p>
+    <p class="status" id="syncStatus">Učitavam zalihu…</p>
+  </header>
+
+  <div class="day" aria-label="Dnevni raspored">
+    <div><b>Doručak</b><span>omlet, svaki dan drugi</span></div>
+    <div><b>Ručak</b><span>½ recepta + velika salata + miso</span></div>
+    <div><b>Užina</b><span>1 posni sir</span></div>
+    <div><b>Večera</b><span>½ recepta + velika salata</span></div>
+  </div>
+
+  <nav role="tablist" aria-label="Dijelovi kuharice">
+    <button role="tab" id="tab-plan" aria-selected="true" data-tab="plan">Plan</button>
+    <button role="tab" id="tab-omlet" aria-selected="false" data-tab="omlet">Omlet</button>
+    <button role="tab" id="tab-zaliha" aria-selected="false" data-tab="zaliha">Zaliha</button>
+    <button role="tab" id="tab-kupovina" aria-selected="false" data-tab="kupovina">Kupovina<span class="badge" id="shopBadge"></span></button>
+    <button role="tab" id="tab-troskovi" aria-selected="false" data-tab="troskovi">Troškovi</button>
+    <button role="tab" id="tab-recepti" aria-selected="false" data-tab="recepti">Recepti</button>
+    <button role="tab" id="tab-prep" aria-selected="false" data-tab="prep">Prep</button>
+  </nav>
+
+  <!-- PLAN -->
+  <section id="plan" role="tabpanel">
+    <div class="note"><strong>Isplaniraj tjedan</strong>, a kupovina sama zbroji što ti treba za planirane dane (uz miso, posni sir i salate). Kad skuhaš, stisni <strong>Skuhano</strong> i sastojci se skinu sa zalihe.</div>
+    <div class="ctrl">
+      <label for="cycleStart">Prvi dan tjedna u ciklusu
+        <select id="cycleStart">
+          <option value="0">1. Riža</option><option value="1">2. Krumpir</option><option value="2">3. Tjestenina</option><option value="3">4. Riža</option><option value="4">5. Krumpir</option>
+        </select>
+      </label>
+      <button class="btn" type="button" id="autoFill">Popuni tjedan</button>
+      <button class="btn ghost" type="button" id="clearPlan">Novi tjedan</button>
+    </div>
+    <div class="list plan" id="planList"></div>
+    <p class="sub" id="nextCycle"></p>
+    <div class="group">
+      <h2>Zadnje skuhano</h2>
+      <ul class="hist" id="hist"></ul>
+    </div>
+  </section>
+
+  <!-- OMLET -->
+  <section id="omlet" role="tabpanel" hidden>
+    <div class="note"><strong>Omlet za doručak, svaki dan drugi.</strong> Tjedan se puni s 7 različitih kombinacija, a prednost imaju one za koje imaš sastojke. Dodirni dan da ga promijeniš. Kupovina računa sa svim omletima koje još nisi pojeo.</div>
+    <div class="group">
+      <div class="ghead"><h2>Omleti ovaj tjedan</h2><button type="button" class="btn ghost" id="omAuto">Novi omleti za tjedan</button></div>
+      <div class="list plan" id="omWeekList"></div>
+    </div>
+    <div class="ghead"><h2 id="omEditTitle">Omlet za danas</h2><button type="button" class="btn ghost" id="omSurprise">Iznenadi me</button></div>
+    <div class="group"><h4 class="omh">Gotove kombinacije</h4><div class="presets" id="omPresets"></div></div>
+    <div class="group">
+      <h4 class="omh">Ili složi svoj: baza</h4><div class="filters" id="omBase"></div>
+      <h4 class="omh">Protein</h4><div class="filters" id="omFillProt"></div>
+      <h4 class="omh">Povrće</h4><div class="filters" id="omFillVeg"></div>
+      <h4 class="omh">Prilog</h4><div class="filters" id="omCarb"></div>
+    </div>
+    <div class="group" id="omCard"></div>
+    <div id="omMuffins"></div>
+  </section>
+
+  <!-- ZALIHA -->
+  <section id="zaliha" role="tabpanel" hidden>
+    <div class="group" id="prepStock"></div>
+    <div class="summary" id="stockSummary"></div>
+    <div class="note">Plusom i minusom mijenjaš količinu, a dodir na naziv otvara točan unos i cijenu po pakiranju. <span class="src">K</span> Kaufland, <span class="src b">BIO</span> Bio&amp;Bio, <span class="src a">AZ</span> azijski dućan.</div>
+    <div class="filters" id="stockFilter" aria-label="Filtriraj zalihu">
+      <button type="button" aria-pressed="true" data-f="sve">Sve</button>
+      <button type="button" aria-pressed="false" data-f="nisko">Nisko i nema</button>
+      <button type="button" aria-pressed="false" data-f="frz">Zamrzivač</button>
+      <button type="button" aria-pressed="false" data-f="fri">Hladnjak</button>
+      <button type="button" aria-pressed="false" data-f="dry">Smočnica</button>
+      <button type="button" aria-pressed="false" data-f="fre">Svježe</button>
+    </div>
+    <div id="stock" class="group"></div>
+  </section>
+
+  <!-- KUPOVINA -->
+  <section id="kupovina" role="tabpanel" hidden>
+    <div class="note"><strong>Popis se računa sam:</strong> ono što fali za planirane dane, plus dopuna do minimalne zalihe. Količine su zaokružene na cijela pakiranja. Kad kupiš, stisni <strong>Kupio</strong> i zaliha se poveća.</div>
+    <div id="shopList" class="group"></div>
+    <div class="group">
+      <h2>Kopiraj popis</h2>
+      <div class="btnrow"><button class="btn" id="copyBtn" type="button">Kopiraj popis</button><span class="count" id="copyMsg" aria-live="polite"></span></div>
+      <textarea id="copyText" readonly aria-label="Popis za kupovinu kao tekst"></textarea>
+    </div>
+    <div class="group">
+      <h2>Zdravi dućani</h2>
+      <div class="shops">
+        <div class="shop"><a href="https://www.biobio.hr/proizvodi/ulja-i-zacini/miso-i-instant-juhe/" target="_blank" rel="noopener">Bio&amp;Bio: miso paste</a><p>Velik izbor miso pasta od soje, ječma i riže. Besplatna dostava od 50 €, u Zagrebu i brza dostava.</p></div>
+        <div class="shop"><a href="https://www.biobio.hr/proizvodi/voce-i-povrce/morske-alge/" target="_blank" rel="noopener">Bio&amp;Bio: morske alge</a><p>Wakame i nori za miso juhu i poke.</p></div>
+        <div class="shop"><a href="https://www.biobio.hr/proizvodi/svjeze-iz-hladnjaka/tofu-i-seitan/" target="_blank" rel="noopener">Bio&amp;Bio: tofu</a><p>Običan i dimljeni tofu.</p></div>
+        <div class="shop"><a href="https://www.biobio.hr/proizvodi/ulja-i-zacini/umaci-od-soje/" target="_blank" rel="noopener">Bio&amp;Bio: soja i tamari</a><p>Pogledaj i <a href="https://www.biobio.hr/proizvodi/ulja-i-zacini/octevi/" target="_blank" rel="noopener">octeve</a> i <a href="https://www.biobio.hr/proizvodi/ulja-i-zacini/ulja/" target="_blank" rel="noopener">ulja</a> za rižin ocat i sezamovo ulje.</p></div>
+      </div>
+    </div>
+    <div class="group">
+      <h2>Azijski dućani u Zagrebu</h2>
+      <div class="shops">
+        <div class="shop"><a href="https://wolt.com/hr/hrv/zagreb/venue/asia-store" target="_blank" rel="noopener">Asia Store (Wolt)</a><p>Vlaška 52. Riža za sushi, sriracha, rezanci, umaci, paste, smrznuta hrana.</p></div>
+        <div class="shop"><a href="https://www.google.com/search?q=Pekin%C5%A1ka+patka+Vla%C5%A1ka+78+webshop" target="_blank" rel="noopener">Pekinška patka</a><p>Vlaška 78. Vlastiti webshop s dostavom.</p></div>
+        <div class="shop"><a href="https://www.google.com/search?q=Rice+Kakis+webshop+Hrvatska" target="_blank" rel="noopener">Rice Kakis (samo online)</a><p>Kimchi, rezanci, panko i ostale azijske namirnice.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TROŠKOVI -->
+  <section id="troskovi" role="tabpanel" hidden>
+    <div class="summary four" id="costTiles"></div>
+    <div class="note" id="costNote"></div>
+    <div class="group">
+      <h2>Upiši račun</h2>
+      <form class="edit" id="receiptForm">
+        <label for="rcShop">Dućan<select id="rcShop"><option value="K">Kaufland</option><option value="BIO">Bio&amp;Bio</option><option value="AZ">Azijski dućan</option><option value="O">Ostalo</option></select></label>
+        <label for="rcAmount">Iznos (€)<input id="rcAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="npr. 47,30" required></label>
+        <label for="rcDate">Datum<input id="rcDate" type="date"></label>
+        <label for="rcNote">Napomena<input id="rcNote" type="text" placeholder="tjedna kupovina"></label>
+        <button type="submit" class="btn">Spremi račun</button>
+      </form>
+      <p class="sub">Račun zamjenjuje procjene koje je <strong>Kupio</strong> zabilježio za taj dućan i dan, pa se ništa ne broji dvaput.</p>
+    </div>
+    <div class="group">
+      <div class="ghead"><h2>Po dućanu ovaj mjesec</h2></div>
+      <div class="list" id="shopBars"></div>
+    </div>
+    <div class="group">
+      <div class="ghead"><h2>Cijena po obroku</h2><span class="count">recept ÷ 2 obroka</span></div>
+      <div class="list" id="recipeCosts"></div>
+    </div>
+    <div class="group">
+      <h2>Postavke usporedbe</h2>
+      <div class="edit">
+        <label for="setDostava">Prosječna dostava po obroku (€)<input id="setDostava" type="number" inputmode="decimal" min="0" step="0.5" data-setting="dostava"></label>
+      </div>
+      <p class="sub">Upiši koliko te inače stoji obrok s dostavom i napojnicom. Doručak se računa iz cijena omleta u tjednom planu.</p>
+    </div>
+    <div class="group">
+      <div class="ghead"><h2>Zapisi</h2><select id="costMonth" aria-label="Mjesec"></select></div>
+      <div class="list" id="costLog"></div>
+    </div>
+  </section>
+
+  <!-- RECEPTI -->
+  <section id="recepti" role="tabpanel" hidden>
+    <div class="filters" id="carbFilter" aria-label="Filtriraj po ugljikohidratu">
+      <button type="button" aria-pressed="true" data-c="sve">Sve</button>
+      <button type="button" aria-pressed="false" data-c="spremno">Mogu skuhati</button>
+      <button type="button" aria-pressed="false" data-c="Riža">Riža</button>
+      <button type="button" aria-pressed="false" data-c="Krumpir">Krumpir</button>
+      <button type="button" aria-pressed="false" data-c="Tjestenina">Tjestenina</button>
+      <button type="button" aria-pressed="false" data-c="2u1">2 u 1</button>
+    </div>
+    <div class="note">Svaki recept ima <strong>brojač porcija</strong> koji kreće od 1 porcije za jednu osobu i mijenja sve količine. Za ručak i večeru iz jednog kuhanja stavi 1,5 porcija, a s tom količinom računa i tjedni plan. Ulje najviše 1 žlica po receptu, u air fryeru sprej.</div>
+    <div id="recipes" class="group"></div>
+  </section>
+
+  <!-- PREP -->
+  <section id="prep" role="tabpanel" hidden>
+    <div class="note"><strong>Priprema unaprijed.</strong> Svaki recept ovdje radiš jednom, a koristiš ga cijeli tjedan ili duže. Kad nešto napraviš, stisni <strong>Napravio sam</strong>: sirovi sastojci se skinu sa zalihe, a vrećice ili kutije dodaju u pripremljeno. Recepti onda troše pripremljeno umjesto sirovog, pa se ništa ne oduzima dvaput.</div>
+    <details class="rec" id="timeline"><summary><div class="rtitle"><h3>Nedjeljni prep: redoslijed</h3><div class="meta"><span class="carb">oko 75 min</span><span>lonac + wok + air fryer istovremeno</span></div></div><span class="chev" aria-hidden="true">›</span></summary>
+      <div class="rbody"><ol class="tl">
+        <li><b class="g">0:00</b> Isperi i stavi kuhati rižu. U drugi lonac stavi vodu za krumpir.</li>
+        <li><b class="g">0:05</b> Teriyaki umak u malom loncu. Dok se kuha, u staklenke protresi pad thai umak i oba dresinga.</li>
+        <li><b class="g">0:15</b> Krumpir u kipuću vodu na 5 min. Tofu stavi pod prešu (tava s teretom).</li>
+        <li><b class="g">0:20</b> Ocijedi krumpir i raširi ga da se suši. Rižu makni s vatre, neka stoji poklopljena.</li>
+        <li><b class="g">0:25</b> Marinade: tandoori i grčka s piletinom, bulgogi s puretinom. Sve u vrećice, plosnato u zamrzivač.</li>
+        <li><b class="g">0:40</b> Rižu raširi na pladanj da se hladi. Oblikuj ćufte i stavi ih na papir u zamrzivač.</li>
+        <li><b class="g">0:45</b> Tofu u air fryer (15 min). Za to vrijeme reži povrće za wok.</li>
+        <li><b class="g">1:00</b> Đumbir i češnjak u kalup za led, kiseli krastavci u staklenku, miso paketići u kutijice.</li>
+        <li><b class="g">1:10</b> Rižu i krumpir podijeli u kutije, ćufte prebaci u vrećicu. Zalij posuđe vodom i gotovo.</li>
+      </ol>
+      <p class="sub">Gulaš u duploj turi radi kao zaseban prep kad imaš 45 min, ne uz sve ostalo.</p></div>
+    </details>
+    <div class="filters" id="prepFilter" aria-label="Filtriraj prep recepte">
+      <button type="button" aria-pressed="true" data-pf="sve">Sve</button>
+      <button type="button" aria-pressed="false" data-pf="Umaci">Umaci i dresinzi</button>
+      <button type="button" aria-pressed="false" data-pf="Marinade">Marinade</button>
+      <button type="button" aria-pressed="false" data-pf="Baze">Baze</button>
+      <button type="button" aria-pressed="false" data-pf="Gotovo">Gotove komponente</button>
+    </div>
+    <div id="prepList" class="group"></div>
+  </section>
+</div>
+<div class="toast" id="toast" hidden><div><span id="toastMsg"></span><button type="button" id="toastUndo">Poništi</button></div></div>
+
+<script>
+/* Katalog namirnica: id, naziv, mjesto, dućan, jedinica, minimum, pakiranje, korak, napomena */
+const ITEMS = [
+ ["piletina","Pileća prsa","frz","K","g",500,1000,250,"porcije po 250 g"],
+ ["pur-prsa","Pureća prsa","frz","K","g",250,500,250,"trakice i kockice"],
+ ["pur-mlj","Mljevena puretina","frz","K","g",0,500,250,"za ćufte"],
+ ["junetina","Nemasna junetina","frz","K","g",0,500,220,"trakice"],
+ ["svinjetina","Svinjski file","frz","K","g",0,500,120,"za champon"],
+ ["losos","Losos ili pastrva","frz","K","g",0,500,220,""],
+ ["kozice","Kozice","frz","K","g",0,400,250,"smrznute, očišćene"],
+ ["plodovi","Mix plodova mora","frz","K","g",0,400,130,""],
+ ["gyoze","Gyoze","frz","AZ","kom",6,20,6,"piletina ili povrće"],
+ ["edamame","Edamame","frz","AZ","g",0,500,100,""],
+ ["grasak","Grašak","frz","K","g",0,450,100,""],
+ ["mahune","Mahune","frz","K","g",200,450,200,""],
+ ["brokula","Brokula","frz","K","g",0,450,200,""],
+ ["dumbir","Đumbir","frz","K","g",20,100,10,"ribaš smrznut"],
+ ["miso","Miso pasta","fri","BIO","g",60,300,15,"1 žlica = 15 g"],
+ ["kimchi","Kimchi","fri","AZ","g",0,300,80,""],
+ ["tofu","Tofu","fri","BIO","g",200,200,50,"50 g po miso juhi"],
+ ["tofu-dim","Dimljeni tofu","fri","BIO","g",0,200,150,"za gulaš"],
+ ["posni","Posni sir","fri","K","kom",3,1,1,"1 dnevno"],
+ ["jogurt","Light jogurt","fri","K","g",150,500,50,""],
+ ["mlijeko","Mlijeko 1,5 %","fri","K","ml",0,1000,50,""],
+ ["jaja","Jaja","fri","K","kom",10,10,1,"doručak i omlet"],
+ ["mrkva","Mrkva","fri","K","kom",2,8,1,""],
+ ["kupus","Kupus","fri","K","g",0,1000,100,"cijela glavica traje 2–3 tjedna"],
+ ["oyster","Oyster umak","fri","AZ","ml",0,250,15,""],
+ ["curry","Zelena curry pasta","fri","AZ","g",0,100,15,""],
+ ["basmati","Basmati riža","dry","K","g",210,1000,70,""],
+ ["jasmin","Jasmin ili sushi riža","dry","AZ","g",0,1000,70,""],
+ ["tjestenina","Integralna tjestenina","dry","K","g",70,500,70,""],
+ ["rizini","Rižini rezanci","dry","K","g",0,250,70,"pad thai"],
+ ["ramen","Ramen rezanci","dry","AZ","g",0,250,80,"champon i sara udon"],
+ ["tuna","Tuna u vlastitom soku","dry","K","kom",2,3,1,"konzerve"],
+ ["kokos","Light kokosovo mlijeko","dry","K","ml",0,200,100,""],
+ ["temeljac","Temeljac (kocka)","dry","K","kom",1,6,1,"1 kocka = 500 ml"],
+ ["koncentrat","Koncentrat rajčice","dry","K","g",0,200,15,""],
+ ["soja","Soja umak","dry","K","ml",100,500,15,""],
+ ["rizin-ocat","Rižin ocat","dry","BIO","ml",0,250,10,""],
+ ["sriracha","Sriracha","dry","AZ","ml",0,200,5,""],
+ ["sezamovo","Sezamovo ulje","dry","BIO","ml",0,250,5,""],
+ ["sezam","Sezam","dry","K","g",0,100,5,""],
+ ["wakame","Wakame","dry","BIO","g",10,50,2,"2 g po juhi"],
+ ["med","Med","dry","K","g",30,450,7,""],
+ ["gustin","Gustin","dry","K","g",20,250,5,""],
+ ["kikiriki","Kikiriki","dry","K","g",0,200,10,""],
+ ["ulje","Maslinovo ulje","dry","K","ml",100,750,10,""],
+ ["krumpir","Krumpir","dry","K","g",600,2000,100,"tamno i hladno"],
+ ["luk","Luk","dry","K","kom",2,8,1,""],
+ ["cesnjak","Češnjak (režnjevi)","dry","K","kom",4,10,1,"1 glavica ≈ 10 režnjeva"],
+ ["salata","Zelena salata","fre","K","kom",1,1,0.5,"½ glavice dnevno"],
+ ["krastavci","Krastavci","fre","K","kom",2,1,1,""],
+ ["rajcice","Rajčice","fre","K","g",400,1000,100,""],
+ ["paprike","Paprike","fre","K","kom",2,3,1,""],
+ ["tikvice","Tikvice","fre","K","kom",0,1,1,""],
+ ["gljive","Gljive","fre","K","g",0,500,100,"3–4 dana"],
+ ["klice","Klice","fre","K","g",0,200,100,"1–2 dana"],
+ ["mladi-luk","Mladi luk","fre","K","kom",0,1,0.5,"vezica"],
+ ["karfiol","Karfiol","fre","K","kom",0,1,0.5,"glavica"],
+ ["patlidzan","Patlidžan","fre","K","kom",0,1,1,""],
+ ["limun","Limun","fre","K","kom",0,1,1,""],
+ ["limeta","Limeta","fre","K","kom",0,1,1,""],
+ ["avokado","Avokado","fre","K","kom",0,1,1,""],
+ ["jabuka","Jabuka","fre","K","kom",0,1,1,""],
+ ["bjelanjci","Tekući bjelanjci","fri","K","ml",150,500,50,"ili odvoji iz jaja (1 bjelanjak ≈ 33 ml)"],
+ ["zrnati","Zrnati sir","fri","K","g",0,250,40,""],
+ ["feta","Light feta","fri","K","g",0,200,30,""],
+ ["sunka","Pureća šunka","fri","K","g",0,200,30,"narezak"],
+ ["wrap","Tortilja wrap 66 g","dry","K","kom",0,6,1,"po želji uz omlet"],
+ ["spinat","Špinat","frz","K","g",0,450,80,"smrznuti u kockicama"],
+ ["meksicko","Meksička mješavina povrća","frz","K","g",0,450,100,"za omlet"],
+ ["spek","Špek (pancetta)","fri","K","g",0,150,20,"malo ide daleko"],
+ ["kobasice","Pileće kobasice","fri","K","g",0,300,50,"1 kobasica ≈ 50 g"],
+ ["mozzarella","Light mozzarella","fri","K","g",0,125,40,""],
+ ["dim-losos","Dimljeni losos","fri","K","g",0,100,50,""],
+ ["rikola","Rikola","fre","K","g",0,100,20,"3–4 dana"],
+ ["crni-grah","Crni grah (konzerva)","dry","K","g",0,240,60,"ocijeđeno"]
+].map(a => ({id:a[0],n:a[1],cat:a[2],src:a[3],u:a[4],min:a[5],pack:a[6],step:a[7],hint:a[8]}));
+const BY = Object.fromEntries(ITEMS.map(i => [i.id, i]));
+const CATS = {frz:"Zamrzivač",fri:"Hladnjak",dry:"Smočnica",fre:"Svježe"};
+const SRC = {K:"Kaufland",BIO:"Bio&Bio",AZ:"Azijski dućan"};
+/* Što se troši svaki dan uz recept: miso juha, posni sir, dvije salate */
+const DAILY = {miso:15,wakame:2,tofu:50,posni:1,salata:0.5,krastavci:1,rajcice:200,ulje:10};
+
+const RECIPES = [
+ {id:"teriyaki",n:"Teriyaki piletina",c:"Riža",d:"Wok · 20 min",
+  use:{piletina:250,basmati:70,brokula:200,paprike:1,mrkva:1,soja:30,med:7,gustin:5,cesnjak:1,dumbir:5},
+  ing:["<span class=g>250 g</span> pilećih prsa","<span class=g>70 g</span> riže","brokula, paprika, mrkva","umak: 2 žlice soje, 1 žličica meda, đumbir, češnjak, 1 žličica gustina u vodi"],
+  st:["Stavi kuhati rižu.","Zapeci piletinu na jakoj vatri, izvadi je.","Povrće prži 4 min.","Vrati meso, dodaj umak i miješaj dok se ne zgusne."]},
+ {id:"losos",n:"Losos s krumpirom",c:"Krumpir",d:"Air fryer · 25 min",
+  use:{losos:220,krumpir:300,tikvice:1,limun:0.5},
+  ing:["<span class=g>220 g</span> lososa, pastrve ili oslića","<span class=g>300 g</span> krumpira na kockice","tikvice","limun, kopar, ulje u spreju"],
+  st:["Krumpir sa sprejom i soli 10 min na 200 °C.","Dodaj ribu i tikvice, još 10–12 min.","Na kraju limun i kopar."]},
+ {id:"govedina",n:"Govedina s paprikom",c:"Riža",d:"Wok · 20 min",
+  use:{junetina:220,basmati:70,luk:1,paprike:2,soja:20},
+  ing:["<span class=g>220 g</span> nemasne junetine na trakice","<span class=g>70 g</span> riže","luk, 2 paprike","soja, papar, čili"],
+  st:["Stavi kuhati rižu.","Meso kratko na jakoj vatri.","Dodaj luk i papriku 3 min.","Začini sojom, paprom i čilijem."]},
+ {id:"tandoori",n:"Tandoori piletina s krumpirom",c:"Krumpir",d:"Air fryer · 25 min",
+  use:{piletina:250,jogurt:150,krumpir:300,karfiol:0.5,krastavci:0.5,cesnjak:1},
+  ing:["<span class=g>250 g</span> piletine","<span class=g>100 g</span> light jogurta za marinadu","kurkuma, kumin, paprika, češnjak","½ karfiola, <span class=g>300 g</span> krumpira","jogurt s krastavcem uz to"],
+  st:["Mariniraj piletinu barem 10 min.","Krumpir 8 min na 200 °C.","Dodaj piletinu i karfiol, još 15 min."]},
+ {id:"padthai",n:"Pad thai s kozicama",c:"Tjestenina",d:"Wok · 20 min",
+  use:{kozice:250,rizini:70,mrkva:1,klice:100,"mladi-luk":0.5,kikiriki:10,limeta:1,soja:30,med:7,cesnjak:1},
+  ing:["<span class=g>250 g</span> kozica","<span class=g>70 g</span> rižinih rezanaca","mrkva, klice, mladi luk","<span class=g>10 g</span> kikirikija, limeta","umak: 2 žlice soje, limeta, 1 žličica meda, čili, riblji umak po želji"],
+  st:["Rezance prelij kipućom vodom na 8 min.","Kozice 2–3 min, izvadi.","Mrkva i bijeli dio luka 2 min.","Rezanci i umak 1–2 min, vrati kozice, dodaj klice.","Pospi kikirikijem i zelenim lukom."]},
+ {id:"cufte",n:"Pureće ćufte s tjesteninom",c:"Tjestenina",d:"Air fryer · 25 min",
+  use:{"pur-mlj":250,tjestenina:70,patlidzan:1,paprike:1,rajcice:200,cesnjak:1},
+  ing:["<span class=g>250 g</span> mljevene puretine, češnjak, peršin, origano","patlidžan, paprika, cherry rajčice","<span class=g>70 g</span> integralne tjestenine"],
+  st:["Oblikuj kuglice.","Ćufte i povrće 15 min na 190 °C.","Za to vrijeme skuhaj tjesteninu i pomiješaj sve."]},
+ {id:"curry",n:"Zeleni curry",c:"Riža",d:"Wok · 25 min",
+  use:{piletina:250,curry:15,kokos:100,mahune:150,tikvice:1,gljive:150,basmati:60},
+  ing:["<span class=g>250 g</span> piletine ili tofua","1 žlica zelene curry paste","<span class=g>100 ml</span> light kokosovog mlijeka","mahune, tikvice, gljive","<span class=g>60 g</span> riže"],
+  st:["Stavi kuhati rižu.","Pastu kratko prži, pa meso 4 min.","Povrće 3 min, dodaj kokosovo mlijeko i malo vode, kuhaj 5 min."]},
+ {id:"bulgogi",n:"Bulgogi puretina",c:"Riža",d:"Wok · 25 min",
+  use:{"pur-prsa":250,basmati:70,mrkva:1,paprike:1,kupus:150,"mladi-luk":0.5,soja:30,sezamovo:5,med:7,jabuka:0.5,sezam:5,cesnjak:1},
+  ing:["<span class=g>250 g</span> purećih prsa na tanke trakice","<span class=g>70 g</span> riže","mrkva, paprika, špinat ili kupus, mladi luk, sezam","marinada: 2 žlice soje, 1 žličica meda, 1 žličica sezamovog ulja, ½ naribane jabuke, češnjak, đumbir"],
+  st:["Stavi kuhati rižu, puretinu u marinadu.","Puretinu prži 4–5 min, izvadi.","Mrkva i paprika 3 min, pa špinat ili kupus 1 min.","Vrati meso, pospi sezamom."]},
+ {id:"grcka",n:"Grčka piletina s krumpirom",c:"Krumpir",d:"Air fryer · 30 min",
+  use:{piletina:250,krumpir:300,mahune:200,limun:1,jogurt:150,krastavci:0.5,cesnjak:2},
+  ing:["<span class=g>250 g</span> piletine","<span class=g>300 g</span> krumpira","<span class=g>200 g</span> mahuna","limun, origano, češnjak","tzatziki: <span class=g>150 g</span> light jogurta, krastavac, češnjak, kopar"],
+  st:["Piletinu u limun, origano i češnjak.","Krumpir 10 min na 200 °C.","Dodaj piletinu i mahune, još 12–15 min.","Napravi tzatziki, na kraju limun preko svega."]},
+ {id:"champon",n:"Champon i sara udon",c:"Tjestenina",two:true,d:"Wok + air fryer · 30 min",
+  use:{ramen:80,svinjetina:120,plodovi:130,kupus:200,klice:100,mrkva:1,gljive:100,"mladi-luk":0.5,soja:25,oyster:15,temeljac:1,mlijeko:100,gustin:10,cesnjak:1,dumbir:5},
+  ing:["<span class=g>80 g</span> tankih rezanaca (40 g po jelu)","<span class=g>120 g</span> svinjskog filea, <span class=g>130 g</span> kozica ili lignji","<span class=g>200 g</span> kupusa, klice, mrkva, gljive, mladi luk","1,5 žlica soje, 1 žlica oyster umaka, češnjak, đumbir","juha: <span class=g>350 ml</span> temeljca + <span class=g>100 ml</span> mlijeka","umak: <span class=g>150 ml</span> temeljca + 1 žlica gustina"],
+  st:["Skuhaj sve rezance, minutu kraće, podijeli na pola.","Pola rezanaca osuši, sprej, air fryer 200 °C 12–15 min kao gnijezdo.","Wok: meso, plodovi mora, pa povrće. Začini i podijeli preljev na pola.","Champon: temeljac s mlijekom, pola preljeva i mekani rezanci.","Sara udon: druga polovica s temeljcem i gustinom, preko hrskavih rezanaca tek pri jelu."],
+  split:["<b>Ručak:</b> champon juha (miso taj dan preskoči)","<b>Večera:</b> sara udon, hrskavi rezanci i umak odvojeno do jela"]},
+ {id:"gulas",n:"Gulaš od gljiva: pire i gyoze",c:"Krumpir",two:true,d:"Lonac + air fryer · 30 min",
+  use:{gljive:500,"pur-prsa":200,luk:1,paprike:1,koncentrat:15,temeljac:1,gustin:5,krumpir:200,mlijeko:50,jogurt:30,gyoze:6,cesnjak:2},
+  ing:["<span class=g>500 g</span> gljiva","<span class=g>200 g</span> purećih prsa ili <span class=g>150 g</span> dimljenog tofua","luk, paprika, 2 režnja češnjaka","1 žlica slatke + ½ žličice dimljene paprike, kumin, majoran, lovor","1 žlica koncentrata, <span class=g>300 ml</span> temeljca, gustin","pire: <span class=g>200 g</span> krumpira, <span class=g>50 ml</span> mlijeka, jogurt","<span class=g>6</span> smrznutih gyoza"],
+  st:["Luk 3–4 min, pa meso ili tofu 3 min.","Gljive neka puste vodu i zapeku, pa paprika i češnjak.","Makni s vatre, umiješaj papriku, pa koncentrat, temeljac i začine.","Kuhaj 12–15 min i zgusni.","Pire: krumpir 15 min, zgnječi s mlijekom i jogurtom.","Gyoze tek pred večeru: air fryer 200 °C 10–12 min."],
+  split:["<b>Ručak:</b> gulaš s pireom","<b>Večera:</b> gulaš s gyozama i miso juhom"]},
+ {id:"tuna",n:"Tuna: poke i pržena riža",c:"Riža",two:true,d:"Wok · 25 min",
+  use:{jasmin:70,tuna:2,edamame:100,krastavci:1,mrkva:1,"mladi-luk":0.5,avokado:0.25,sezam:5,jogurt:15,sriracha:5,soja:25,"rizin-ocat":10,sezamovo:3,kimchi:80,paprike:0.5,cesnjak:1},
+  ing:["<span class=g>70 g</span> riže (jasmin ili sushi)","<span class=g>2</span> konzerve tune u vlastitom soku","<span class=g>100 g</span> edamamea ili graška","poke: krastavac, mrkva, mladi luk, ¼ avokada, sezam, nori","spicy mayo: light jogurt, sriracha, kap soje","pržena riža: <span class=g>80 g</span> kimchija, ½ mrkve, ½ paprike, češnjak, soja"],
+  st:["Skuhaj rižu, pola začini rižinim octom, pola ohladi.","Poke složi u zdjelu, preljev drži odvojeno.","Pržena riža: povrće 2 min, kimchi 1 min, riža 3 min, pa tuna i edamame."],
+  split:["<b>Ručak:</b> poke bowl s miso juhom","<b>Večera:</b> pržena riža s kimchijem, najbolja svježe (8 min)"]}
+];
+const RBY = Object.fromEntries(RECIPES.map(r => [r.id, r]));
+
+/* Prep recepti: rade se jednom, koriste se cijeli tjedan */
+const PREP = [
+ {id:"teriyaki-umak",n:"Teriyaki umak",k:"Umaci",time:"10 min",yieldTxt:"oko 250 ml, za 3 recepta",keep:"Hladnjak 2 tjedna",
+  use:{soja:120,med:40,"rizin-ocat":30,cesnjak:3,dumbir:15,gustin:10},
+  ing:["<span class=g>120 ml</span> soja umaka","<span class=g>60 ml</span> vode","<span class=g>40 g</span> meda (2 žlice)","<span class=g>30 ml</span> rižinog octa (2 žlice)","<span class=g>3</span> režnja češnjaka, sitno naribana","<span class=g>15 g</span> đumbira, naribanog (komad veličine palca)","<span class=g>10 g</span> gustina (1 žlica) + 3 žlice hladne vode"],
+  st:["U mali lonac stavi soju, vodu, med, ocat, češnjak i đumbir.","Zagrij na srednjoj vatri do laganog vrenja i kuhaj 2 min da se med otopi, a češnjak omekša.","Gustin razmuti u hladnoj vodi dok nema grudica.","Smanji vatru i ulij gustin u tankom mlazu uz stalno miješanje.","Kuhaj još 1 min dok umak ne postane sjajan i gust kao sirup. Prestat ćeš osjećati okus sirovog škroba.","Ohladi 10 min i prelij u čistu staklenku. U hladnjaku će se još malo zgusnuti."],
+  tip:"Po receptu ide oko 80 ml (5 žlica). Ako je prerijedak nakon hlađenja, sljedeći put stavi malo više gustina; ako je pregust, razrijedi žlicom vode u woku.",
+  for:["Teriyaki piletina","glazura za losos u air fryeru","pržena riža"]},
+ {id:"padthai-umak",n:"Pad thai umak",k:"Umaci",time:"5 min",yieldTxt:"oko 200 ml, za 3 recepta",keep:"Hladnjak 7 dana",
+  use:{soja:90,limeta:3,med:30,koncentrat:15},
+  ing:["<span class=g>90 ml</span> soja umaka (ili 60 ml soje + 30 ml ribljeg umaka)","sok <span class=g>3</span> limete (oko 75 ml)","<span class=g>30 g</span> meda","<span class=g>15 g</span> koncentrata rajčice (1 žlica), zamjena za tamarind","<span class=g>1</span> žličica čilija u listićima, po ukusu"],
+  st:["Iscijedi limete. Prije toga ih pritisni dlanom i zarolaj po stolu, pa daju više soka.","Ako je med gust, zagrij ga 15–20 s u mikrovalnoj.","Sve stavi u staklenku, zatvori i snažno protresi 30 s dok se med i koncentrat potpuno ne otope.","Probaj: treba biti slano, kiselo i slatko u balansu. Dodaj limetu ako je preslano."],
+  tip:"Po receptu ide oko 65 ml. Umak se ulije u wok tek s rezancima, nikad prije, da ne zagori.",
+  for:["Pad thai s kozicama","brza zdjela s rižinim rezancima i tofuom"]},
+ {id:"azijski-dresing",n:"Azijski dresing za kupus",k:"Umaci",time:"5 min",yieldTxt:"oko 120 ml, za 7–8 salata",keep:"Hladnjak 2 tjedna",
+  use:{"rizin-ocat":60,soja:30,sezamovo:10,med:10,sezam:5,dumbir:5},
+  ing:["<span class=g>60 ml</span> rižinog octa","<span class=g>30 ml</span> soja umaka","<span class=g>10 ml</span> sezamovog ulja (2 žličice)","<span class=g>10 g</span> meda","<span class=g>5 g</span> naribanog đumbira","<span class=g>5 g</span> prženog sezama"],
+  st:["Sezam zapeci na suhoj tavi 2 min dok ne zamiriše, pa ga makni da ne izgori.","Sve sastojke stavi u staklenku i protresi.","Za salatu: 200 g kupusa narezanog na tanke trake posoli prstohvatom soli, izgnječi rukama 1 min, pa prelij s 2 žlice dresinga."],
+  tip:"Gnječenje kupusa sa soli ga omekša kao da je mariniran, pa je salata sočna bez ulja.",
+  for:["salata uz sva azijska jela","poke bowl"]},
+ {id:"dresing",n:"Univerzalni dresing za salate",k:"Umaci",time:"5 min",yieldTxt:"oko 180 ml, za 14 salata",keep:"Hladnjak 2 tjedna",
+  use:{ulje:45,med:20},
+  ing:["<span class=g>100 ml</span> jabučnog ili vinskog octa","<span class=g>45 ml</span> maslinovog ulja (3 žlice)","<span class=g>2</span> žličice senfa","<span class=g>20 g</span> meda","<span class=g>1</span> žličica soli, papar","<span class=g>1</span> žličica origana"],
+  st:["Senf, med, sol i ocat promiješaj u staklenci dok se sol ne otopi.","Dodaj ulje i origano.","Zatvori i protresi 30 s. Senf drži ulje i ocat povezanima.","Prije svake upotrebe ponovno protresi."],
+  tip:"2 žlice dresinga po salati znače samo oko 1 žličicu ulja. To je glavna ušteda kalorija u cijelom planu.",
+  for:["sve velike salate"]},
+ {id:"tzatziki",n:"Tzatziki",k:"Umaci",time:"10 min",yieldTxt:"oko 400 g, za 3–4 obroka",keep:"Hladnjak 4 dana",
+  use:{jogurt:300,krastavci:1,cesnjak:1},
+  ing:["<span class=g>300 g</span> light jogurta (najbolje gušći, grčki tip)","<span class=g>1</span> krastavac","<span class=g>1</span> režanj češnjaka","šaka kopra, sitno nasjeckanog","<span class=g>1</span> žličica limunovog soka","sol"],
+  st:["Krastavac naribaj na krupno, ne guli ga.","Posoli s ½ žličice soli i ostavi 5 min da pusti vodu.","Ključan korak: stisni krastavac šakama ili kroz kuhinjsku krpu dok ne izađe sva voda. Inače će tzatziki biti vodenast.","Pomiješaj jogurt, krastavac, naribani češnjak, kopar i limun.","Probaj i dosoli. Najbolji je nakon 30 min u hladnjaku."],
+  tip:"Koristi ga i umjesto majoneze u wrapovima za doručak.",
+  for:["Grčka piletina","Tandoori piletina","dip za povrće"]},
+ {id:"bulgogi-mar",n:"Bulgogi puretina za zamrzivač",k:"Marinade",time:"15 min",yieldTxt:"2 porcije po 250 g mesa",keep:"Zamrzivač 3 mjeseca",
+  use:{"pur-prsa":500,soja:100,jabuka:1,med:20,sezamovo:15,cesnjak:4,dumbir:10,sezam:10},
+  ing:["<span class=g>500 g</span> purećih prsa","<span class=g>100 ml</span> soja umaka","<span class=g>1</span> jabuka ili kruška","<span class=g>20 g</span> meda","<span class=g>15 ml</span> sezamovog ulja","<span class=g>4</span> režnja češnjaka","<span class=g>10 g</span> đumbira","<span class=g>10 g</span> sezama, papar"],
+  st:["Puretinu stavi u zamrzivač na 15–20 min da se stvrdne, onda je lako narezati na vrlo tanke trake (3–4 mm), poprijeko na vlakna.","Jabuku naribaj na najsitnije, s korom. Enzimi iz voća omekšaju meso.","Pomiješaj jabuku, soju, med, sezamovo ulje, naribani češnjak, đumbir, sezam i papar.","Meso umiješaj u marinadu da je svaka traka pokrivena.","Podijeli u 2 vrećice po 250 g, istisni zrak i spljošti ih da se brže smrzavaju i odmrzavaju.","Napiši datum i naziv na vrećicu."],
+  tip:"Večer prije prebaci vrećicu u hladnjak. Meso se marinira dok se odmrzava, a sutra ga samo istreseš u vrući wok.",
+  for:["Bulgogi puretina"]},
+ {id:"tandoori-mar",n:"Tandoori piletina za zamrzivač",k:"Marinade",time:"15 min",yieldTxt:"2 porcije po 250 g mesa",keep:"Zamrzivač 3 mjeseca",
+  use:{piletina:500,jogurt:200,cesnjak:3,dumbir:10,limun:0.5},
+  ing:["<span class=g>500 g</span> pilećih prsa ili bataka bez kože","<span class=g>200 g</span> light jogurta","<span class=g>2</span> žličice slatke paprike","<span class=g>1</span> žličica kurkume","<span class=g>1</span> žličica kumina","<span class=g>½</span> žličice garam masale ili mljevenog korijandera","<span class=g>½</span> žličice čilija","<span class=g>3</span> režnja češnjaka, <span class=g>10 g</span> đumbira","sok ½ limuna, <span class=g>1</span> žličica soli"],
+  st:["Piletinu nareži na komade od 4 cm. Veći komadi ostaju sočniji u air fryeru.","Začine kratko zapeci na suhoj tavi 30 s da puste aromu, pa ih ohladi.","Pomiješaj jogurt, začine, naribani češnjak i đumbir, limun i sol.","Umiješaj piletinu tako da je svaki komad potpuno prekriven.","Podijeli u 2 vrećice po 250 g, istisni zrak, spljošti i zamrzni."],
+  tip:"Jogurt i limun omekšaju meso, zato se piletina ne osuši ni na 200 °C. Ne briši marinadu prije pečenja, ona stvara koricu.",
+  for:["Tandoori piletina s krumpirom"]},
+ {id:"grcka-mar",n:"Grčka piletina za zamrzivač",k:"Marinade",time:"10 min",yieldTxt:"2 porcije po 250 g mesa",keep:"Zamrzivač 3 mjeseca",
+  use:{piletina:500,limun:1,ulje:15,cesnjak:3},
+  ing:["<span class=g>500 g</span> pilećih prsa","sok i naribana korica <span class=g>1</span> limuna","<span class=g>15 ml</span> maslinovog ulja (1 žlica)","<span class=g>2</span> žličice origana","<span class=g>3</span> režnja češnjaka","<span class=g>½</span> žličice slatke paprike","sol i papar"],
+  st:["Piletinu nareži na komade od 3–4 cm.","Prije cijeđenja limuna naribaj mu koricu (samo žuti dio, bijeli je gorak).","Pomiješaj sok, koricu, ulje, origano, naribani češnjak, papriku, sol i papar.","Umiješaj piletinu, podijeli u 2 vrećice, istisni zrak, spljošti i zamrzni."],
+  tip:"Ne drži piletinu u limunu duže od 24 h u hladnjaku bez zamrzavanja. Kiselina je tad počne kuhati i postane brašnasta.",
+  for:["Grčka piletina s krumpirom"]},
+ {id:"riza",n:"Riža unaprijed",k:"Baze",time:"25 min",yieldTxt:"4 porcije po 70 g suhe riže",keep:"Hladnjak 3 dana · zamrzivač 1 mjesec",
+  use:{basmati:280},
+  ing:["<span class=g>280 g</span> basmati riže","<span class=g>420 ml</span> vode (jedan i pol puta više od riže)","prstohvat soli"],
+  st:["Rižu isperi u cjedilu pod hladnom vodom 3–4 puta dok voda ne bude gotovo bistra. Tako neće biti ljepljiva.","U lonac stavi rižu, vodu i sol, zakuhaj na jakoj vatri.","Čim zavrije, poklopi, smanji na najmanju vatru i kuhaj 12 min. Ne diži poklopac.","Makni s vatre i ostavi poklopljeno još 10 min da se dovrši na pari.","Rastresi vilicom i raširi na veliki pladanj u tankom sloju da se ohladi u 20–30 min.","Podijeli u 4 kutije i odmah u hladnjak."],
+  tip:"Kuhanu rižu nemoj držati na sobnoj temperaturi duže od 1 h, jer se u njoj razvijaju bakterije čije toksine ne uništi ni podgrijavanje. Zato brzo hlađenje na pladnju.",
+  for:["Teriyaki piletina","Govedina s paprikom","Zeleni curry","Bulgogi puretina","pržena riža"]},
+ {id:"krumpir",n:"Krumpir za air fryer",k:"Baze",time:"20 min",yieldTxt:"3 porcije po 300 g",keep:"Hladnjak 4 dana · zamrzivač 2 mjeseca",
+  use:{krumpir:1000},
+  ing:["<span class=g>1 kg</span> krumpira","<span class=g>1</span> žlica soli za vodu"],
+  st:["Krumpir ogulji ili samo dobro izribaj i nareži na kockice od 2 cm. Jednaka veličina znači jednako pečenje.","Ubaci u kipuću slanu vodu i kuhaj točno 5 min. Treba biti tek omekšao izvana, a čvrst u sredini.","Ocijedi i ostavi u cjedilu 2 min, pa protresi da se rubovi malo razbiju. Ti rubovi postanu hrskavi.","Raširi na kuhinjsku krpu i ostavi 10 min da se ispari i potpuno osuši.","Podijeli u kutije po 300 g. Za zamrzivač ga prvo zamrzni raširenog na pladnju, pa prebaci u vrećicu."],
+  tip:"Na dan kuhanja: ulje u spreju, sol, paprika, 200 °C 12–15 min (iz zamrzivača 18 min). Hrskaviji je i brži od sirovog krumpira.",
+  for:["Losos s krumpirom","Tandoori piletina","Grčka piletina","pire za gulaš"]},
+ {id:"povrce-wok",n:"Povrće za wok",k:"Baze",time:"15 min",yieldTxt:"3 kutije za 3 recepta",keep:"Hladnjak 4 dana",
+  use:{paprike:2,mrkva:2,kupus:300,luk:1},
+  ing:["<span class=g>2</span> paprike","<span class=g>2</span> mrkve","<span class=g>300 g</span> kupusa (oko ¼ glavice)","<span class=g>1</span> luk","po želji 1 brokula"],
+  st:["Paprika: odreži vrh i dno, izvadi sjemenke i nareži na trake od 1 cm.","Mrkva: tanko ukoso (2–3 mm), da se ispeče za isto vrijeme kao paprika.","Kupus: makni tvrdi korijen i nareži na trake od 1 cm.","Luk: na polumjesece, pa ih rastavi na slojeve.","Brokula: cvjetići veličine zalogaja, a stabljiku oguli i nareži na tanke ploškice.","Sve mora biti potpuno suho. U svaku kutiju stavi papirnati ručnik na dno, pa povrće."],
+  tip:"Ne reži unaprijed gljive, tikvice ni klice, jer puste vodu i postanu sluzave. Njih reži na dan kuhanja.",
+  for:["Teriyaki piletina","Govedina s paprikom","Bulgogi puretina","Champon"]},
+ {id:"dumbir-kocke",n:"Đumbir i češnjak u kockicama",k:"Baze",time:"15 min",yieldTxt:"oko 20 kockica",keep:"Zamrzivač 3 mjeseca",
+  use:{dumbir:100,cesnjak:20,ulje:30},
+  ing:["<span class=g>100 g</span> đumbira","<span class=g>2</span> glavice češnjaka (oko 20 režnjeva)","<span class=g>30 ml</span> ulja (2 žlice)"],
+  st:["Đumbir oguli rubom žličice, kora se lako ostruže.","Češnjak oljušti. Brzo ide ako režnjeve zgnječiš plosnatom stranom noža.","Sve usitni u malom blenderu s uljem u glatku pastu, ili naribaj na sitno pa pomiješaj s uljem.","Žličicom napuni kalup za led (1 kockica ≈ 1 žličica = oko 1 režanj češnjaka i malo đumbira).","Zamrzni 4 h, istresi u vrećicu i vrati u zamrzivač."],
+  tip:"Smrznutu kockicu ubaci ravno u vruće ulje u woku. Za većinu recepata trebaju 2 kockice.",
+  for:["sva wok jela","gulaš","marinade"]},
+ {id:"miso-paketi",n:"Miso paketići za 5 dana",k:"Gotovo",time:"10 min",yieldTxt:"5 juha",keep:"Hladnjak 4–5 dana",
+  use:{tofu:250,wakame:10,"mladi-luk":1},
+  ing:["<span class=g>250 g</span> tofua","<span class=g>10 g</span> suhog wakamea","<span class=g>1</span> vezica mladog luka","za svaku juhu na dan: <span class=g>15 g</span> miso paste (1 žlica) i <span class=g>300 ml</span> vruće vode"],
+  st:["Tofu ocijedi i nareži na kockice od 1 cm.","Mladi luk nareži na tanke kolutiće.","U 5 malih kutija stavi po 50 g tofua, 2 g suhog wakamea (ne namači ga unaprijed) i malo luka.","Na dan: sadržaj kutije stavi u šalicu, prelij s 300 ml vruće vode (oko 80 °C, ne kipuće) i ostavi 3 min da wakame nabubri.","Miso pastu razmuti u žlici te vode i umiješaj na kraju. Kipuća voda uništava aromu i probiotike u misu."],
+  tip:"Za posao: miso pastu, wakame i luk zamrzni u kalupu za led. Miso se ne smrzne tvrdo, pa kockicu samo preliješ vrućom vodom.",
+  for:["dnevna miso juha"]},
+ {id:"tofu-pecen",n:"Hrskavi tofu iz air fryera",k:"Gotovo",time:"30 min",yieldTxt:"oko 4 porcije po 100 g",keep:"Hladnjak 5 dana",
+  use:{tofu:400,soja:30,sezamovo:5,gustin:10},
+  ing:["<span class=g>400 g</span> čvrstog tofua","<span class=g>30 ml</span> soja umaka","<span class=g>5 ml</span> sezamovog ulja","<span class=g>10 g</span> gustina (1 žlica)","češnjak u prahu, papar"],
+  st:["Tofu zamotaj u kuhinjsku krpu, stavi na tanjur i opteretiti ga tavom s nečim teškim 15 min. Istisnuta voda znači hrskav tofu.","Nareži na kockice od 2 cm.","Prelij sojom i sezamovim uljem, lagano promiješaj i ostavi 10 min.","Pospi gustinom i češnjakom u prahu te protresi u zdjeli da se svaka kockica obloži.","Air fryer 200 °C, 15 min. Protresi košaru svakih 5 min.","Ohladi na rešetki prije spremanja, da para ne razmekša koricu."],
+  tip:"Odličan protein za dane kad ti treba nešto brzo. Ubaci ga u miso juhu, poke ili prženu rižu.",
+  for:["miso juha","poke bowl","Zeleni curry umjesto piletine"]},
+ {id:"cufte",n:"Pureće ćufte za zamrzivač",k:"Gotovo",time:"25 min",yieldTxt:"16 ćufti, za 2 recepta",keep:"Zamrzivač 3 mjeseca",
+  use:{"pur-mlj":500,jaja:1,cesnjak:2},
+  ing:["<span class=g>500 g</span> mljevene puretine","<span class=g>1</span> jaje","<span class=g>2</span> režnja češnjaka","šaka peršina, sitno nasjeckanog","<span class=g>1</span> žličica origana","<span class=g>1</span> žličica soli, papar"],
+  st:["Sve sastojke stavi u zdjelu i miješaj rukama 1–2 min dok smjesa ne postane ljepljiva. Tako se ćufte ne raspadaju.","Navlaži ruke i oblikuj 16 kuglica od po oko 30 g. Vaga pomaže da sve budu jednake.","Rasporedi ih na pladanj s papirom za pečenje, da se ne dodiruju.","Zamrzni 1–2 h, pa ih prebaci u vrećicu. Tako se ne slijepe."],
+  tip:"Iz zamrzivača ravno u air fryer: 190 °C 14–16 min, okreni na pola. Nema potrebe za odmrzavanjem.",
+  for:["Pureće ćufte s tjesteninom","ćufte u umaku od rajčice"]},
+ {id:"egg-muffini",n:"Egg muffini za tjedan",k:"Gotovo",time:"35 min",yieldTxt:"12 muffina, za 3 obroka",keep:"Hladnjak 4 dana · zamrzivač 1 mjesec",
+  use:{jaja:6,bjelanjci:250,spinat:100,paprike:1,sunka:80,"mladi-luk":0.5},
+  ing:["<span class=g>6</span> jaja","<span class=g>250 ml</span> tekućih bjelanjaka","<span class=g>100 g</span> smrznutog špinata","<span class=g>1</span> paprika","<span class=g>80 g</span> pureće šunke","<span class=g>½</span> vezice mladog luka","½ žličice soli, papar, prstohvat slatke paprike","ulje u spreju i <span class=g>12</span> silikonskih kalupa za muffine"],
+  st:["Špinat odmrzni u cjedilu (1 min u mikrovalnoj ili prelij vrućom vodom) i iscijedi ga šakama dok ne izađe sva voda.","Papriku i šunku nareži na sitne kockice, a mladi luk na tanke kolutiće.","U zdjeli izmuti jaja i bjelanjke sa soli, paprom i slatkom paprikom 30 s.","Kalupe poprskaj uljem i u svaki stavi oko 1 žlicu nadjeva.","Prelij smjesom do ¾ visine kalupa, jer muffini narastu dok se peku.","Peci u air fryeru u dvije ture po 6 kalupa, 160 °C 12–14 min. Gotovi su kad čačkalica u sredini izađe čista.","Ostavi ih 5 min u kalupima, izvadi i ohladi na rešetki 10 min.","Spremi u kutiju s papirnatim ručnikom na dnu, jer upija vlagu i muffini ne postanu gnjecavi."],
+  tip:"4 muffina su jedan obrok nakon treninga: oko 28 g proteina i 230 kcal. Podgrij ih 30–40 s u mikrovalnoj ili 4 min u air fryeru na 160 °C.",
+  for:["Omlet nakon treninga kad nemaš vremena","doručak"]},
+ {id:"kiseli",n:"Brzo kiseli krastavci i luk",k:"Gotovo",time:"10 min",yieldTxt:"1 staklenka od 500 ml",keep:"Hladnjak 2 tjedna",
+  use:{krastavci:2,luk:0.5},
+  ing:["<span class=g>2</span> krastavca","<span class=g>½</span> crvenog luka","<span class=g>150 ml</span> octa (rižinog ili jabučnog)","<span class=g>150 ml</span> vode","<span class=g>1</span> žlica meda ili šećera","<span class=g>1</span> žličica soli","po želji čili, češnjak, kopar"],
+  st:["Krastavce nareži na tanke kolutiće (3 mm), a luk na tanke polumjesece.","Složi ih u čistu staklenku.","U loncu zagrij ocat, vodu, med i sol samo dok se ne otope. Ne mora kuhati.","Prelij vruću tekućinu preko povrća tako da ga potpuno pokrije.","Ohladi otvoreno, zatvori i stavi u hladnjak. Spremno je za 30 min, a najbolje sutradan."],
+  tip:"Skoro bez kalorija, a daje puno okusa. Stavi ih na poke, prženu rižu, uz gulaš ili u wrap za doručak.",
+  for:["Tuna: poke i pržena riža","gulaš","doručak"]},
+ {id:"gulas-batch",n:"Gulaš od gljiva, dupla tura",k:"Gotovo",time:"45 min",yieldTxt:"4 obroka (2 dana)",keep:"Hladnjak 4 dana · zamrzivač 3 mjeseca",
+  use:{gljive:1000,"pur-prsa":400,luk:2,paprike:2,cesnjak:4,koncentrat:30,temeljac:1,gustin:10,ulje:10},
+  ing:["<span class=g>1 kg</span> gljiva (šampinjoni i bukovače)","<span class=g>400 g</span> purećih prsa","<span class=g>2</span> luka, <span class=g>2</span> paprike, <span class=g>4</span> režnja češnjaka","<span class=g>2</span> žlice slatke paprike, <span class=g>1</span> žličica dimljene paprike","<span class=g>1</span> žličica kumina, majoran, <span class=g>2</span> lovorova lista","<span class=g>30 g</span> koncentrata rajčice (2 žlice)","<span class=g>600 ml</span> temeljca","<span class=g>10 g</span> gustina, <span class=g>10 ml</span> ulja"],
+  st:["Luk sitno nasjeckaj, papriku na kockice, gljive na četvrtine, puretinu na kockice od 2 cm.","U širokom loncu na ulju prži luk 5 min dok ne postane mekan i zlatan.","Dodaj puretinu i peci 4 min dok ne posvijetli sa svih strana.","Dodaj gljive u dvije ture. Ne miješaj prve 2–3 min, neka puste vodu i zapeku. To daje dubinu okusa.","Dodaj papriku i češnjak, prži 2 min.","Makni lonac s vatre, umiješaj slatku i dimljenu papriku (na vrućem bi zagorjela i postala gorka), pa koncentrat.","Vrati na vatru, ulij temeljac, dodaj kumin, majoran i lovor. Kuhaj poklopljeno na laganoj vatri 15 min.","Gustin razmuti u malo hladne vode, umiješaj i kuhaj još 2 min.","Izvadi lovor, ohladi i podijeli u 4 kutije. Dvije u hladnjak, dvije u zamrzivač."],
+  tip:"Vrhnje ili jogurt nemoj dodavati prije zamrzavanja, jer se zgruša. Dodaj žlicu nakon podgrijavanja.",
+  for:["Gulaš od gljiva: pire i gyoze","gulaš s tjesteninom ili rižom"]}
+];
+const PBY = Object.fromEntries(PREP.map(p => [p.id, p]));
+const PREP_K = {Umaci:"Umak",Marinade:"Marinada",Baze:"Baza",Gotovo:"Gotova komponenta"};
+/* Koji prep ubrzava koji recept */
+const REC_PREP = {
+  teriyaki:["teriyaki-umak","riza","povrce-wok","dumbir-kocke"], losos:["krumpir"], govedina:["riza","povrce-wok"],
+  tandoori:["tandoori-mar","krumpir","tzatziki"], padthai:["padthai-umak","dumbir-kocke"], cufte:["cufte"],
+  curry:["riza","dumbir-kocke","tofu-pecen"], bulgogi:["bulgogi-mar","riza"], grcka:["grcka-mar","krumpir","tzatziki"],
+  champon:["povrce-wok","dumbir-kocke"], gulas:["gulas-batch","krumpir"], tuna:["kiseli","azijski-dresing"]
+};
+/* Inventar pripremljenog: koliko jedinica prep daje i koje sirove sastojke jedna jedinica zamjenjuje u receptu */
+const UNITS = {vrecica:["vrećica","vrećice","vrećica"],kutija:["kutija","kutije","kutija"],porcija:["porcija","porcije","porcija"],kockica:["kockica","kockice","kockica"],cufta:["ćufta","ćufte","ćufti"],muffin:["muffin","muffina","muffina"],obrok:["obrok","obroka","obroka"]};
+const PREP_INV = {
+  "teriyaki-umak":{make:3,unit:"porcija",per:{soja:30,med:7,gustin:5,cesnjak:1,dumbir:5,"rizin-ocat":10}},
+  "padthai-umak":{make:3,unit:"porcija",per:{soja:30,med:7,limeta:1}},
+  "azijski-dresing":{make:8,unit:"porcija",per:{"rizin-ocat":10,sezamovo:3,soja:5}},
+  "dresing":{make:14,unit:"porcija",per:{ulje:5}},
+  "tzatziki":{make:3,unit:"porcija",per:{jogurt:100,krastavci:0.33,cesnjak:0.33}},
+  "bulgogi-mar":{make:2,unit:"vrecica",per:{"pur-prsa":250,soja:30,sezamovo:5,med:7,jabuka:0.5,sezam:5,cesnjak:1}},
+  "tandoori-mar":{make:2,unit:"vrecica",per:{piletina:250,jogurt:100,cesnjak:1}},
+  "grcka-mar":{make:2,unit:"vrecica",per:{piletina:250,limun:0.5,cesnjak:1}},
+  "riza":{make:4,unit:"kutija",per:{basmati:70}},
+  "krumpir":{make:3,unit:"kutija",per:{krumpir:300}},
+  "povrce-wok":{make:3,unit:"kutija",per:{paprike:1,mrkva:1,kupus:100,luk:0.5}},
+  "dumbir-kocke":{make:20,unit:"kockica",per:{dumbir:2.5,cesnjak:0.5}},
+  "miso-paketi":{make:5,unit:"porcija",per:{tofu:50,wakame:2}},
+  "tofu-pecen":{make:4,unit:"porcija",per:{tofu:100}},
+  "cufte":{make:16,unit:"cufta",per:{"pur-mlj":31.25,jaja:0.0625,cesnjak:0.125}},
+  "kiseli":{make:6,unit:"porcija",per:{}},
+  "egg-muffini":{make:12,unit:"muffin",per:{jaja:0.5,bjelanjci:20.8,spinat:8.3,paprike:0.083,sunka:6.7}},
+  "gulas-batch":{make:4,unit:"obrok",per:{gljive:250,"pur-prsa":100,luk:0.5,paprike:0.5,koncentrat:7.5,temeljac:0.5,gustin:2.5,cesnjak:1}}
+};
+/* Što recept troši iz pripremljenog, ako ga ima: [prep, broj jedinica] */
+const REC_USE_PREP = {
+  teriyaki:[["teriyaki-umak",1],["riza",1],["povrce-wok",1],["dumbir-kocke",2]], losos:[["krumpir",1]],
+  govedina:[["riza",1],["povrce-wok",1]], tandoori:[["tandoori-mar",1],["krumpir",1],["tzatziki",1]],
+  padthai:[["padthai-umak",1],["dumbir-kocke",1]], cufte:[["cufte",8]], curry:[["riza",1],["dumbir-kocke",2]],
+  bulgogi:[["bulgogi-mar",1],["riza",1]], grcka:[["grcka-mar",1],["krumpir",1],["tzatziki",1]],
+  champon:[["povrce-wok",1],["dumbir-kocke",2]], gulas:[["gulas-batch",2],["krumpir",1]], tuna:[["azijski-dresing",1],["kiseli",1]]
+};
+const DAILY_PREP = [["miso-paketi",1],["dresing",2]];
+function plural(n, u){ const f = UNITS[u]; const a = Math.abs(Math.round(n)); if (a%10===1 && a%100!==11) return f[0]; if (a%10>=2 && a%10<=4 && (a%100<12 || a%100>14)) return f[1]; return f[2]; }
+const pfmt = (n, u) => `${round(n).toLocaleString("hr-HR")} ${plural(n,u)}`;
+
+/* ---------- Omlet nakon treninga ---------- */
+const OM_BASE = {
+  protein:{n:"Proteinski",d:"2 jaja + 150 ml bjelanjaka",use:{jaja:2,bjelanjci:150},line:"<span class=g>2</span> jaja + <span class=g>150 ml</span> tekućih bjelanjaka (ili bjelanjci od <span class=g>4–5</span> jaja)",mix:"jaja i bjelanjke"},
+  klasik:{n:"Klasični",d:"3 jaja",use:{jaja:3},line:"<span class=g>3</span> jaja",mix:"jaja"},
+  lagani:{n:"Lagani",d:"1 jaje + 250 ml bjelanjaka",use:{jaja:1,bjelanjci:250},line:"<span class=g>1</span> jaje + <span class=g>250 ml</span> tekućih bjelanjaka",mix:"jaje i bjelanjke"}
+};
+const OM_FILL = [
+  {id:"spinat",n:"Špinat",line:"<span class=g>80 g</span> špinata (2 smrznute kockice ili šaka svježeg)",use:{spinat:80},pre:"Špinat stavi u wok s 2 žlice vode i miješaj 1–2 min dok ne splasne, pa ga iscijedi žlicom uz rub."},
+  {id:"gljive",n:"Gljive",line:"<span class=g>100 g</span> gljiva na listiće",use:{gljive:100},pre:"Gljive zapeci na suhom woku 3–4 min dok ne puste vodu i ona ne ispari."},
+  {id:"paprika",n:"Paprika",line:"<span class=g>½</span> paprike na kockice",use:{paprike:0.5},pre:"Papriku prži 2 min da omekša."},
+  {id:"rajcice",n:"Cherry rajčice",line:"<span class=g>80 g</span> cherry rajčica, prepolovljenih",use:{rajcice:80},post:"Rajčice stavi sirove na nadjev, samo se zagriju."},
+  {id:"luk",n:"Mladi luk",line:"<span class=g>2</span> stabljike mladog luka",use:{"mladi-luk":0.25},mixin:"Mladi luk nareži i umiješaj izravno u jaja."},
+  {id:"sunka",n:"Pureća šunka",line:"<span class=g>60 g</span> pureće šunke na trakice",use:{sunka:60},pre:"Šunku kratko zapeci 1 min da dobije boju."},
+  {id:"tuna",n:"Tuna",line:"<span class=g>½</span> konzerve tune, dobro ocijeđene",use:{tuna:0.5},post:"Tunu razmrvi vilicom i rasporedi po pola omleta."},
+  {id:"zrnati",n:"Zrnati sir",line:"<span class=g>80 g</span> zrnatog sira",use:{zrnati:80},post:"Zrnati sir stavi žlicom na jednu polovicu."},
+  {id:"feta",n:"Light feta",line:"<span class=g>30 g</span> light fete",use:{feta:30},post:"Fetu izmrvi preko nadjeva."},
+  {id:"kimchi",n:"Kimchi",line:"<span class=g>50 g</span> kimchija, sitno nasjeckanog",use:{kimchi:50},pre:"Kimchi prži 1 min da se karamelizira."},
+  {id:"meksicko",n:"Meksičko povrće",line:"<span class=g>100 g</span> meksičke mješavine",use:{meksicko:100},pre:"Meksičko povrće iz zamrzivača prži 4 min dok ne ispari voda, začini kuminom."},
+  {id:"edamame",n:"Edamame",line:"<span class=g>50 g</span> edamamea",use:{edamame:50},pre:"Edamame dodaj u wok zadnji, 1 min."},
+  {id:"spek",n:"Špek",line:"<span class=g>20 g</span> špeka na sitne kockice",use:{spek:20},pre:"Špek prži na suhom woku 2–3 min dok ne pusti mast i ne postane hrskav. Drugo ulje ti ne treba."},
+  {id:"kobasice",n:"Pileća kobasica",line:"<span class=g>1</span> pileća kobasica (<span class=g>50 g</span>) na kolutiće",use:{kobasice:50},pre:"Kolutiće kobasice zapeci 3 min sa svih strana."},
+  {id:"tofu",n:"Tofu",line:"<span class=g>80 g</span> tofua, izmrvljenog",use:{tofu:80},pre:"Tofu izmrvi prstima i prži 3 min s kapi soja umaka dok ne dobije boju."},
+  {id:"tofu-dim",n:"Dimljeni tofu",line:"<span class=g>60 g</span> dimljenog tofua na kockice",use:{"tofu-dim":60},pre:"Dimljeni tofu zapeci 2 min."},
+  {id:"brokula",n:"Brokula",line:"<span class=g>80 g</span> brokule na sitne cvjetiće",use:{brokula:80},pre:"Brokulu prži 1 min, dodaj 2 žlice vode i poklopi na 2 min da omekša na pari."},
+  {id:"tikvice",n:"Tikvica",line:"<span class=g>½</span> tikvice, naribane",use:{tikvice:0.5},pre:"Tikvicu naribaj, posoli, ostavi 2 min pa iscijedi šakama i prži 2 min."},
+  {id:"mozzarella",n:"Light mozzarella",line:"<span class=g>40 g</span> light mozzarelle",use:{mozzarella:40},post:"Mozzarellu natrgaj na komadiće preko nadjeva."},
+  {id:"dim-losos",n:"Dimljeni losos",line:"<span class=g>50 g</span> dimljenog lososa",use:{"dim-losos":50},post:"Losos natrgaj na trake i stavi tek pri preklapanju, ne smije se kuhati."},
+  {id:"crni-grah",n:"Crni grah",line:"<span class=g>60 g</span> crnog graha, ispranog",use:{"crni-grah":60},pre:"Grah isperi, ocijedi i zagrij 1 min s ostalim nadjevom."},
+  {id:"rikola",n:"Rikola",line:"šaka rikole (<span class=g>20 g</span>)",use:{rikola:20},post:"Rikolu stavi na gotov omlet."}
+];
+const OM_PROT = ["sunka","tuna","zrnati","feta","spek","kobasice","tofu","tofu-dim","mozzarella","dim-losos","crni-grah","edamame"];
+const OM_VEG = ["spinat","gljive","paprika","rajcice","luk","kimchi","meksicko","brokula","tikvice","rikola"];
+const OFBY = Object.fromEntries(OM_FILL.map(x => [x.id, x]));
+const OM_CARB = {
+  nista:{n:"Bez priloga",use:{}},
+  wrap:{n:"1 wrap",use:{wrap:1},line:"<span class=g>1</span> tortilja wrap (66 g)",step:"Wrap zagrij 20 s na suhom woku, stavi omlet na njega i zarolaj kao burrito."},
+  riza:{n:"½ kutije riže",prep:["riza",0.5],use:{basmati:35},line:"½ kutije riže iz prepa (ili <span class=g>35 g</span> suhe riže)",step:"Rižu iz kutije podgrij 1 min u mikrovalnoj sa žlicom vode i posluži omlet preko nje."},
+  krumpir:{n:"½ kutije krumpira",prep:["krumpir",0.5],use:{krumpir:150},line:"½ kutije krumpira iz prepa (ili <span class=g>150 g</span> krumpira)",step:"Krumpir iz kutije stavi u air fryer na 200 °C 12 min čim počneš mutiti jaja, pa bude gotov zajedno s omletom."}
+};
+const OM_PRESETS = [
+  {n:"Zeleni proteinski",d:"špinat, zrnati sir, mladi luk",sel:{base:"protein",fill:["spinat","zrnati","luk"],carb:"nista"}},
+  {n:"Meksički burrito",d:"u wrapu, meksičko povrće i paprika",sel:{base:"protein",fill:["meksicko","paprika"],carb:"wrap"}},
+  {n:"Azijski s rižom",d:"kimchi, edamame, mladi luk",sel:{base:"protein",fill:["kimchi","edamame","luk"],carb:"riza"}},
+  {n:"Grčki",d:"špinat, rajčice, light feta",sel:{base:"protein",fill:["spinat","rajcice","feta"],carb:"nista"}},
+  {n:"Šunka i gljive",d:"klasik od 3 jaja",sel:{base:"klasik",fill:["sunka","gljive"],carb:"nista"}},
+  {n:"Tuna omlet",d:"najviše proteina, malo kalorija",sel:{base:"lagani",fill:["tuna","luk","rajcice"],carb:"nista"}},
+  {n:"Talijanski",d:"rajčice, mozzarella, rikola",sel:{base:"protein",fill:["rajcice","mozzarella","rikola"],carb:"nista"}},
+  {n:"Seljački",d:"malo špeka, mladi luk, krumpir iz prepa",sel:{base:"klasik",fill:["spek","luk"],carb:"krumpir"}},
+  {n:"Kobasica i paprika",d:"pileća kobasica, paprika, mladi luk",sel:{base:"protein",fill:["kobasice","paprika","luk"],carb:"nista"}},
+  {n:"Tofu i gljive",d:"za dan bez mesa",sel:{base:"lagani",fill:["tofu","gljive","luk"],carb:"nista"}},
+  {n:"Losos i rikola",d:"dimljeni losos, zrnati sir, rikola",sel:{base:"protein",fill:["dim-losos","zrnati","rikola"],carb:"nista"}},
+  {n:"Brokula i feta",d:"brokula na pari, light feta",sel:{base:"protein",fill:["brokula","feta"],carb:"nista"}},
+  {n:"Tikvice i mozzarella",d:"naribana tikvica, rajčice",sel:{base:"protein",fill:["tikvice","mozzarella","rajcice"],carb:"nista"}},
+  {n:"Dimljeni tofu",d:"dimljeni tofu, paprika, špinat",sel:{base:"lagani",fill:["tofu-dim","paprika","spinat"],carb:"nista"}},
+  {n:"Meksički s grahom",d:"crni grah, meksičko povrće, paprika",sel:{base:"protein",fill:["crni-grah","meksicko","paprika"],carb:"nista"}}
+];
+const DEFAULT_OM = {base:"protein",fill:["spinat","zrnati","luk"],carb:"nista"};
+/* kcal i proteini po jedinici namirnice (g, ml ili kom) */
+const MAC = {jaja:[72,6.3],bjelanjci:[0.5,0.11],spinat:[0.23,0.029],gljive:[0.22,0.031],paprike:[40,1.5],rajcice:[0.18,0.009],"mladi-luk":[32,1.8],
+  sunka:[1.05,0.19],tuna:[125,28],zrnati:[0.95,0.12],feta:[1.8,0.17],kimchi:[0.2,0.012],meksicko:[0.75,0.035],edamame:[1.2,0.11],wrap:[200,6],basmati:[3.5,0.075],krumpir:[0.77,0.02],
+  spek:[3.6,0.15],kobasice:[1.8,0.14],tofu:[1.2,0.13],"tofu-dim":[1.6,0.16],brokula:[0.34,0.028],tikvice:[43,3],mozzarella:[1.6,0.18],"dim-losos":[1.17,0.18],"crni-grah":[1.3,0.085],rikola:[0.25,0.026]};
+const defaultOmWeek = () => OM_PRESETS.slice(0,7).map(p => ({sel: JSON.parse(JSON.stringify(p.sel)), done: false}));
+const todayIx = () => (new Date().getDay() + 6) % 7;
+function validOm(v){
+  if (!v || !OM_BASE[v.base] || !OM_CARB[v.carb] || !Array.isArray(v.fill)) return Object.assign({}, DEFAULT_OM, {fill: DEFAULT_OM.fill.slice()});
+  return {base: v.base, fill: v.fill.filter(x => OFBY[x]), carb: v.carb};
+}
+
+/* Skaliranje količina u tekstu sastojka (brojevi iza "po" su veličina porcije i ostaju isti) */
+function niceNum(v, unit){
+  if (unit === "g" || unit === "ml"){ if (v >= 20) return String(Math.round(v/5)*5); return (Math.round(v*10)/10).toLocaleString("hr-HR"); }
+  const whole = Math.floor(v + 1e-9), fr = v - whole;
+  const fracs = [[0,""],[0.25,"¼"],[1/3,"⅓"],[0.5,"½"],[2/3,"⅔"],[0.75,"¾"],[1,""]];
+  let best = fracs[0], d = 9;
+  for (const f of fracs){ const dd = Math.abs(fr - f[0]); if (dd < d){ d = dd; best = f; } }
+  if (d < 0.06){ const w = whole + (best[0] === 1 ? 1 : 0); return (w ? String(w) : "") + best[1] || "0"; }
+  return (Math.round(v*10)/10).toLocaleString("hr-HR");
+}
+function scaleText(html, f){
+  if (Math.abs(f - 1) < 1e-9) return html;
+  return html.split(/(<[^>]+>)/).map(part => part.startsWith("<") ? part :
+    part.replace(/(\d+(?:,\d+)?|½|¼|¾)(\s*)(kg|g|ml|l|%|°C|min|cm|mm)?(?![\wčćžšđ])/g, (m, num, sp, unit, off, str) => {
+      if (unit && ["%","°C","min","cm","mm"].includes(unit)) return m;
+      if (str.slice(Math.max(0, off-3), off) === "po ") return m;
+      const v = num === "½" ? 0.5 : num === "¼" ? 0.25 : num === "¾" ? 0.75 : parseFloat(num.replace(",", "."));
+      return niceNum(v * f, unit) + sp + (unit || "");
+    })).join("");
+}
+const porcTxt = n => `${n.toLocaleString("hr-HR")} ${n === 1 ? "porcija" : (Number.isInteger(n) && n >= 2 && n <= 4) ? "porcije" : "porcija"}`;
+const CYCLE = ["Riža","Krumpir","Tjestenina","Riža","Krumpir"];
+const DAYS = ["Pon","Uto","Sri","Čet","Pet","Sub","Ned"];
+
+/* ---------- Stanje ---------- */
+let stock = {};                     // id -> {qty, price}
+let plan = {start:0, days:DAYS.map(() => ({r:"",done:false})), om: defaultOmWeek()};
+let omDay = todayIx();
+let hist = [];
+let prepStock = {};                 // prep id -> broj jedinica
+let db = null, mode = "loading";
+const pending = new Set(), timers = {}, chains = {};
+const pPending = new Set(), pTimers = {}, pChains = {};
+const pc = id => typeof prepStock[id] === "number" ? prepStock[id] : 0;
+let costs = {};                     // "2026-10" -> [{id,t,shop,amount,note,est}]
+let settings = {dostava: 12, dorucak: 2.5, omletTjedno: 7, omlet: validOm(null)};
+let servings = {}, ture = {}, omServ = 1, omMethod = "wok";
+try{ servings = JSON.parse(localStorage.getItem("kuharica-srv")) || {}; ture = JSON.parse(localStorage.getItem("kuharica-ture")) || {}; }catch(e){}
+const srv = id => typeof servings[id] === "number" ? servings[id] : 1;
+const tm = id => typeof ture[id] === "number" ? ture[id] : 1;
+function saveSrv(){ try{ localStorage.setItem("kuharica-srv", JSON.stringify(servings)); localStorage.setItem("kuharica-ture", JSON.stringify(ture)); }catch(e){} }
+let costChain = Promise.resolve(), setChain = Promise.resolve();
+const monthKey = (t = Date.now()) => { const d = new Date(t); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0"); };
+const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
+const SHOPS = {K:"Kaufland",BIO:"Bio&Bio",AZ:"Azijski dućan",O:"Ostalo"};
+let planChain = Promise.resolve(), histChain = Promise.resolve();
+
+const q = id => (stock[id] && typeof stock[id].qty === "number") ? stock[id].qty : 0;
+const price = id => (stock[id] && typeof stock[id].price === "number") ? stock[id].price : null;
+const round = n => Math.round(n * 100) / 100;
+function fmt(n, u){
+  n = round(n);
+  if (u === "g" && n >= 1000) return round(n/1000).toLocaleString("hr-HR") + " kg";
+  if (u === "ml" && n >= 1000) return round(n/1000).toLocaleString("hr-HR") + " l";
+  return n.toLocaleString("hr-HR") + " " + u;
+}
+const eur = n => n.toLocaleString("hr-HR",{minimumFractionDigits:2,maximumFractionDigits:2}) + " €";
+const srcTag = s => s === "AZ" ? '<span class="src a">AZ</span>' : s === "BIO" ? '<span class="src b">BIO</span>' : '<span class="src">K</span>';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------- Spremanje ---------- */
+function saveLocal(){ try{ localStorage.setItem("kuharica-v2", JSON.stringify({stock,plan,hist,prepStock,costs,settings})); }catch(e){} }
+function loadLocal(){ try{ const d = JSON.parse(localStorage.getItem("kuharica-v2")); if(d){ stock=d.stock||{}; plan=d.plan||plan; hist=d.hist||[]; prepStock=d.prepStock||{}; costs=d.costs||{}; settings=Object.assign(settings, d.settings||{}); } }catch(e){} }
+function writeCosts(mk){
+  if (!db){ saveLocal(); return; }
+  const entries = (costs[mk] || []).slice();
+  costChain = costChain.then(() => db.doc("troskovi/" + mk).set({entries})).catch(() => setStatus("Trošak nije spremljen. Pokušaj ponovno."));
+}
+function writeSettings(){
+  if (!db){ saveLocal(); return; }
+  setChain = setChain.then(() => db.doc("meta/postavke").set(Object.assign({}, settings))).catch(() => {});
+}
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+function addCost(e){ const mk = monthKey(e.t); costs[mk] = (costs[mk] || []).concat([e]); writeCosts(mk); return e; }
+function removeCost(mk, id){ costs[mk] = (costs[mk] || []).filter(x => x.id !== id); writeCosts(mk); }
+function writePrep(id){
+  if (!db){ saveLocal(); return; }
+  pPending.add(id);
+  pChains[id] = (pChains[id] || Promise.resolve()).then(() => db.doc("prep/" + id).set({count: Math.max(0, pc(id))}))
+    .catch(e => setStatus("Spremanje nije uspjelo (" + (e && e.code || "greška") + "). Pokušaj ponovno."))
+    .finally(() => { if (!pTimers[id]) pPending.delete(id); });
+}
+function schedulePrep(id, delay){
+  pPending.add(id); clearTimeout(pTimers[id]);
+  pTimers[id] = setTimeout(() => { pTimers[id] = null; writePrep(id); }, delay ?? 400);
+}
+
+function writeItem(id){
+  if (!db){ saveLocal(); return; }
+  pending.add(id);
+  chains[id] = (chains[id] || Promise.resolve()).then(() => {
+    const s = stock[id] || {qty:0};
+    return db.doc("zaliha/" + id).set({qty: round(s.qty || 0), price: typeof s.price === "number" ? s.price : null});
+  }).catch(e => setStatus("Spremanje nije uspjelo (" + (e && e.code || "greška") + "). Pokušaj ponovno.")).finally(() => {
+    if (!timers[id]) pending.delete(id);
+  });
+}
+function scheduleItem(id, delay){
+  pending.add(id);
+  clearTimeout(timers[id]);
+  timers[id] = setTimeout(() => { timers[id] = null; writeItem(id); }, delay ?? 600);
+}
+function writePlan(){
+  if (!db){ saveLocal(); return; }
+  planChain = planChain.then(() => db.doc("plan/tjedan").set({start: plan.start, days: plan.days, om: plan.om})).catch(() => setStatus("Plan nije spremljen. Pokušaj ponovno."));
+}
+function writeHist(){
+  if (!db){ saveLocal(); return; }
+  histChain = histChain.then(() => db.doc("meta/povijest").set({items: hist})).catch(() => {});
+}
+function setStatus(t){ document.getElementById("syncStatus").textContent = t; }
+
+/* ---------- Izračuni ---------- */
+/* Što recept stvarno troši: sirovi sastojci umanjeni za ono što pokrije pripremljeno (troši iz kopije stanja prepa) */
+function effUse(rid, pcopy, withDaily, f = 1){
+  const use = {};
+  for (const [id,a] of Object.entries(RBY[rid].use)) use[id] = a * f;
+  if (withDaily) for (const [id,a] of Object.entries(DAILY)) use[id] = (use[id]||0) + a;
+  const consumed = [];
+  const list = (REC_USE_PREP[rid] || []).map(([p,n]) => [p, n*f]).concat(withDaily ? DAILY_PREP : []);
+  for (const [pid,n] of list){
+    const k = Math.min(n, pcopy[pid] || 0);
+    if (k <= 0) continue;
+    pcopy[pid] -= k; consumed.push([pid,k]);
+    for (const [id,a] of Object.entries(PREP_INV[pid].per)) if (use[id] != null) use[id] = Math.max(0, use[id] - a*k);
+  }
+  for (const id of Object.keys(use)) if (use[id] < 0.001) delete use[id];
+  return {use, consumed};
+}
+function planNeeds(){
+  const need = {}, pcopy = Object.assign({}, prepStock);
+  plan.days.forEach(d => {
+    if (!d.r || d.done || !RBY[d.r]) return;
+    for (const [id,a] of Object.entries(effUse(d.r, pcopy, true).use)) need[id] = (need[id]||0) + a;
+  });
+  (plan.om || []).forEach(o => { if (!o.done) for (const [id,a] of Object.entries(omEff(o.sel, 1, pcopy).use)) need[id] = (need[id]||0) + a; });
+  return need;
+}
+function omUse(sel, f){
+  const use = {};
+  const add = o => { for (const [id,a] of Object.entries(o)) use[id] = (use[id]||0) + a*f; };
+  add(OM_BASE[sel.base].use);
+  sel.fill.forEach(x => { if (OFBY[x]) add(OFBY[x].use); });
+  add(OM_CARB[sel.carb].use);
+  return use;
+}
+function omEff(sel, f, pcopy){
+  const use = omUse(sel, f), consumed = [], C = OM_CARB[sel.carb];
+  if (C.prep){
+    const [pid,n] = C.prep, k = Math.min(n*f, pcopy[pid] || 0);
+    if (k > 0){ pcopy[pid] -= k; consumed.push([pid,k]); for (const [id,a] of Object.entries(PREP_INV[pid].per)) if (use[id] != null) use[id] = Math.max(0, use[id] - a*k); }
+  }
+  for (const id of Object.keys(use)) if (use[id] < 0.001) delete use[id];
+  return {use, consumed};
+}
+function omMacros(sel, f){
+  let k = 10*f, p = 0;
+  for (const [id,a] of Object.entries(omUse(sel, f))){ const m = MAC[id]; if (m){ k += m[0]*a; p += m[1]*a; } }
+  return {k: Math.round(k), p: Math.round(p)};
+}
+function shopping(){
+  const pn = planNeeds();
+  return ITEMS.map(i => {
+    const want = (pn[i.id] || 0) + i.min;
+    const short = want - q(i.id);
+    if (short <= 0.0001) return null;
+    const packs = Math.max(1, Math.ceil(short / i.pack - 1e-9));
+    const p = price(i.id);
+    return {i, short, packs, cost: p != null ? packs * p : null, forPlan: (pn[i.id]||0) > q(i.id)};
+  }).filter(Boolean);
+}
+function status(i){
+  const v = q(i.id);
+  if (v <= 0) return i.min > 0 ? "out" : "none";
+  if (v < i.min) return "low";
+  return "ok";
+}
+function missingFor(rid, f = 1){
+  return Object.entries(effUse(rid, Object.assign({}, prepStock), false, f).use).filter(([id,a]) => q(id) + 1e-9 < a).map(([id]) => BY[id].n);
+}
+/* Cijena sastojaka po cijeni pakiranja iz Zalihe */
+function costOf(use){
+  let c = 0, known = 0, total = 0;
+  for (const [id,a] of Object.entries(use)){
+    if (!BY[id] || a <= 0) continue;
+    total++;
+    const p = price(id);
+    if (p != null){ c += p / BY[id].pack * a; known++; }
+  }
+  return {c, known, total};
+}
+function dayCost(rid){
+  const r = costOf(RBY[rid].use), d = costOf(DAILY);
+  const oms = plan.om || [];
+  const om = oms.length ? oms.reduce((s,o) => s + costOf(omUse(o.sel, 1)).c, 0) / oms.length : 0;
+  return {meals: r.c + d.c, perMeal: (r.c + d.c) / 2, full: r.c + d.c + om, known: r.known + d.known, total: r.total + d.total};
+}
+const prepUsedTxt = (rid, f = 1) => effUse(rid, Object.assign({}, prepStock), false, f).consumed.map(([p,k]) => `${pfmt(k, PREP_INV[p].unit)} ${PBY[p].n.toLowerCase()}`);
+
+/* ---------- Render ---------- */
+let stockFilter = "sve", carb = "sve", openEdit = null, deferStock = false;
+
+function renderPlan(){
+  document.getElementById("cycleStart").value = String(plan.start || 0);
+  const opts = r => '<option value="">Nije planirano</option>' + ["Riža","Krumpir","Tjestenina"].map(c =>
+    `<optgroup label="${c}">` + RECIPES.filter(x => x.c === c).map(x => `<option value="${x.id}"${x.id===r?" selected":""}>${esc(x.n)}</option>`).join("") + "</optgroup>").join("");
+  document.getElementById("planList").innerHTML = plan.days.map((d,ix) => {
+    const cyc = CYCLE[((plan.start||0) + ix) % 5];
+    let info = "";
+    if (d.r && RBY[d.r]){
+      if (d.done) info = '<span class="ready">Skuhano</span>';
+      else { const m = missingFor(d.r); info = m.length ? `<span class="miss">Fali: ${esc(m.join(", "))}</span>` : '<span class="ready">Sve imaš</span>'; }
+    }
+    return `<div class="prow${d.done?" done":""}"><div class="dname">${DAYS[ix]}<small>${cyc}</small></div>
+      <div class="pmid"><select id="day-${ix}" data-day="${ix}" aria-label="Recept za ${DAYS[ix]}">${opts(d.r)}</select>${info}</div>
+      ${d.r ? `<button type="button" class="cookbtn${d.done?" on":""}" data-cookday="${ix}">${d.done?"Skuhano ✓":"Skuhano"}</button>` : "<span></span>"}</div>`;
+  }).join("");
+  const next = ((plan.start||0) + 7) % 5;
+  document.getElementById("nextCycle").textContent = `Sljedeći tjedan kreće od ${next+1}. dana ciklusa (${CYCLE[next].toLowerCase()}).`;
+  document.getElementById("hist").innerHTML = hist.length ? hist.slice(0,8).map(h =>
+    `<li>${esc(RBY[h.r] ? RBY[h.r].n : h.r)} · ${new Date(h.t).toLocaleDateString("hr-HR",{weekday:"short",day:"numeric",month:"numeric"})}</li>`).join("") : '<li>Još ništa. Kad skuhaš, pojavit će se ovdje.</li>';
+}
+
+function renderStock(){
+  if (document.activeElement && document.activeElement.closest && document.activeElement.closest("#stock")) { deferStock = true; return; }
+  deferStock = false;
+  const counts = {out:0, low:0, ok:0};
+  ITEMS.forEach(i => { const s = status(i); if (s==="out") counts.out++; else if (s==="low") counts.low++; else if (s==="ok") counts.ok++; });
+  document.getElementById("stockSummary").innerHTML =
+    `<div><b>${counts.ok}</b><span>na zalihi</span></div><div><b>${counts.low}</b><span>nisko</span></div><div><b>${counts.out}</b><span>nema</span></div>`;
+  const html = Object.entries(CATS).map(([k,t]) => {
+    let items = ITEMS.filter(i => i.cat === k);
+    if (stockFilter === "nisko") items = items.filter(i => ["low","out"].includes(status(i)));
+    else if (stockFilter !== "sve" && stockFilter !== k) return "";
+    if (!items.length) return "";
+    return `<div class="group"><div class="ghead"><h2>${t}</h2><span class="tag t-${k}">${t}</span></div><div class="list">` + items.map(i => {
+      const s = status(i), p = price(i.id);
+      const pill = s==="ok" ? '<span class="pill p-ok">ok</span>' : s==="low" ? '<span class="pill p-low">nisko</span>' : s==="out" ? '<span class="pill p-out">nema</span>' : "";
+      const ed = openEdit === i.id ? `<div class="edit">
+        <label for="q-${i.id}">Količina (${i.u})<input id="q-${i.id}" type="number" inputmode="decimal" min="0" step="any" value="${round(q(i.id))}" data-setq="${i.id}"></label>
+        <label for="pr-${i.id}">Cijena po pakiranju (${fmt(i.pack,i.u)}) €<input id="pr-${i.id}" type="number" inputmode="decimal" min="0" step="0.01" value="${p ?? ""}" placeholder="npr. 3,49" data-setp="${i.id}"></label>
+        <button type="button" class="btn ghost" data-buy="${i.id}">Kupio +${fmt(i.pack,i.u)}</button></div>` : "";
+      return `<div class="row"><div class="rtop">
+        <button type="button" class="rname" data-open="${i.id}" aria-expanded="${openEdit===i.id}"><b>${esc(i.n)}</b><small>${pill}${srcTag(i.src)}${i.hint?esc(i.hint):""}${p!=null?` · ${eur(p)}`:""}</small></button>
+        <div class="stepper"><button type="button" data-dec="${i.id}" aria-label="Manje ${esc(i.n)}">−</button><span class="qty">${fmt(q(i.id),i.u)}</span><button type="button" data-inc="${i.id}" aria-label="Više ${esc(i.n)}">+</button></div>
+      </div>${ed}</div>`;
+    }).join("") + "</div></div>";
+  }).join("");
+  document.getElementById("stock").innerHTML = html || '<div class="note">Ništa nije nisko. Sve je na zalihi.</div>';
+}
+
+function renderShop(){
+  const list = shopping();
+  document.getElementById("shopBadge").textContent = list.length ? list.length : "";
+  const groups = {K:[],BIO:[],AZ:[]};
+  list.forEach(x => groups[x.i.src].push(x));
+  let total = 0, priced = 0;
+  const html = Object.entries(groups).map(([s,arr]) => {
+    if (!arr.length) return "";
+    let sub = 0;
+    const rows = arr.map(x => {
+      if (x.cost != null){ sub += x.cost; priced++; }
+      return `<div class="srow"><div class="sn"><b>${esc(x.i.n)}</b><small>${x.forPlan?"za plan":"dopuna zalihe"} · fali ${fmt(x.short,x.i.u)}</small></div>
+        <div class="sq">${x.packs} × ${fmt(x.i.pack,x.i.u)}${x.cost!=null?`<br>${eur(x.cost)}`:""}</div>
+        <button type="button" class="cookbtn" data-buyn="${x.i.id}" data-packs="${x.packs}">Kupio</button></div>`;
+    }).join("");
+    total += sub;
+    return `<div class="group"><div class="ghead"><h2>${SRC[s]}</h2><span class="count">${arr.length} stavki${sub?` · ${eur(sub)}`:""}</span></div><div class="list">${rows}</div></div>`;
+  }).join("");
+  document.getElementById("shopList").innerHTML = html
+    ? html + (priced ? `<p class="total">Procjena: ${eur(total)} <span class="count">(${priced} od ${list.length} stavki ima cijenu)</span></p>` : `<p class="sub">Upiši cijene u Zalihi (dodir na naziv) i ovdje ćeš vidjeti procjenu troška.</p>`)
+    : '<div class="note"><strong>Ništa ne fali.</strong> Imaš sve za plan i minimalnu zalihu.</div>';
+  const txt = Object.entries(groups).filter(([,a]) => a.length).map(([s,a]) =>
+    SRC[s].toUpperCase() + "\n" + a.map(x => `- ${x.i.n}: ${x.packs} × ${fmt(x.i.pack,x.i.u)}`).join("\n")).join("\n\n");
+  document.getElementById("copyText").value = txt || "Ništa ne fali.";
+}
+
+function renderRecipes(){
+  const list = RECIPES.filter(r => carb==="sve" || (carb==="2u1" ? r.two : carb==="spremno" ? !missingFor(r.id, srv(r.id)/1.5).length : r.c===carb));
+  const openIds = new Set([...document.querySelectorAll("details.rec[open]")].map(d => d.dataset.id));
+  document.getElementById("recipes").innerHTML = list.length ? list.map(r => {
+    const s = srv(r.id), f = s / 1.5;
+    const m = missingFor(r.id, f);
+    const pu = prepUsedTxt(r.id, f);
+    const dc = dayCost(r.id);
+    const st = (m.length ? `<span class="pill p-out">fali ${m.length}</span>` : '<span class="pill p-ok">mogu skuhati</span>') + (dc.known ? `<span>${eur(dc.perMeal)} / obrok</span>` : "");
+    return `<details class="rec" data-id="${r.id}"${openIds.has(r.id)?" open":""}><summary><div class="rtitle"><h3>${esc(r.n)}</h3><div class="meta"><span class="carb">${r.c}</span>${r.two?'<span class="carb">2 u 1</span>':""}<span>${r.d}</span>${st}</div></div><span class="chev" aria-hidden="true">›</span></summary>
+    <div class="rbody">
+    <div class="rtop servrow"><div class="rname"><b>Porcije</b><small>1,5 porcija = ručak i večera iz jednog kuhanja</small></div>
+      <div class="stepper"><button type="button" data-srvdec="${r.id}" aria-label="Manje porcija">−</button><span class="qty">${porcTxt(s)}</span><button type="button" data-srvinc="${r.id}" aria-label="Više porcija">+</button></div></div>
+    ${r.split?`<div class="split">${r.split.map(x=>`<div>${x}</div>`).join("")}</div>`:""}
+    ${m.length?`<p class="miss">Fali na zalihi: ${esc(m.join(", "))}</p>`:""}
+    ${pu.length?`<p class="ready">Iz pripremljenog koristi: ${esc(pu.join(", "))}</p>`:""}
+    ${REC_PREP[r.id]?`<p class="prepline">Brže uz prep: ${REC_PREP[r.id].map(p => `<b>${esc(PBY[p].n)}</b>`).join(", ")}</p>`:""}
+    <div><h4>Sastojci za ${porcTxt(s)}</h4><ul>${r.ing.map(i=>`<li>${scaleText(i, f)}</li>`).join("")}</ul></div>
+    <div><h4>Priprema</h4><ol>${r.st.map(i=>`<li>${i}</li>`).join("")}</ol></div>
+    <div class="btnrow"><button type="button" class="btn" data-cook="${r.id}">Skuhao sam</button><span class="count">skida ${porcTxt(s)} i dnevne dodatke sa zalihe</span></div></div></details>`;
+  }).join("") : '<div class="note">Nijedan recept ne odgovara filteru. Za "Mogu skuhati" dopuni zalihu.</div>';
+}
+
+let prepF = "sve";
+function renderPrep(){
+  const list = PREP.filter(p => prepF === "sve" || p.k === prepF);
+  const openIds = new Set([...document.querySelectorAll("#prepList details.rec[open]")].map(d => d.dataset.id));
+  document.getElementById("prepList").innerHTML = list.map(p => {
+    const t = tm(p.id), inv = PREP_INV[p.id];
+    const miss = Object.entries(p.use).filter(([id,a]) => q(id) + 1e-9 < a * t).map(([id]) => BY[id].n);
+    const st = (pc(p.id) > 0 ? `<span class="pill p-ok">${pfmt(pc(p.id), PREP_INV[p.id].unit)}</span>` : "") + (miss.length ? `<span class="pill p-out">fali ${miss.length}</span>` : '<span class="pill p-low">imaš sastojke</span>');
+    return `<details class="rec" data-id="${p.id}"${openIds.has(p.id)?" open":""}><summary><div class="rtitle"><h3>${esc(p.n)}</h3><div class="meta"><span class="carb">${PREP_K[p.k]}</span><span>${p.time}</span>${st}</div></div><span class="chev" aria-hidden="true">›</span></summary>
+    <div class="rbody">
+      <div class="facts"><div><b>Količina</b><span>${scaleText(p.yieldTxt, t)}</span></div><div><b>Vrijeme</b><span>${p.time}</span></div><div><b>Čuvanje</b><span>${p.keep}</span></div></div>
+      <div class="rtop servrow"><div class="rname"><b>Količina pripreme</b><small>${t === 1 ? "osnovni recept" : `${t.toLocaleString("hr-HR")} × osnovni recept`}</small></div>
+        <div class="stepper"><button type="button" data-turedec="${p.id}" aria-label="Manja količina">−</button><span class="qty">× ${t.toLocaleString("hr-HR")}</span><button type="button" data-tureinc="${p.id}" aria-label="Veća količina">+</button></div></div>
+      <div class="rtop"><div class="rname"><b>Na zalihi</b><small>"Napravio sam" = +${pfmt(inv.make * t, inv.unit)}</small></div>
+        <div class="stepper"><button type="button" data-pdec="${p.id}" aria-label="Manje ${esc(p.n)}">−</button><span class="qty">${pfmt(pc(p.id), PREP_INV[p.id].unit)}</span><button type="button" data-pinc="${p.id}" aria-label="Više ${esc(p.n)}">+</button></div></div>
+      ${miss.length?`<p class="miss">Fali na zalihi: ${esc(miss.join(", "))}</p>`:""}
+      <div><h4>Sastojci</h4><ul>${p.ing.map(i=>`<li>${scaleText(i, t)}</li>`).join("")}</ul></div>
+      <div><h4>Priprema</h4><ol>${p.st.map(i=>`<li>${i}</li>`).join("")}</ol></div>
+      ${t !== 1 ? `<p class="prepline">Koraci su pisani za osnovni recept. Količine u njima pomnoži s ${t.toLocaleString("hr-HR")}.</p>` : ""}
+      <div class="tip">${esc(p.tip)}</div>
+      <div><h4>Koristi u</h4><div class="uses">${p.for.map(f=>`<span>${esc(f)}</span>`).join("")}</div></div>
+      <div class="btnrow"><button type="button" class="btn" data-prep="${p.id}">Napravio sam</button><span class="count">skida sastojke sa zalihe</span></div>
+    </div></details>`;
+  }).join("");
+}
+function makePrep(pid){
+  const p = PBY[pid], inv = PREP_INV[pid], before = {}, pPrev = pc(pid), t = tm(pid);
+  for (const [id,a] of Object.entries(p.use)){ before[id] = q(id); setQty(id, q(id) - a * t); scheduleItem(id, 0); }
+  prepStock[pid] = round(pPrev + inv.make * t); schedulePrep(pid, 0);
+  renderAll();
+  toast(`${p.n}: +${pfmt(inv.make * t, inv.unit)} u pripremljenom.`, () => {
+    for (const [id,v] of Object.entries(before)){ setQty(id, v); scheduleItem(id, 0); }
+    prepStock[pid] = pPrev; schedulePrep(pid, 0);
+    renderAll(); toast("Poništeno.");
+  });
+}
+function renderPrepStock(){
+  const have = PREP.filter(p => pc(p.id) > 0);
+  const el = document.getElementById("prepStock");
+  if (!el) return;
+  el.innerHTML = `<div class="ghead"><h2>Pripremljeno</h2><span class="count">${have.length ? have.length + " vrsta" : ""}</span></div>` +
+    (have.length ? `<div class="list">${have.map(p => {
+      const inv = PREP_INV[p.id];
+      return `<div class="row"><div class="rtop"><div class="rname"><b>${esc(p.n)}</b><small>${esc(p.keep)}</small></div>
+        <div class="stepper"><button type="button" data-pdec="${p.id}" aria-label="Manje ${esc(p.n)}">−</button><span class="qty">${pfmt(pc(p.id), inv.unit)}</span><button type="button" data-pinc="${p.id}" aria-label="Više ${esc(p.n)}">+</button></div></div></div>`;
+    }).join("")}</div>` : '<div class="note">Ništa pripremljeno. Kad u Prepu stisneš <strong>Napravio sam</strong>, vrećice i kutije pojavit će se ovdje, a recepti će ih trošiti umjesto sirovih sastojaka.</div>');
+}
+function renderCosts(){
+  const now = Date.now(), mk = monthKey(now), d = new Date(now);
+  const daysIn = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate(), dom = d.getDate();
+  const entries = costs[mk] || [];
+  const spent = entries.reduce((s,e) => s + (e.amount || 0), 0);
+
+  // Procjena iz plana: prosjek planiranih dana (ili svih recepata ako plan nije složen)
+  const planned = plan.days.filter(x => x.r && RBY[x.r]).map(x => x.r);
+  const pool = planned.length ? planned : RECIPES.map(r => r.id);
+  const dcs = pool.map(dayCost);
+  const avgFull = dcs.reduce((s,x) => s + x.full, 0) / dcs.length;
+  const avgMeal = dcs.reduce((s,x) => s + x.perMeal, 0) / dcs.length;
+  const cover = dcs.reduce((s,x) => s + x.known, 0) / Math.max(1, dcs.reduce((s,x) => s + x.total, 0));
+  const planMonth = avgFull * daysIn;
+  const pace = spent > 0 && dom >= 7 ? spent / dom * daysIn : null;
+  const dost = settings.dostava || 0;
+  const saveMonth = (2 * dost - 2 * avgMeal) * daysIn;
+  const priced = cover > 0;
+
+  document.getElementById("costTiles").innerHTML =
+    `<div><b>${eur(spent)}</b><span>potrošeno u ${d.toLocaleDateString("hr-HR",{month:"long"})}</span><small>${entries.length} zapisa</small></div>` +
+    `<div><b>${priced ? eur(pace ?? planMonth) : "–"}</b><span>procjena za mjesec</span><small>${pace ? "prema dosadašnjem tempu" : "prema planu"}${pace && priced ? ` · plan: ${eur(planMonth)}` : ""}</small></div>` +
+    `<div><b>${priced ? eur(avgMeal) : "–"}</b><span>prosječan obrok</span><small>dostava: ${eur(dost)}</small></div>` +
+    `<div><b class="save">${priced ? eur(Math.max(0, saveMonth)) : "–"}</b><span>ušteda mjesečno</span><small>ručak i večera vs dostava</small></div>`;
+
+  const pct = Math.round(cover * 100);
+  document.getElementById("costNote").innerHTML = !priced
+    ? `<strong>Još nema cijena.</strong> U Zalihi dodirni naziv namirnice i upiši cijenu pakiranja. Krenite od mesa, riže i krumpira, jer one najviše utječu na trošak. Potrošnja se bilježi već sada, kad upišeš račun.`
+    : `Izračun po obroku uključuje recept, miso juhu, posni sir i salate. Cijene su poznate za <strong>${pct} %</strong> sastojaka${pct < 80 ? ", pa je stvarni trošak nešto veći. Dopuni cijene u Zalihi za točniju procjenu" : ""}. Mjesečna procjena uključuje i omlet za doručak.`;
+
+  // Po dućanu
+  const byShop = {};
+  entries.forEach(e => { byShop[e.shop] = (byShop[e.shop] || 0) + (e.amount || 0); });
+  const max = Math.max(1, ...Object.values(byShop));
+  document.getElementById("shopBars").innerHTML = Object.keys(byShop).length
+    ? Object.entries(byShop).sort((a,b) => b[1]-a[1]).map(([s,v]) =>
+      `<div class="bar"><span>${SHOPS[s] || s}</span><div class="track"><div class="fill" style="width:${Math.max(3, v/max*100)}%"></div></div><span class="num">${eur(v)}</span></div>`).join("")
+    : '<div class="empty">Ovaj mjesec još nema zapisa. Upiši račun ili stisni Kupio u Kupovini.</div>';
+
+  // Po receptu
+  document.getElementById("recipeCosts").innerHTML = RECIPES.map(r => ({r, c: dayCost(r.id)}))
+    .sort((a,b) => a.c.perMeal - b.c.perMeal).map(({r,c}) => {
+      const has = c.known > 0;
+      return `<div class="crow"><div><b>${esc(r.n)}</b><small>${has ? `${c.known}/${c.total} sastojaka ima cijenu` : "nema cijena"}</small></div>
+        <span class="num">${has ? eur(c.perMeal) : "–"}</span>
+        <span class="num save">${has ? "−" + eur(Math.max(0, dost - c.perMeal)) : ""}</span></div>`;
+    }).join("");
+
+  // Postavke
+  const sd = document.getElementById("setDostava");
+  if (document.activeElement !== sd) sd.value = settings.dostava ?? "";
+  const rd = document.getElementById("rcDate");
+  if (!rd.value) rd.value = new Date(now - new Date(now).getTimezoneOffset()*60000).toISOString().slice(0,10);
+
+  // Zapisi
+  const sel = document.getElementById("costMonth");
+  const months = Array.from(new Set([mk].concat(Object.keys(costs)))).sort().reverse();
+  const cur = sel.value && months.includes(sel.value) ? sel.value : mk;
+  sel.innerHTML = months.map(m => { const [y,mo] = m.split("-"); const tot = (costs[m]||[]).reduce((s,e)=>s+(e.amount||0),0);
+    return `<option value="${m}"${m===cur?" selected":""}>${new Date(+y, +mo-1, 1).toLocaleDateString("hr-HR",{month:"long",year:"numeric"})} · ${eur(tot)}</option>`; }).join("");
+  const list = (costs[cur] || []).slice().sort((a,b) => b.t - a.t);
+  document.getElementById("costLog").innerHTML = list.length ? list.map(e =>
+    `<div class="lrow"><div class="ln"><b>${esc(e.note || SHOPS[e.shop] || "")}</b><small>${new Date(e.t).toLocaleDateString("hr-HR",{weekday:"short",day:"numeric",month:"numeric"})} · ${SHOPS[e.shop] || e.shop}${e.est ? " · procjena iz Kupio" : " · račun"}</small></div>
+     <span class="num">${eur(e.amount || 0)}</span><button type="button" class="del" data-delcost="${cur}|${e.id}" aria-label="Obriši zapis">×</button></div>`).join("")
+    : '<div class="empty">Nema zapisa za ovaj mjesec.</div>';
+}
+function renderAll(){ renderPlan(); renderPrepStock(); renderStock(); renderShop(); renderRecipes(); renderPrep(); renderCosts(); renderOmlet(); }
+
+/* ---------- Radnje ---------- */
+let undo = null, toastTimer = null;
+function toast(msg, undoFn){
+  undo = undoFn || null;
+  document.getElementById("toastMsg").textContent = msg;
+  document.getElementById("toastUndo").hidden = !undoFn;
+  document.getElementById("toast").hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { document.getElementById("toast").hidden = true; undo = null; }, 6000);
+}
+function setQty(id, v){
+  stock[id] = Object.assign({}, stock[id] || {}, {qty: Math.max(0, round(v))});
+}
+function cook(rid, dayIx, f = 1){
+  const eff = effUse(rid, Object.assign({}, prepStock), true, f);
+  const before = {}, pBefore = {};
+  for (const [id,a] of Object.entries(eff.use)){ before[id] = q(id); setQty(id, q(id) - a); scheduleItem(id, 0); }
+  for (const [p,k] of eff.consumed){ pBefore[p] = pc(p); prepStock[p] = Math.max(0, pc(p) - k); schedulePrep(p, 0); }
+  const prevPlan = JSON.parse(JSON.stringify(plan.days));
+  let ix = dayIx;
+  if (ix == null) ix = plan.days.findIndex(d => d.r === rid && !d.done);
+  if (ix != null && ix >= 0){ plan.days[ix] = {r: rid, done: true}; writePlan(); }
+  const prevHist = hist.slice();
+  hist = [{r: rid, t: Date.now()}].concat(hist).slice(0, 30); writeHist();
+  renderAll();
+  const np = eff.consumed.length;
+  toast(`${RBY[rid].n}: skinuto sa zalihe${np ? `, iskorišteno ${np} iz prepa` : ""}.`, () => {
+    for (const [id,v] of Object.entries(before)){ setQty(id, v); scheduleItem(id, 0); }
+    for (const [p,v] of Object.entries(pBefore)){ prepStock[p] = v; schedulePrep(p, 0); }
+    plan.days = prevPlan; writePlan(); hist = prevHist; writeHist(); renderAll();
+    toast("Poništeno.");
+  });
+}
+const omNorm = s => JSON.stringify([s.base, s.fill.slice().sort(), s.carb]);
+function omName(sel){
+  const p = OM_PRESETS.find(x => omNorm(x.sel) === omNorm(sel));
+  if (p) return p.n;
+  const f = sel.fill.map(x => OFBY[x].n.toLowerCase());
+  if (!f.length) return OM_BASE[sel.base].n + " omlet";
+  const t = f.length > 1 ? f.slice(0,-1).join(", ") + " i " + f[f.length-1] : f[0];
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+function omMissing(sel, f = 1){
+  return Object.entries(omEff(sel, f, Object.assign({}, prepStock)).use).filter(([id,a]) => q(id) + 1e-9 < a).map(([id]) => BY[id].n);
+}
+function shuffle(a){ a = a.slice(); for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+/* Popuni nepojedene dane različitim kombinacijama, prednost imaju one za koje imaš sastojke */
+function autoOmWeek(keepDone){
+  const cur = plan.om || defaultOmWeek();
+  const used = new Set(keepDone ? cur.filter(o => o.done).map(o => omNorm(o.sel)) : []);
+  const pool = shuffle(OM_PRESETS).filter(p => !used.has(omNorm(p.sel)))
+    .map(p => ({p, miss: omMissing(p.sel).length})).sort((a,b) => a.miss - b.miss);
+  let k = 0;
+  return cur.map(o => {
+    if (keepDone && o.done) return o;
+    const pick = pool.length ? pool[k++ % pool.length].p : OM_PRESETS[0];
+    return {sel: JSON.parse(JSON.stringify(pick.sel)), done: false};
+  });
+}
+function surpriseSel(){
+  const ok = id => Object.entries(OFBY[id].use).every(([k,a]) => q(k) + 1e-9 >= a);
+  const pick = (arr, n) => shuffle(arr).sort((a,b) => ok(b) - ok(a)).slice(0, n);
+  const r = Math.random();
+  return {base: r < 0.6 ? "protein" : r < 0.8 ? "lagani" : "klasik", fill: pick(OM_PROT, 1).concat(pick(OM_VEG, 2)), carb: "nista"};
+}
+function setOm(sel){
+  const prev = plan.om[omDay];
+  plan.om[omDay] = {sel: validOm(sel), done: prev ? prev.done : false};
+  writePlan(); renderOmlet(); renderShop(); renderCosts();
+}
+function eatOmlet(){
+  const ix = omDay, day = plan.om[ix], eff = omEff(day.sel, omServ, Object.assign({}, prepStock));
+  const before = {}, pBefore = {};
+  for (const [id,a] of Object.entries(eff.use)){ before[id] = q(id); setQty(id, q(id) - a); scheduleItem(id, 0); }
+  for (const [p,k] of eff.consumed){ pBefore[p] = pc(p); prepStock[p] = Math.max(0, pc(p) - k); schedulePrep(p, 0); }
+  plan.om[ix] = {sel: day.sel, done: true}; writePlan();
+  renderAll();
+  toast(`${omName(day.sel)}: sastojci skinuti sa zalihe.`, () => {
+    for (const [id,v] of Object.entries(before)){ setQty(id, v); scheduleItem(id, 0); }
+    for (const [p,v] of Object.entries(pBefore)){ prepStock[p] = v; schedulePrep(p, 0); }
+    plan.om[ix] = {sel: day.sel, done: false}; writePlan(); renderAll(); toast("Poništeno.");
+  });
+}
+function renderOmlet(){
+  if (!plan.om || plan.om.length !== 7) plan.om = defaultOmWeek();
+  const tix = todayIx();
+  document.getElementById("omWeekList").innerHTML = plan.om.map((o,ix) => {
+    const m = omMacros(o.sel, 1), miss = o.done ? [] : omMissing(o.sel);
+    const info = o.done ? '<span class="ready">Pojedeno</span>' : miss.length ? `<span class="miss">Fali: ${esc(miss.join(", "))}</span>` : '<span class="ready">Sve imaš</span>';
+    return `<div class="prow omrow${o.done?" done":""}${ix===omDay?" sel":""}"><div class="dname">${DAYS[ix]}<small>${ix===tix?"danas":""}</small></div>
+      <button type="button" class="pmid ompick" data-omday="${ix}" aria-pressed="${ix===omDay}"><b>${esc(omName(o.sel))}</b><span class="num">${m.p} g proteina · ${m.k} kcal</span>${info}</button>
+      <span class="chev" aria-hidden="true">${ix===omDay?"●":"›"}</span></div>`;
+  }).join("");
+
+  const day = plan.om[omDay], sel = day.sel, f = omServ;
+  document.getElementById("omEditTitle").textContent = `Omlet za ${DAYS[omDay].toLowerCase()}${omDay===tix?" (danas)":""}`;
+  document.getElementById("omPresets").innerHTML = OM_PRESETS.map((p,ix) => {
+    const m = omMacros(p.sel, 1), on = omNorm(p.sel) === omNorm(sel);
+    const inWeek = plan.om.some((o,j) => j !== omDay && omNorm(o.sel) === omNorm(p.sel));
+    return `<button type="button" class="preset${on?" on":""}" data-ompreset="${ix}" aria-pressed="${on}"><b>${esc(p.n)}</b><small>${esc(p.d)}</small><span class="num">${m.p} g proteina · ${m.k} kcal${inWeek?" · već u tjednu":""}</span></button>`;
+  }).join("");
+  document.getElementById("omBase").innerHTML = Object.entries(OM_BASE).map(([k,b]) =>
+    `<button type="button" aria-pressed="${sel.base===k}" data-ombase="${k}">${b.n} <small>${b.d}</small></button>`).join("");
+  const chip = x => `<button type="button" aria-pressed="${sel.fill.includes(x)}" data-omfill="${x}">${OFBY[x].n}</button>`;
+  document.getElementById("omFillProt").innerHTML = OM_PROT.map(chip).join("");
+  document.getElementById("omFillVeg").innerHTML = OM_VEG.map(chip).join("");
+  document.getElementById("omCarb").innerHTML = Object.entries(OM_CARB).map(([k,c]) =>
+    `<button type="button" aria-pressed="${sel.carb===k}" data-omcarb="${k}">${c.n}</button>`).join("");
+
+  const mac = omMacros(sel, f), per = mac.p / f;
+  const eff = omEff(sel, f, Object.assign({}, prepStock));
+  const miss = Object.entries(eff.use).filter(([id,a]) => q(id) + 1e-9 < a).map(([id]) => BY[id].n);
+  const cost = costOf(omUse(sel, f));
+  const fills = sel.fill.map(x => OFBY[x]);
+  const B = OM_BASE[sel.base], C = OM_CARB[sel.carb];
+  const ing = [B.line].concat(fills.map(x => x.line)).concat(C.line ? [C.line] : []).concat(["sol, papar, ulje u spreju"]);
+  const pre = fills.filter(x => x.pre).map(x => x.pre), post = fills.filter(x => x.post).map(x => x.post), mixin = fills.filter(x => x.mixin).map(x => x.mixin);
+  const st = [];
+  if (C.step && sel.carb === "krumpir") st.push(C.step);
+  st.push(`U zdjelu stavi ${B.mix}, dodaj prstohvat soli i papra i snažno muti vilicom 30 s, dok smjesa ne bude ujednačena i malo pjenasta. ${mixin.join(" ")}`.trim());
+  if (omMethod === "wok"){
+    if (pre.length) st.push("Wok zagrij na srednjoj vatri i poprskaj uljem u spreju. " + pre.join(" ") + " Nadjev izvadi na tanjur.");
+    st.push("Smanji vatru na srednje nisku, ponovno poprskaj wok i ulij jaja. Ostavi 30 s da se rub stisne.");
+    st.push("Kuhačom privlači stisnute rubove prema sredini i naginji wok da sirova smjesa steče na vrući rub. Ponavljaj 1–2 min.");
+    if (fills.length) st.push("Dok je gornja strana još malo vlažna, rasporedi nadjev po jednoj polovici. " + post.join(" "));
+    st.push("Preklopi omlet, poklopi wok i ostavi 1 min na najmanjoj vatri da se sredina dovrši, a sir omekša.");
+  } else {
+    if (pre.length) st.push("Nadjev pripremi u woku na srednjoj vatri s malo ulja u spreju. " + pre.join(" "));
+    st.push("Mali kalup za air fryer (silikonski, ili od papira za pečenje savijenog u posudicu) poprskaj uljem i ulij jaja.");
+    if (fills.length) st.push("Rasporedi nadjev po jajima. " + post.join(" "));
+    st.push("Peci na 160 °C 10–12 min, dok sredina nije čvrsta kad lagano protreseš kalup. Na višoj temperaturi rubovi se osuše prije nego sredina bude gotova.");
+    st.push("Ostavi 1 min u kalupu pa izvrni na tanjur.");
+  }
+  if (C.step && sel.carb !== "krumpir") st.push(C.step);
+  const target = per >= 30 && per <= 45 ? '<span class="pill p-ok">cilj 30–40 g ✓</span>' : per < 30 ? '<span class="pill p-low">ispod 30 g, dodaj protein</span>' : '<span class="pill p-ok">jako proteinski</span>';
+  const pu = eff.consumed.map(([p,k]) => `${pfmt(k, PREP_INV[p].unit)} ${PBY[p].n.toLowerCase()}`);
+  document.getElementById("omCard").innerHTML = `
+    <h2>${esc(omName(sel))}</h2>
+    <div class="summary four">
+      <div><b>${mac.p} g</b><span>proteina</span><small>${target}</small></div>
+      <div><b>${mac.k}</b><span>kcal (≈)</span></div>
+      <div><b>${cost.known ? eur(cost.c) : "–"}</b><span>cijena</span><small>${cost.known ? `${cost.known}/${cost.total} ima cijenu` : "upiši cijene u Zalihi"}</small></div>
+      <div><b>${porcTxt(f)}</b><span>porcije</span><small><span class="stepper inline"><button type="button" data-omsrv="dec" aria-label="Manje porcija">−</button><button type="button" data-omsrv="inc" aria-label="Više porcija">+</button></span></small></div>
+    </div>
+    ${day.done ? '<p class="ready">Ovaj omlet je pojeden.</p>' : miss.length ? `<p class="miss">Fali na zalihi: ${esc(miss.join(", "))}</p>` : '<p class="ready">Imaš sve sastojke.</p>'}
+    ${pu.length ? `<p class="ready">Iz pripremljenog koristi: ${esc(pu.join(", "))}</p>` : ""}
+    <div class="list omlist"><div class="rbody">
+      <div><h4>Sastojci za ${porcTxt(f)}</h4><ul>${ing.map(i => `<li>${scaleText(i, f)}</li>`).join("")}</ul></div>
+      <div class="filters" aria-label="Način pripreme"><button type="button" data-ommethod="wok" aria-pressed="${omMethod==="wok"}">U woku · 8 min</button><button type="button" data-ommethod="af" aria-pressed="${omMethod==="af"}">Air fryer · 15 min</button></div>
+      <div><h4>Priprema</h4><ol>${st.map(x => `<li>${esc(x)}</li>`).join("")}</ol></div>
+      ${f !== 1 ? `<p class="prepline">Za ${porcTxt(f)} koristi veći wok ili kalup, ili peci jedan po jedan.</p>` : ""}
+      <div class="tip">Bjelanjci daju proteine skoro bez masti, pa su proteinska i lagana baza najbolji izbor za mršavljenje. Špek i kobasice koristi u malim količinama, za okus.</div>
+      <div class="btnrow">${day.done
+        ? `<button type="button" class="btn ghost" id="omUndone">Označi kao nepojeden</button><span class="count">sastojci se ne vraćaju</span>`
+        : `<button type="button" class="btn" id="omEat">Pojeo sam</button><span class="count">skida sastojke sa zalihe</span>`}</div>
+    </div></div>`;
+  const mf = pc("egg-muffini");
+  document.getElementById("omMuffins").innerHTML = mf >= 4 && !day.done
+    ? `<div class="note"><strong>Imaš ${pfmt(mf, "muffin")}.</strong> Kad nemaš vremena, umjesto ovog omleta pojedi 4 egg muffina (oko 28 g proteina). <button type="button" class="cookbtn" id="omMuffin">Pojeo 4 muffina</button></div>`
+    : mf >= 4 ? "" : `<p class="sub">Za jutra bez vremena napravi <strong>Egg muffine</strong> iz Prepa: 12 komada za 3 obroka.</p>`;
+}
+function autoFill(){
+  const used = {};
+  plan.days = plan.days.map((d, ix) => {
+    if (d.done) return d;
+    const c = CYCLE[((plan.start||0) + ix) % 5];
+    const pool = RECIPES.filter(r => r.c === c);
+    pool.sort((a,b) => (used[a.id]||0) - (used[b.id]||0) || missingFor(a.id).length - missingFor(b.id).length);
+    const pick = pool[0]; used[pick.id] = (used[pick.id]||0) + 1;
+    return {r: pick.id, done: false};
+  });
+  writePlan(); renderAll();
+}
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("button"); if (!t) return;
+  const d = t.dataset;
+  if (d.tab){
+    document.querySelectorAll("nav button").forEach(x => x.setAttribute("aria-selected", x===t));
+    document.querySelectorAll("section[role=tabpanel]").forEach(s => s.hidden = s.id !== d.tab);
+    try{ localStorage.setItem("kuharica-tab", d.tab); }catch(err){}
+  } else if (d.inc || d.dec){
+    const id = d.inc || d.dec, i = BY[id];
+    setQty(id, q(id) + (d.inc ? i.step : -i.step)); scheduleItem(id); renderStock(); renderShop(); renderPlan(); renderRecipes();
+  } else if (d.open){
+    openEdit = openEdit === d.open ? null : d.open; renderStock();
+  } else if (d.buy || d.buyn){
+    const id = d.buy || d.buyn, n = Number(d.packs || 1), i = BY[id], prev = q(id), p = price(id);
+    setQty(id, prev + n * i.pack); scheduleItem(id, 0);
+    const ce = p != null ? addCost({id: newId(), t: Date.now(), shop: i.src, amount: round(n * p), note: i.n, est: true}) : null;
+    renderAll();
+    toast(`${i.n}: +${fmt(n*i.pack,i.u)} na zalihi${ce ? `, trošak ${eur(ce.amount)}` : ""}.`, () => {
+      setQty(id, prev); scheduleItem(id, 0); if (ce) removeCost(monthKey(ce.t), ce.id); renderAll(); toast("Poništeno."); });
+  } else if (d.delcost){
+    const [mk, cid] = d.delcost.split("|"), e = (costs[mk] || []).find(x => x.id === cid);
+    if (!e) return;
+    removeCost(mk, cid); renderCosts();
+    toast("Zapis obrisan.", () => { addCost(e); renderCosts(); toast("Vraćeno."); });
+  } else if (d.cook){
+    cook(d.cook, null, srv(d.cook) / 1.5);
+  } else if (d.srvinc || d.srvdec){
+    const id = d.srvinc || d.srvdec;
+    servings[id] = Math.min(6, Math.max(0.5, srv(id) + (d.srvinc ? 0.5 : -0.5))); saveSrv(); renderRecipes();
+  } else if (d.tureinc || d.turedec){
+    const id = d.tureinc || d.turedec;
+    ture[id] = Math.min(5, Math.max(0.5, tm(id) + (d.tureinc ? 0.5 : -0.5))); saveSrv(); renderPrep();
+  } else if (d.ompreset != null){
+    setOm(JSON.parse(JSON.stringify(OM_PRESETS[Number(d.ompreset)].sel)));
+  } else if (d.ombase){
+    setOm(Object.assign({}, plan.om[omDay].sel, {base: d.ombase}));
+  } else if (d.omfill){
+    const cur = plan.om[omDay].sel.fill;
+    setOm(Object.assign({}, plan.om[omDay].sel, {fill: cur.includes(d.omfill) ? cur.filter(x => x !== d.omfill) : cur.concat([d.omfill])}));
+  } else if (d.omcarb){
+    setOm(Object.assign({}, plan.om[omDay].sel, {carb: d.omcarb}));
+  } else if (d.omsrv){
+    omServ = Math.min(4, Math.max(0.5, omServ + (d.omsrv === "inc" ? 0.5 : -0.5))); renderOmlet();
+  } else if (d.ommethod){
+    omMethod = d.ommethod; renderOmlet();
+  } else if (t.id === "omEat"){
+    eatOmlet();
+  } else if (t.id === "omMuffin"){
+    const prev = pc("egg-muffini"), ix = omDay, sel = plan.om[ix].sel;
+    prepStock["egg-muffini"] = Math.max(0, prev - 4); schedulePrep("egg-muffini", 0);
+    plan.om[ix] = {sel, done: true}; writePlan(); renderAll();
+    toast("4 egg muffina pojedena.", () => { prepStock["egg-muffini"] = prev; schedulePrep("egg-muffini", 0); plan.om[ix] = {sel, done: false}; writePlan(); renderAll(); toast("Poništeno."); });
+  } else if (d.omday != null){
+    omDay = Number(d.omday); renderOmlet();
+    const el = document.getElementById("omEditTitle"); if (el && el.scrollIntoView) el.scrollIntoView({block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+  } else if (t.id === "omAuto"){
+    const prev = JSON.parse(JSON.stringify(plan.om));
+    plan.om = autoOmWeek(true); writePlan(); renderOmlet(); renderShop(); renderCosts();
+    toast("Novi omleti za tjedan.", () => { plan.om = prev; writePlan(); renderAll(); toast("Poništeno."); });
+  } else if (t.id === "omSurprise"){
+    setOm(surpriseSel());
+  } else if (t.id === "omUndone"){
+    plan.om[omDay] = {sel: plan.om[omDay].sel, done: false}; writePlan(); renderAll();
+  } else if (d.prep){
+    makePrep(d.prep);
+  } else if (d.pinc || d.pdec){
+    const id = d.pinc || d.pdec;
+    prepStock[id] = Math.max(0, pc(id) + (d.pinc ? 1 : -1)); schedulePrep(id); renderAll();
+  } else if (d.pf){
+    prepF = d.pf; document.querySelectorAll("#prepFilter button").forEach(x => x.setAttribute("aria-pressed", x===t)); renderPrep();
+  } else if (d.cookday != null){
+    const ix = Number(d.cookday), day = plan.days[ix];
+    if (day.done){ plan.days[ix] = {r: day.r, done: false}; writePlan(); renderAll(); }
+    else cook(day.r, ix);
+  } else if (d.f){
+    stockFilter = d.f; document.querySelectorAll("#stockFilter button").forEach(x => x.setAttribute("aria-pressed", x===t)); renderStock();
+  } else if (d.c){
+    carb = d.c; document.querySelectorAll("#carbFilter button").forEach(x => x.setAttribute("aria-pressed", x===t)); renderRecipes();
+  } else if (t.id === "autoFill"){ autoFill(); }
+  else if (t.id === "clearPlan"){
+    const prev = JSON.parse(JSON.stringify(plan));
+    plan = {start: ((plan.start||0) + 7) % 5, days: DAYS.map(() => ({r:"",done:false})), om: prev.om.map(o => ({sel: o.sel, done: false}))}; plan.om = autoOmWeek(false); writePlan(); renderAll();
+    toast("Novi tjedan, ciklus pomaknut.", () => { plan = prev; writePlan(); renderAll(); toast("Poništeno."); });
+  } else if (t.id === "toastUndo"){
+    const u = undo; undo = null; document.getElementById("toast").hidden = true; if (u) u();
+  } else if (t.id === "copyBtn"){
+    const ta = document.getElementById("copyText"), msg = document.getElementById("copyMsg");
+    const fallback = () => { ta.focus(); ta.select(); msg.textContent = "Označeno, kopiraj ručno"; };
+    try{ navigator.clipboard.writeText(ta.value).then(() => msg.textContent = "Kopirano", fallback); }catch(err){ fallback(); }
+  }
+});
+document.addEventListener("change", e => {
+  const t = e.target, d = t.dataset;
+  if (t.id === "costMonth"){ renderCosts(); return; }
+  if (d.setting){ const v = parseFloat(String(t.value).replace(",", ".")); if (!isNaN(v) && v >= 0){ settings[d.setting] = d.setting === "omletTjedno" ? Math.min(14, Math.round(v)) : round(v); writeSettings(); renderCosts(); renderShop(); renderOmlet(); } return; }
+  if (d.day != null){ plan.days[Number(d.day)] = {r: t.value, done: false}; writePlan(); renderAll(); }
+  else if (t.id === "cycleStart"){ plan.start = Number(t.value); writePlan(); renderPlan(); }
+  else if (d.setq){ const v = parseFloat(String(t.value).replace(",", ".")); if (!isNaN(v)){ setQty(d.setq, v); scheduleItem(d.setq, 0); } }
+  else if (d.setp){ const raw = String(t.value).replace(",", ".").trim(); const v = raw === "" ? null : parseFloat(raw);
+    stock[d.setp] = Object.assign({}, stock[d.setp] || {qty:0}, {price: (v==null||isNaN(v)) ? null : round(v)}); scheduleItem(d.setp, 0); }
+});
+document.getElementById("receiptForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const amt = parseFloat(String(document.getElementById("rcAmount").value).replace(",", "."));
+  if (isNaN(amt) || amt <= 0){ toast("Upiši iznos računa veći od 0."); return; }
+  const shop = document.getElementById("rcShop").value;
+  const dv = document.getElementById("rcDate").value;
+  const now = new Date();
+  const t = dv ? new Date(dv + "T" + String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0")).getTime() : Date.now();
+  const mk = monthKey(t);
+  const replaced = (costs[mk] || []).filter(x => x.est && x.shop === shop && sameDay(x.t, t));
+  costs[mk] = (costs[mk] || []).filter(x => !replaced.includes(x));
+  const note = document.getElementById("rcNote").value.trim() || ("Račun " + SHOPS[shop]);
+  const ent = {id: newId(), t, shop, amount: round(amt), note, est: false};
+  costs[mk] = costs[mk].concat([ent]); writeCosts(mk);
+  document.getElementById("rcAmount").value = ""; document.getElementById("rcNote").value = "";
+  renderCosts();
+  toast(`Račun ${eur(ent.amount)} spremljen${replaced.length ? `, zamijenjeno ${replaced.length} procjena` : ""}.`, () => {
+    costs[mk] = (costs[mk] || []).filter(x => x.id !== ent.id).concat(replaced); writeCosts(mk); renderCosts(); toast("Poništeno."); });
+});
+document.addEventListener("focusout", () => setTimeout(() => {
+  if (deferStock && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("#stock"))) renderStock();
+  renderShop(); renderPlan(); renderRecipes();
+}, 0));
+
+/* ---------- Pokretanje ---------- */
+(function restoreTab(){
+  try{ const t = localStorage.getItem("kuharica-tab"); const b = t && document.querySelector(`nav button[data-tab="${t}"]`); if (b) b.click(); }catch(e){}
+})();
+renderAll();
+
+async function boot(){
+  const c = window.claude;
+  let handle = null;
+  if (c && typeof c.use === "function"){ try{ handle = await c.use("db"); }catch(e){ handle = null; } }
+  if (!handle){
+    mode = "local"; loadLocal(); renderAll();
+    setStatus("Zaliha se sprema samo u ovom pregledniku. Prijavi se u Claude za spremanje u oblak.");
+    return;
+  }
+  db = handle; mode = "db";
+  setStatus("Zaliha se sprema i sinkronizira između uređaja.");
+  db.collection("zaliha").onSnapshot(snap => {
+    const next = {};
+    snap.docs.forEach(d => { next[d.id] = d.data(); });
+    for (const id of pending) if (stock[id]) next[id] = stock[id];
+    stock = next; renderAll();
+  }, err => setStatus("Veza sa zalihom je prekinuta. Osvježi stranicu."));
+  db.collection("prep").onSnapshot(snap => {
+    const next = {};
+    snap.docs.forEach(d => { const v = d.data(); next[d.id] = typeof v.count === "number" ? v.count : 0; });
+    for (const id of pPending) if (id in prepStock) next[id] = prepStock[id];
+    prepStock = next; renderAll();
+  }, () => {});
+  db.collection("troskovi").onSnapshot(snap => {
+    const next = {};
+    snap.docs.forEach(d => { const v = d.data(); next[d.id] = Array.isArray(v.entries) ? v.entries.slice() : []; });
+    costs = next; renderCosts();
+  }, () => {});
+  db.doc("meta/postavke").onSnapshot(s => {
+    if (s.exists){ const v = s.data(); const n = (x, dflt) => typeof x === "number" ? x : dflt;
+      settings = {dostava: n(v.dostava, 12), dorucak: n(v.dorucak, 2.5), omletTjedno: n(v.omletTjedno, 7), omlet: validOm(v.omlet)}; renderAll(); }
+  }, () => {});
+  db.doc("plan/tjedan").onSnapshot(s => {
+    if (s.exists){ const v = s.data(); plan = {start: v.start || 0,
+      om: Array.isArray(v.om) && v.om.length === 7 ? v.om.map(x => ({sel: validOm(x && x.sel), done: !!(x && x.done)})) : plan.om, days: Array.isArray(v.days) && v.days.length === 7 ? v.days.map(x => ({r: x.r || "", done: !!x.done})) : plan.days}; renderAll(); }
+  }, () => {});
+  db.doc("meta/povijest").onSnapshot(s => {
+    if (s.exists){ const v = s.data(); hist = Array.isArray(v.items) ? v.items.slice() : []; renderPlan(); }
+  }, () => {});
+}
+boot();
+</script>
