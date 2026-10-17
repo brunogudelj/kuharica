@@ -34,6 +34,14 @@ type NK = "n" | "shop" | "need" | "have" | "short" | "cost";
 
 /** Namirnice koje traži plan za ovaj tjedan */
 function WeekNeeds({ data }: { data: AppData }) {
+  const { update } = useApp();
+  const toShop = () =>
+    update((d) => {
+      const n = clone(d);
+      n.ui.tab = "kupovina";
+      n.ui.kupFocus = "plan";
+      return n;
+    });
   const [sort, setSort] = useState<{ k: NK; dir: 1 | -1 }>({ k: "shop", dir: 1 });
   const rows = weekNeeds(data);
   const short = rows.filter((r) => r.short > 0.0001);
@@ -63,7 +71,7 @@ function WeekNeeds({ data }: { data: AppData }) {
 
   return (
     <div>
-      {(
+      {
         <div className="tablewrap">
           <table className="grid">
             <thead>
@@ -129,6 +137,23 @@ function WeekNeeds({ data }: { data: AppData }) {
             )}
           </div>
         </div>
+      }
+      {short.length > 0 ? (
+        <div className="needsbar">
+          <span>
+            {short.length === 1
+              ? "Namirnica koja fali već je"
+              : short.length <= 4
+                ? `Sve ${short.length} namirnice koje fale već su`
+                : `Svih ${short.length} namirnica koje fale već su`}{" "}
+            na popisu za kupovinu, s količinom zaokruženom na cijela pakiranja.
+          </span>
+          <button type="button" className="btn" onClick={toShop}>
+            <Icon name="kupovina" size={18} /> Otvori popis za kupovinu ({short.length})
+          </button>
+        </div>
+      ) : (
+        <p className="ready">Imaš sve za ovaj tjedan.</p>
       )}
     </div>
   );
@@ -224,7 +249,10 @@ export function PlanTab() {
   const recipes = allRecipes(data);
   const mains = recipes.filter((r) => !r.side);
   const byCarb = (list: typeof recipes): OptGroup[] =>
-    (["Riža", "Krumpir", "Tjestenina", "Ostalo"] as const).map((c) => [c, list.filter((r) => r.c === c).map((r): Opt => [r.id, r.n])]);
+    (["Riža", "Krumpir", "Tjestenina", "Ostalo"] as const).map((c) => [
+      c,
+      list.filter((r) => r.c === c).map((r): Opt => [r.id, r.n]),
+    ]);
   const breakfastGroups: OptGroup[] = [
     ["Omleti", OM_PRESETS.map((p, i): Opt => ["om:" + i, p.n])],
     ["Recepti (1 porcija)", mains.map((r): Opt => ["r:" + r.id, r.n])],
@@ -239,12 +267,19 @@ export function PlanTab() {
     .filter((i) => i.grp === "voce")
     .sort((x, y) => x.n.localeCompare(y.n, "hr"));
   const fruitGroups: OptGroup[] = [
-    ["Imaš doma", fruits.filter((i) => qty(data, i.id) > 0).map((i): Opt => [i.id, `${i.n} (${fmt(qty(data, i.id), i.u)})`])],
+    [
+      "Imaš doma",
+      fruits.filter((i) => qty(data, i.id) > 0).map((i): Opt => [i.id, `${i.n} (${fmt(qty(data, i.id), i.u)})`]),
+    ],
     ["Ostalo voće", fruits.filter((i) => !(qty(data, i.id) > 0)).map((i): Opt => [i.id, i.n])],
   ];
   const pickBreakfast = (ix: number, v: string) => {
     if (v === "build") return open({ t: "om", sel: DEFAULT_OM, day: ix });
-    if (v.startsWith("om:")) return apply(setOmDay(data, ix, OM_PRESETS[Number(v.slice(3))].sel), `Doručak za ${DAYS[ix].toLowerCase()}: ${OM_PRESETS[Number(v.slice(3))].n}.`);
+    if (v.startsWith("om:"))
+      return apply(
+        setOmDay(data, ix, OM_PRESETS[Number(v.slice(3))].sel),
+        `Doručak za ${DAYS[ix].toLowerCase()}: ${OM_PRESETS[Number(v.slice(3))].n}.`,
+      );
     const id = v.slice(2);
     apply(setBreakfastRecipe(data, ix, id), `Doručak za ${DAYS[ix].toLowerCase()}: ${recipeName(data, id)}.`);
   };
@@ -265,10 +300,19 @@ export function PlanTab() {
   const weekCost =
     plan.days.reduce((s, d) => s + (d.r ? dayCost(data, d.r).meals : 0), 0) +
     plan.om.reduce(
-      (s, o) => s + (o.r ? costOf(data, slotUse(data, { r: o.r, done: false }, { ...pc0 }).use).c : o.sel ? costOf(data, omUse(data, o.sel, 1)).c : 0),
+      (s, o) =>
+        s +
+        (o.r
+          ? costOf(data, slotUse(data, { r: o.r, done: false }, { ...pc0 }).use).c
+          : o.sel
+            ? costOf(data, omUse(data, o.sel, 1)).c
+            : 0),
       0,
     ) +
-    SLOT_KEYS.reduce((s, k) => s + plan.extra[k].reduce((t, x) => t + (x.item ? costOf(data, slotUse(data, x, {}).use).c : 0), 0), 0);
+    SLOT_KEYS.reduce(
+      (s, k) => s + plan.extra[k].reduce((t, x) => t + (x.item ? costOf(data, slotUse(data, x, {}).use).c : 0), 0),
+      0,
+    );
   const extraDone = SLOT_KEYS.reduce((s, k) => s + plan.extra[k].filter((x) => x.done).length, 0);
   const extraPlanned = SLOT_KEYS.reduce((s, k) => s + plan.extra[k].filter((x) => x.r || x.item).length, 0);
   const shop = shopping(data).length;
@@ -312,10 +356,18 @@ export function PlanTab() {
             </option>
           ))}
         </select>
-        <button className="btn wide" type="button" onClick={() => apply(autoFillPlan(data), "Prazni dani su popunjeni.")}>
+        <button
+          className="btn wide"
+          type="button"
+          onClick={() => apply(autoFillPlan(data), "Prazni dani su popunjeni.")}
+        >
           Popuni prazne dane
         </button>
-        <button className="btn ghost wide" type="button" onClick={() => apply(newWeek(data), "Novi tjedan, ciklus pomaknut.")}>
+        <button
+          className="btn ghost wide"
+          type="button"
+          onClick={() => apply(newWeek(data), "Novi tjedan, ciklus pomaknut.")}
+        >
           Novi tjedan
         </button>
         <p className="fhint">
@@ -370,7 +422,9 @@ export function PlanTab() {
             {data.hist.slice(0, 8).map((h, i) => (
               <li key={i}>
                 <b>{recipeName(data, h.r)}</b>
-                <span>{new Date(h.t).toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" })}</span>
+                <span>
+                  {new Date(h.t).toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" })}
+                </span>
               </li>
             ))}
           </ul>
@@ -394,10 +448,22 @@ export function PlanTab() {
       filterTitle="Tjedan"
       tabs={
         <div className="seg" role="tablist" aria-label="Prikaz plana">
-          <button type="button" role="tab" aria-selected={tab === "cal"} aria-pressed={tab === "cal"} onClick={() => setView("cal")}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "cal"}
+            aria-pressed={tab === "cal"}
+            onClick={() => setView("cal")}
+          >
             Kalendar
           </button>
-          <button type="button" role="tab" aria-selected={tab === "needs"} aria-pressed={tab === "needs"} onClick={() => setView("needs")}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "needs"}
+            aria-pressed={tab === "needs"}
+            onClick={() => setView("needs")}
+          >
             Namirnice za tjedan <small>{needs.length}</small>
             {needShort > 0 && <span className="badge">{needShort}</span>}
           </button>
@@ -408,217 +474,295 @@ export function PlanTab() {
         <WeekNeeds data={data} />
       ) : (
         <>
-      <div className="calwrap">
-        <div className="cal" role="grid" aria-label="Tjedni kalendar obroka">
-          <div className="corner" />
-          {DAYS.map((d, ix) => (
-            <div key={d} className={"ch" + (ix === tix ? " today" : "")} role="columnheader">
-              <b>{d}</b>
-              <small>{ix === tix ? "danas" : dateOf(ix)}</small>
-            </div>
-          ))}
+          <div className="calwrap">
+            <div className="cal" role="grid" aria-label="Tjedni kalendar obroka">
+              <div className="corner" />
+              {DAYS.map((d, ix) => (
+                <div key={d} className={"ch" + (ix === tix ? " today" : "")} role="columnheader">
+                  <b>{d}</b>
+                  <small>{ix === tix ? "danas" : dateOf(ix)}</small>
+                </div>
+              ))}
 
-          <div className="rh" role="rowheader">
-            Doručak<small>bilo koji recept</small>
-          </div>
-          {plan.om.map((o, ix) => {
-            if (!o.sel && !o.r)
-              return (
-                <div key={"o" + ix} role="gridcell">
-                  <PickSelect label="Dodaj doručak" groups={breakfastGroups} onPick={(v) => pickBreakfast(ix, v)} />
-                </div>
-              );
-            const isOm = !!o.sel && !o.r;
-            const name = isOm ? omName(data, o.sel!) : recipeName(data, o.r!);
-            const m = isOm ? omMacros(data, o.sel!, 1) : null;
-            const e = !isOm ? mealEntry(data, o.r!) : null;
-            const miss = o.done ? [] : isOm ? omMissing(data, o.sel!) : missingFor(data, o.r!, 1 / 1.5);
-            return (
-              <div key={"o" + ix} role="gridcell">
-                <div className={"cell " + (isOm ? "cc-Omlet" : `cc-${recipeOf(data, o.r!)?.c ?? "Ostalo"}`) + (o.done ? " done" : "")}>
-                  <div className="ctop">
-                    {isOm && <span className="ctag">omlet</span>}
-                    <button
-                      type="button"
-                      className="mini"
-                      aria-label={`Recept: ${name}`}
-                      onClick={() => (isOm ? open({ t: "om", day: ix }) : open({ t: "meal", id: o.r! }))}
-                    >
-                      <Icon name="info" size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      className="mini"
-                      aria-label={`Makni doručak: ${DAYS[ix]}`}
-                      onClick={() => apply(setOmDay(data, ix, null), `Doručak maknut s dana ${DAYS[ix].toLowerCase()}.`)}
-                    >
-                      <Icon name="close" size={16} />
-                    </button>
-                  </div>
-                  <span className="cname">{name}</span>
-                  <span className="cmeta">
-                    {m ? `${m.p} g proteina · ${m.k} kcal` : e && e.kcal != null ? `${Math.round((e.kcal * 2) / 1.5)} kcal · 1 porcija` : "1 porcija"}
-                  </span>
-                  <div className="crow">
-                    <span className={"flag " + (o.done ? "done" : miss.length ? "miss" : "ready")}>
-                      {o.done ? "" : miss.length ? `fali ${miss.length}` : "imaš sve"}
-                    </span>
-                    {!o.done && <PickSelect swap label={`Zamijeni doručak: ${DAYS[ix]}`} groups={breakfastGroups} onPick={(v) => pickBreakfast(ix, v)} />}
-                    <button
-                      type="button"
-                      className="tick-btn"
-                      aria-pressed={o.done}
-                      aria-label={`${o.done ? "Pojedeno" : "Pojeo sam"}: ${DAYS[ix]}, ${name}`}
-                      onClick={() => toggleOm(ix)}
-                    >
-                      <Icon name="check" size={16} />
-                    </button>
-                  </div>
-                </div>
+              <div className="rh" role="rowheader">
+                Doručak<small>bilo koji recept</small>
               </div>
-            );
-          })}
-
-          {(["juha", "lunch", "salata", "voce1", "voce2"] as const).map((row) => {
-            if (row === "lunch")
-              return (
-                <Fragment key="lunch">
-                  <div className="rh" role="rowheader">
-                    Ručak i večera<small>1,5 porcija</small>
-                  </div>
-                  {plan.days.map((d, ix) => {
-                    const cyc = CYCLE[((plan.start || 0) + ix) % 5];
-                    const r = d.r ? recipeOf(data, d.r) : undefined;
-                    const groups = byCarb(mains).sort(([a], [b]) => (a === cyc ? -1 : b === cyc ? 1 : 0));
-                    const pick = (id: string) => apply(setPlanDay(data, ix, id), `${recipeName(data, id)} za ${DAYS[ix].toLowerCase()}.`);
-                    if (!r)
-                      return (
-                        <div key={"r" + ix} role="gridcell">
-                          <PickSelect label="Dodaj recept" hint={`ciklus: ${cyc.toLowerCase()}`} groups={groups} onPick={pick} />
-                        </div>
-                      );
-                    const m = !d.done ? missingFor(data, d.r) : [];
-                    const e = mealEntry(data, d.r);
-                    return (
-                      <div key={"r" + ix} role="gridcell">
-                        <div className={`cell cc-${r.c}` + (d.done ? " done" : "")}>
-                          <div className="ctop">
-                            <button type="button" className="mini" aria-label={`Recept: ${r.n}`} onClick={() => open({ t: "meal", id: r.id, day: ix })}>
-                              <Icon name="info" size={16} />
-                            </button>
-                            <button
-                              type="button"
-                              className="mini"
-                              aria-label={`Makni recept: ${DAYS[ix]}`}
-                              onClick={() => apply(setPlanDay(data, ix, ""), `${r.n} maknut s dana ${DAYS[ix].toLowerCase()}.`)}
-                            >
-                              <Icon name="close" size={16} />
-                            </button>
-                          </div>
-                          <span className="cname">{r.n}</span>
-                          {e && (e.kcal != null || e.time != null) && (
-                            <span className="cmeta">
-                              {e.kcal != null ? `${e.kcal} kcal · ${e.p} g prot.` : ""}
-                              {e.kcal != null && e.time != null ? " · " : ""}
-                              {e.time != null ? `${e.time} min` : ""}
-                            </span>
-                          )}
-                          <div className="crow">
-                            <span className={"flag " + (d.done ? "done" : m.length ? "miss" : "ready")}>
-                              {d.done ? "" : m.length ? `fali ${m.length}` : "imaš sve"}
-                            </span>
-                            {!d.done && <PickSelect swap label={`Zamijeni recept: ${DAYS[ix]}`} groups={groups} onPick={pick} />}
-                            <button
-                              type="button"
-                              className="tick-btn"
-                              aria-pressed={d.done}
-                              aria-label={`${d.done ? "Skuhano" : "Skuhaj"}: ${DAYS[ix]}, ${r.n}`}
-                              onClick={() => toggleCook(ix)}
-                            >
-                              <Icon name="check" size={16} />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </Fragment>
-              );
-            const k: SlotKey = row;
-            const isFruit = k === "voce1" || k === "voce2";
-            const groups = isFruit ? fruitGroups : sideGroups(k as "juha" | "salata");
-            const title = k === "juha" ? "Juha" : k === "salata" ? "Salata" : "Voće";
-            const sub = k === "juha" ? "prije ručka" : k === "salata" ? "uz ručak i večeru" : k === "voce1" ? "1. komad" : "2. komad";
-            return (
-              <Fragment key={k}>
-                <div className="rh small" role="rowheader">
-                  {title}
-                  <small>{sub}</small>
-                </div>
-                {plan.extra[k].map((x, ix) => {
-                  const pick = (v: string) =>
-                    isFruit ? pickFruit(k, ix, v) : apply(setSlot(data, k, ix, { r: v }), `${recipeName(data, v)} za ${DAYS[ix].toLowerCase()}.`);
-                  if (!x.r && !x.item)
-                    return (
-                      <div key={k + ix} role="gridcell">
-                        <PickSelect label={`Dodaj ${title.toLowerCase()}`} groups={groups} onPick={pick} />
-                      </div>
-                    );
-                  const name = slotLabel(data, x);
-                  const it = x.item ? itemOf(data, x.item) : undefined;
-                  const miss = x.done ? 0 : Object.entries(slotUse(data, x, { ...data.prepStock }).use).filter(([id, a]) => qty(data, id) + 1e-9 < a).length;
+              {plan.om.map((o, ix) => {
+                if (!o.sel && !o.r)
                   return (
-                    <div key={k + ix} role="gridcell">
-                      <div className={"cell slot " + (isFruit ? "s-voce" : `s-${k}`) + (x.done ? " done" : "")}>
-                        {x.r ? (
-                          <button type="button" className="cname linkname" title="Otvori recept" onClick={() => open({ t: "meal", id: x.r! })}>
-                            {name}
-                          </button>
-                        ) : (
-                          <span className="cname">{name}</span>
-                        )}
-                        <div className="crow">
-                          <span className={"flag " + (x.done ? "done" : miss ? "miss" : "muted")}>
-                            {x.done ? "" : it ? `${fmt(x.qty ?? 1, it.u)}${miss ? " · nema" : ""}` : miss ? `fali ${miss}` : ""}
-                          </span>
-                          {!x.done && <PickSelect swap label={`Zamijeni: ${title}, ${DAYS[ix]}`} groups={groups} onPick={pick} />}
-                          {!x.done && (
-                            <button
-                              type="button"
-                              className="mini"
-                              aria-label={`Makni: ${title}, ${DAYS[ix]}`}
-                              onClick={() => apply(setSlot(data, k, ix, null), `${name} maknut s dana ${DAYS[ix].toLowerCase()}.`)}
-                            >
-                              <Icon name="close" size={14} />
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            className="tick-btn small"
-                            aria-pressed={x.done}
-                            aria-label={`${x.done ? "Pojedeno" : "Pojeo sam"}: ${DAYS[ix]}, ${name}`}
-                            onClick={() => {
-                              const r = toggleSlot(data, k, ix);
-                              apply(r.data, r.msg);
-                            }}
-                          >
-                            <Icon name="check" size={14} />
-                          </button>
-                        </div>
-                      </div>
+                    <div key={"o" + ix} role="gridcell">
+                      <PickSelect label="Dodaj doručak" groups={breakfastGroups} onPick={(v) => pickBreakfast(ix, v)} />
                     </div>
                   );
-                })}
-              </Fragment>
-            );
-          })}
-        </div>
-      </div>
-      <p className="sub">
-        Kvačica znači skuhano ili pojedeno i skida sastojke sa zalihe. <Icon name="info" size={14} /> otvara recept,{" "}
-        <Icon name="swap" size={14} /> mijenja jelo, <Icon name="close" size={14} /> ga miče s dana. Uz ručak se skida i posni
-        sir za užinu.
-      </p>
+                const isOm = !!o.sel && !o.r;
+                const name = isOm ? omName(data, o.sel!) : recipeName(data, o.r!);
+                const m = isOm ? omMacros(data, o.sel!, 1) : null;
+                const e = !isOm ? mealEntry(data, o.r!) : null;
+                const miss = o.done ? [] : isOm ? omMissing(data, o.sel!) : missingFor(data, o.r!, 1 / 1.5);
+                return (
+                  <div key={"o" + ix} role="gridcell">
+                    <div
+                      className={
+                        "cell " +
+                        (isOm ? "cc-Omlet" : `cc-${recipeOf(data, o.r!)?.c ?? "Ostalo"}`) +
+                        (o.done ? " done" : "")
+                      }
+                    >
+                      <div className="ctop">
+                        {isOm && <span className="ctag">omlet</span>}
+                        <button
+                          type="button"
+                          className="mini"
+                          aria-label={`Recept: ${name}`}
+                          onClick={() => (isOm ? open({ t: "om", day: ix }) : open({ t: "meal", id: o.r! }))}
+                        >
+                          <Icon name="info" size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          className="mini"
+                          aria-label={`Makni doručak: ${DAYS[ix]}`}
+                          onClick={() =>
+                            apply(setOmDay(data, ix, null), `Doručak maknut s dana ${DAYS[ix].toLowerCase()}.`)
+                          }
+                        >
+                          <Icon name="close" size={16} />
+                        </button>
+                      </div>
+                      <span className="cname">{name}</span>
+                      <span className="cmeta">
+                        {m
+                          ? `${m.p} g proteina · ${m.k} kcal`
+                          : e && e.kcal != null
+                            ? `${Math.round((e.kcal * 2) / 1.5)} kcal · 1 porcija`
+                            : "1 porcija"}
+                      </span>
+                      <div className="crow">
+                        <span className={"flag " + (o.done ? "done" : miss.length ? "miss" : "ready")}>
+                          {o.done ? "" : miss.length ? `fali ${miss.length}` : "imaš sve"}
+                        </span>
+                        {!o.done && (
+                          <PickSelect
+                            swap
+                            label={`Zamijeni doručak: ${DAYS[ix]}`}
+                            groups={breakfastGroups}
+                            onPick={(v) => pickBreakfast(ix, v)}
+                          />
+                        )}
+                        <button
+                          type="button"
+                          className="tick-btn"
+                          aria-pressed={o.done}
+                          aria-label={`${o.done ? "Pojedeno" : "Pojeo sam"}: ${DAYS[ix]}, ${name}`}
+                          onClick={() => toggleOm(ix)}
+                        >
+                          <Icon name="check" size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {(["juha", "lunch", "salata", "voce1", "voce2"] as const).map((row) => {
+                if (row === "lunch")
+                  return (
+                    <Fragment key="lunch">
+                      <div className="rh" role="rowheader">
+                        Ručak i večera<small>1,5 porcija</small>
+                      </div>
+                      {plan.days.map((d, ix) => {
+                        const cyc = CYCLE[((plan.start || 0) + ix) % 5];
+                        const r = d.r ? recipeOf(data, d.r) : undefined;
+                        const groups = byCarb(mains).sort(([a], [b]) => (a === cyc ? -1 : b === cyc ? 1 : 0));
+                        const pick = (id: string) =>
+                          apply(setPlanDay(data, ix, id), `${recipeName(data, id)} za ${DAYS[ix].toLowerCase()}.`);
+                        if (!r)
+                          return (
+                            <div key={"r" + ix} role="gridcell">
+                              <PickSelect
+                                label="Dodaj recept"
+                                hint={`ciklus: ${cyc.toLowerCase()}`}
+                                groups={groups}
+                                onPick={pick}
+                              />
+                            </div>
+                          );
+                        const m = !d.done ? missingFor(data, d.r) : [];
+                        const e = mealEntry(data, d.r);
+                        return (
+                          <div key={"r" + ix} role="gridcell">
+                            <div className={`cell cc-${r.c}` + (d.done ? " done" : "")}>
+                              <div className="ctop">
+                                <button
+                                  type="button"
+                                  className="mini"
+                                  aria-label={`Recept: ${r.n}`}
+                                  onClick={() => open({ t: "meal", id: r.id, day: ix })}
+                                >
+                                  <Icon name="info" size={16} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="mini"
+                                  aria-label={`Makni recept: ${DAYS[ix]}`}
+                                  onClick={() =>
+                                    apply(setPlanDay(data, ix, ""), `${r.n} maknut s dana ${DAYS[ix].toLowerCase()}.`)
+                                  }
+                                >
+                                  <Icon name="close" size={16} />
+                                </button>
+                              </div>
+                              <span className="cname">{r.n}</span>
+                              {e && (e.kcal != null || e.time != null) && (
+                                <span className="cmeta">
+                                  {e.kcal != null ? `${e.kcal} kcal · ${e.p} g prot.` : ""}
+                                  {e.kcal != null && e.time != null ? " · " : ""}
+                                  {e.time != null ? `${e.time} min` : ""}
+                                </span>
+                              )}
+                              <div className="crow">
+                                <span className={"flag " + (d.done ? "done" : m.length ? "miss" : "ready")}>
+                                  {d.done ? "" : m.length ? `fali ${m.length}` : "imaš sve"}
+                                </span>
+                                {!d.done && (
+                                  <PickSelect
+                                    swap
+                                    label={`Zamijeni recept: ${DAYS[ix]}`}
+                                    groups={groups}
+                                    onPick={pick}
+                                  />
+                                )}
+                                <button
+                                  type="button"
+                                  className="tick-btn"
+                                  aria-pressed={d.done}
+                                  aria-label={`${d.done ? "Skuhano" : "Skuhaj"}: ${DAYS[ix]}, ${r.n}`}
+                                  onClick={() => toggleCook(ix)}
+                                >
+                                  <Icon name="check" size={16} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </Fragment>
+                  );
+                const k: SlotKey = row;
+                const isFruit = k === "voce1" || k === "voce2";
+                const groups = isFruit ? fruitGroups : sideGroups(k as "juha" | "salata");
+                const title = k === "juha" ? "Juha" : k === "salata" ? "Salata" : "Voće";
+                const sub =
+                  k === "juha"
+                    ? "prije ručka"
+                    : k === "salata"
+                      ? "uz ručak i večeru"
+                      : k === "voce1"
+                        ? "1. komad"
+                        : "2. komad";
+                return (
+                  <Fragment key={k}>
+                    <div className="rh small" role="rowheader">
+                      {title}
+                      <small>{sub}</small>
+                    </div>
+                    {plan.extra[k].map((x, ix) => {
+                      const pick = (v: string) =>
+                        isFruit
+                          ? pickFruit(k, ix, v)
+                          : apply(
+                              setSlot(data, k, ix, { r: v }),
+                              `${recipeName(data, v)} za ${DAYS[ix].toLowerCase()}.`,
+                            );
+                      if (!x.r && !x.item)
+                        return (
+                          <div key={k + ix} role="gridcell">
+                            <PickSelect label={`Dodaj ${title.toLowerCase()}`} groups={groups} onPick={pick} />
+                          </div>
+                        );
+                      const name = slotLabel(data, x);
+                      const it = x.item ? itemOf(data, x.item) : undefined;
+                      const miss = x.done
+                        ? 0
+                        : Object.entries(slotUse(data, x, { ...data.prepStock }).use).filter(
+                            ([id, a]) => qty(data, id) + 1e-9 < a,
+                          ).length;
+                      return (
+                        <div key={k + ix} role="gridcell">
+                          <div className={"cell slot " + (isFruit ? "s-voce" : `s-${k}`) + (x.done ? " done" : "")}>
+                            {x.r ? (
+                              <button
+                                type="button"
+                                className="cname linkname"
+                                title="Otvori recept"
+                                onClick={() => open({ t: "meal", id: x.r! })}
+                              >
+                                {name}
+                              </button>
+                            ) : (
+                              <span className="cname">{name}</span>
+                            )}
+                            <div className="crow">
+                              <span className={"flag " + (x.done ? "done" : miss ? "miss" : "muted")}>
+                                {x.done
+                                  ? ""
+                                  : it
+                                    ? `${fmt(x.qty ?? 1, it.u)}${miss ? " · nema" : ""}`
+                                    : miss
+                                      ? `fali ${miss}`
+                                      : ""}
+                              </span>
+                              {!x.done && (
+                                <PickSelect
+                                  swap
+                                  label={`Zamijeni: ${title}, ${DAYS[ix]}`}
+                                  groups={groups}
+                                  onPick={pick}
+                                />
+                              )}
+                              {!x.done && (
+                                <button
+                                  type="button"
+                                  className="mini"
+                                  aria-label={`Makni: ${title}, ${DAYS[ix]}`}
+                                  onClick={() =>
+                                    apply(
+                                      setSlot(data, k, ix, null),
+                                      `${name} maknut s dana ${DAYS[ix].toLowerCase()}.`,
+                                    )
+                                  }
+                                >
+                                  <Icon name="close" size={14} />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                className="tick-btn small"
+                                aria-pressed={x.done}
+                                aria-label={`${x.done ? "Pojedeno" : "Pojeo sam"}: ${DAYS[ix]}, ${name}`}
+                                onClick={() => {
+                                  const r = toggleSlot(data, k, ix);
+                                  apply(r.data, r.msg);
+                                }}
+                              >
+                                <Icon name="check" size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </Fragment>
+                );
+              })}
+            </div>
+          </div>
+          <p className="sub">
+            Kvačica znači skuhano ili pojedeno i skida sastojke sa zalihe. <Icon name="info" size={14} /> otvara recept,{" "}
+            <Icon name="swap" size={14} /> mijenja jelo, <Icon name="close" size={14} /> ga miče s dana. Uz ručak se
+            skida i posni sir za užinu.
+          </p>
         </>
       )}
     </Page>

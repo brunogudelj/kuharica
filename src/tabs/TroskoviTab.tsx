@@ -9,15 +9,13 @@ import { dayCost } from "../logic/inventory";
 import { editCost, removeCost } from "../logic/actions";
 import { itemOf } from "../logic/items";
 import { NumCell, SelectCell, TextCell } from "../components/Cells";
-import { eur, fmt, monthKey, round } from "../logic/format";
+import { eur, fmt, monthKey } from "../logic/format";
 import { exportJson, importJson } from "../storage/storage";
-import { SyncPanel } from "../components/SyncPanel";
 import { FCheck, FGroup, Page, toggle } from "../components/Page";
 import type { Chip } from "../components/Page";
 import { Icon } from "../components/icons";
 
-
-function Backup() {
+export function Backup() {
   const { data, apply, notify } = useApp();
   const [pending, setPending] = useState<AppData | null>(null);
   const [err, setErr] = useState("");
@@ -102,7 +100,7 @@ type TTab = "log" | "meal" | "set";
 export function TroskoviTab() {
   const { data, apply, update } = useApp();
   const s = costSummary(data);
-  const tab: TTab = data.ui.trTab ?? "log";
+  const tab: TTab = data.ui.trTab === "meal" ? "meal" : "log";
   const setTab = (t: TTab) =>
     update((x) => {
       const n = clone(x);
@@ -113,7 +111,6 @@ export function TroskoviTab() {
   const [fShop, setFShop] = useState<string[]>([]);
   const [fKind, setFKind] = useState<("est" | "rac")[]>([]);
   const [fCarb, setFCarb] = useState<string[]>([]);
-  const [dostDraft, setDostDraft] = useState<string | null>(null);
 
   const months = Array.from(new Set([s.mk, ...Object.keys(data.costs)]))
     .sort()
@@ -122,10 +119,14 @@ export function TroskoviTab() {
   const all = (data.costs[cur] || []).slice().sort((a, b) => b.t - a.t);
   const kindOf = (e: (typeof all)[number]) => (e.est ? "est" : "rac");
   const pass = (e: (typeof all)[number], skip?: "shop" | "kind") =>
-    (skip === "shop" || !fShop.length || fShop.includes(e.shop)) && (skip === "kind" || !fKind.length || fKind.includes(kindOf(e)));
+    (skip === "shop" || !fShop.length || fShop.includes(e.shop)) &&
+    (skip === "kind" || !fKind.length || fKind.includes(kindOf(e)));
   const log = all.filter((e) => pass(e));
   const logSum = log.reduce((t, e) => t + (e.amount || 0), 0);
-  const byShop = log.reduce<Record<string, number>>((m, e) => ((m[e.shop] = (m[e.shop] || 0) + (e.amount || 0)), m), {});
+  const byShop = log.reduce<Record<string, number>>(
+    (m, e) => ((m[e.shop] = (m[e.shop] || 0) + (e.amount || 0)), m),
+    {},
+  );
   const max = Math.max(1, ...Object.values(byShop));
   const pct = Math.round(s.cover * 100);
   const monthName = (m: string) => {
@@ -137,7 +138,13 @@ export function TroskoviTab() {
     .filter((r) => !r.side && (!fCarb.length || fCarb.includes(r.c)))
     .map((r) => ({ r, c: dayCost(data, r.id) }))
     .sort((a, b) => a.c.perMeal - b.c.perMeal);
-  const carbs = [...new Set(allRecipes(data).filter((r) => !r.side).map((r) => r.c))];
+  const carbs = [
+    ...new Set(
+      allRecipes(data)
+        .filter((r) => !r.side)
+        .map((r) => r.c),
+    ),
+  ];
 
   const chips: Chip[] =
     tab === "log"
@@ -154,14 +161,7 @@ export function TroskoviTab() {
       <>
         <FGroup title="Mjesec">
           {months.map((m) => (
-            <FCheck
-              key={m}
-              radio
-              on={cur === m}
-              label={monthName(m)}
-              count={undefined}
-              onChange={() => setMonth(m)}
-            />
+            <FCheck key={m} radio on={cur === m} label={monthName(m)} count={undefined} onChange={() => setMonth(m)} />
           ))}
         </FGroup>
         <FGroup title="Dućan" count={fShop.length}>
@@ -179,8 +179,18 @@ export function TroskoviTab() {
           {!all.length && <p className="fhint">Ovaj mjesec nema zapisa.</p>}
         </FGroup>
         <FGroup title="Vrsta zapisa" count={fKind.length}>
-          <FCheck on={fKind.includes("est")} label="S popisa za kupovinu" count={all.filter((e) => pass(e, "kind") && e.est).length} onChange={() => setFKind(toggle(fKind, "est"))} />
-          <FCheck on={fKind.includes("rac")} label="Račun" count={all.filter((e) => pass(e, "kind") && !e.est).length} onChange={() => setFKind(toggle(fKind, "rac"))} />
+          <FCheck
+            on={fKind.includes("est")}
+            label="S popisa za kupovinu"
+            count={all.filter((e) => pass(e, "kind") && e.est).length}
+            onChange={() => setFKind(toggle(fKind, "est"))}
+          />
+          <FCheck
+            on={fKind.includes("rac")}
+            label="Račun"
+            count={all.filter((e) => pass(e, "kind") && !e.est).length}
+            onChange={() => setFKind(toggle(fKind, "rac"))}
+          />
         </FGroup>
       </>
     ) : tab === "meal" ? (
@@ -227,17 +237,23 @@ export function TroskoviTab() {
             [
               ["log", "Zapisi"],
               ["meal", "Cijena po obroku"],
-              ["set", "Postavke i backup"],
             ] as [TTab, string][]
           ).map(([k, l]) => (
-            <button key={k} type="button" role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>
+            <button
+              key={k}
+              type="button"
+              role="tab"
+              aria-selected={tab === k}
+              aria-pressed={tab === k}
+              onClick={() => setTab(k)}
+            >
               {l}
             </button>
           ))}
         </div>
       }
     >
-      {tab !== "set" && (
+      {
         <div className="kpis">
           <div>
             <span className="lbl">Potrošeno ovaj mjesec</span>
@@ -263,7 +279,7 @@ export function TroskoviTab() {
             <small>ručak i večera vs dostava</small>
           </div>
         </div>
-      )}
+      }
 
       {tab === "log" && (
         <>
@@ -305,11 +321,19 @@ export function TroskoviTab() {
                     return (
                       <tr key={e.id}>
                         <td className="txt muted">
-                          {new Date(e.t).toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" })}
+                          {new Date(e.t).toLocaleDateString("hr-HR", {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "numeric",
+                          })}
                         </td>
                         <td className="sticky" style={{ minWidth: 160 }}>
                           <div className="namecell">
-                            <TextCell label="Opis" value={e.note || shopName(data, e.shop)} onCommit={(v) => update((x) => editCost(x, mk, e.id, { note: v }))} />
+                            <TextCell
+                              label="Opis"
+                              value={e.note || shopName(data, e.shop)}
+                              onCommit={(v) => update((x) => editCost(x, mk, e.id, { note: v }))}
+                            />
                           </div>
                         </td>
                         <td style={{ minWidth: 120 }}>
@@ -322,13 +346,22 @@ export function TroskoviTab() {
                         </td>
                         <td className="txt num">{it && e.qty ? fmt(e.qty, it.u) : "–"}</td>
                         <td style={{ width: 96 }}>
-                          <NumCell label="Iznos" value={e.amount} onCommit={(v) => update((x) => editCost(x, mk, e.id, { amount: v ?? 0 }))} />
+                          <NumCell
+                            label="Iznos"
+                            value={e.amount}
+                            onCommit={(v) => update((x) => editCost(x, mk, e.id, { amount: v ?? 0 }))}
+                          />
                         </td>
                         <td className="txt">
                           <span className={"chip " + (e.est ? "" : "p-ok")}>{e.est ? "s popisa" : "račun"}</span>
                         </td>
                         <td className="c">
-                          <button type="button" className="rowbtn" aria-label="Obriši zapis" onClick={() => apply(removeCost(data, mk, e.id), "Zapis obrisan.")}>
+                          <button
+                            type="button"
+                            className="rowbtn"
+                            aria-label="Obriši zapis"
+                            onClick={() => apply(removeCost(data, mk, e.id), "Zapis obrisan.")}
+                          >
                             <Icon name="trash" size={16} />
                           </button>
                         </td>
@@ -400,39 +433,6 @@ export function TroskoviTab() {
             </table>
           </div>
         </>
-      )}
-
-      {tab === "set" && (
-        <div className="setcol">
-          <div className="group">
-            <h2>Usporedba s dostavom</h2>
-            <div className="edit">
-              <label htmlFor="setDostava">
-                Prosječna dostava po obroku (€)
-                <input
-                  id="setDostava"
-                  type="text"
-                  inputMode="decimal"
-                  value={dostDraft ?? String(data.settings.dostava)}
-                  onChange={(e) => setDostDraft(e.target.value)}
-                  onBlur={() => {
-                    const v = parseFloat((dostDraft ?? "").replace(",", "."));
-                    if (!isNaN(v) && v >= 0)
-                      update((x) => {
-                        const n = clone(x);
-                        n.settings.dostava = round(v);
-                        return n;
-                      });
-                    setDostDraft(null);
-                  }}
-                />
-              </label>
-            </div>
-            <p className="sub">Koliko te inače stoji obrok s dostavom i napojnicom.</p>
-          </div>
-          <SyncPanel />
-          <Backup />
-        </div>
       )}
     </Page>
   );

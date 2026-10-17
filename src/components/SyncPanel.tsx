@@ -5,8 +5,7 @@ import { useApp } from "../state/AppContext";
 const TOKEN_URL = "https://github.com/settings/tokens/new?scopes=gist&description=Kuharica%20sinkronizacija";
 
 export function syncText(state: string, at?: number, msg?: string) {
-  if (state === "off")
-    return "Podaci su samo na ovom uređaju. Za laptop i mobitel poveži sinkronizaciju u kartici Troškovi.";
+  if (state === "off") return "Podaci su samo na ovom uređaju. Za laptop i mobitel poveži sinkronizaciju u Postavkama.";
   if (state === "syncing") return "Sinkroniziram s GitHubom…";
   if (state === "error") return msg || "Sinkronizacija nije uspjela.";
   return `Sinkronizirano s GitHubom${at ? " u " + new Date(at).toLocaleTimeString("hr-HR", { hour: "2-digit", minute: "2-digit" }) : ""}.`;

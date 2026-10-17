@@ -46,7 +46,11 @@ export function Page({
   }, [open]);
 
   return (
-    <section className={"page" + (filters ? "" : " nofilters") + (open ? " fopen" : "")} id={id} aria-labelledby={`${id}-h`}>
+    <section
+      className={"page" + (filters ? "" : " nofilters") + (open ? " fopen" : "")}
+      id={id}
+      aria-labelledby={`${id}-h`}
+    >
       {filters && (
         <>
           <aside className="fpanel" aria-label={filterTitle}>
@@ -69,7 +73,12 @@ export function Page({
               >
                 {fold.open ? "Zatvori sve" : "Otvori sve"}
               </button>
-              <button type="button" className="iconbtn fclose" aria-label="Zatvori filtere" onClick={() => setOpen(false)}>
+              <button
+                type="button"
+                className="iconbtn fclose"
+                aria-label="Zatvori filtere"
+                onClick={() => setOpen(false)}
+              >
                 <Icon name="close" />
               </button>
             </div>
@@ -125,7 +134,17 @@ export function Page({
 }
 
 /** Skupina filtera (sklopiva) */
-export function FGroup({ title, children, open = true, count }: { title: string; children: ReactNode; open?: boolean; count?: number }) {
+export function FGroup({
+  title,
+  children,
+  open = true,
+  count,
+}: {
+  title: string;
+  children: ReactNode;
+  open?: boolean;
+  count?: number;
+}) {
   const fold = useContext(FoldCtx);
   const [isOpen, setOpen] = useState(open);
   const [seen, setSeen] = useState(fold.n);
@@ -194,7 +213,14 @@ export function FSearch({
   return (
     <div className="searchbox">
       <Icon name="search" size={18} />
-      <input id={id} type="search" placeholder={placeholder} aria-label={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
+      <input
+        id={id}
+        type="search"
+        placeholder={placeholder}
+        aria-label={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
     </div>
   );
 }

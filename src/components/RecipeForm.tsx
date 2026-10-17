@@ -1,9 +1,10 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { CATS, DAYS } from "../data";
-import type { Carb, CatId, CustomRecipe } from "../data";
+import { DAYS } from "../data";
+import type { Carb, CustomRecipe } from "../data";
 import { useApp } from "../state/AppContext";
 import { allItems, itemOf } from "../logic/items";
+import { catOpts } from "../logic/lists";
 import { newRecipeId } from "../logic/recipes";
 import { saveRecipe, setPlanDay } from "../logic/actions";
 import { BASE_SERVINGS } from "../logic/inventory";
@@ -149,7 +150,7 @@ export function RecipeForm({
                 >
                   <option value="">Odaberi namirnicu…</option>
                   <option value="__new">+ Nova namirnica</option>
-                  {(Object.entries(CATS) as [CatId, string][]).map(([k, t]) => (
+                  {catOpts(data).map(([k, t]) => (
                     <optgroup key={k} label={t}>
                       {items
                         .filter((i) => i.cat === k)

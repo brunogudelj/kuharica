@@ -25,7 +25,9 @@ describe("feed recepata", () => {
     const f = { ...emptyFilter(), tags: ["Wok", "Air fryer"], carb: ["Riža", "Krumpir"] };
     const out = filterFeed(all, f, d);
     expect(out.length).toBeGreaterThan(0);
-    expect(out.every((e) => e.tags.some((t) => ["Wok", "Air fryer"].includes(t)) && ["Riža", "Krumpir"].includes(e.carb))).toBe(true);
+    expect(
+      out.every((e) => e.tags.some((t) => ["Wok", "Air fryer"].includes(t)) && ["Riža", "Krumpir"].includes(e.carb)),
+    ).toBe(true);
     const narrower = filterFeed(all, { ...f, prot: ["Piletina"] }, d);
     expect(narrower.length).toBeLessThanOrEqual(out.length);
     expect(narrower.every((e) => e.prot.includes("Piletina"))).toBe(true);

@@ -33,7 +33,7 @@ export const isCustom = (id: string) => id.startsWith("c-");
 
 /** Korak za + i −: komadi po 1, inače desetina pakiranja zaokružena na lijep broj */
 export function defaultStep(u: Unit, pack: number): number {
-  if (u === "kom") return 1;
+  if (u !== "g" && u !== "ml") return 1;
   const raw = Math.max(1, pack / 10);
   const nice = [1, 5, 10, 20, 25, 50, 100, 250, 500];
   return nice.reduce((best, n) => (Math.abs(n - raw) < Math.abs(best - raw) ? n : best), 1);

@@ -14,7 +14,11 @@ export function costSummary(d: AppData, now = Date.now()) {
 
   // Procjena iz plana: prosjek planiranih dana (ili svih recepata ako plan nije složen)
   const planned = d.plan.days.filter((x) => x.r && recipeOf(d, x.r)).map((x) => x.r);
-  const pool = planned.length ? planned : allRecipes(d).filter((r) => !r.side).map((r) => r.id);
+  const pool = planned.length
+    ? planned
+    : allRecipes(d)
+        .filter((r) => !r.side)
+        .map((r) => r.id);
   const dcs = pool.map((r) => dayCost(d, r));
   const avgFull = dcs.reduce((s, x) => s + x.full, 0) / dcs.length;
   const avgMeal = dcs.reduce((s, x) => s + x.perMeal, 0) / dcs.length;

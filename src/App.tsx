@@ -12,6 +12,7 @@ import { TroskoviTab } from "./tabs/TroskoviTab";
 import { ReceptiTab } from "./tabs/ReceptiTab";
 import { PrepTab } from "./tabs/PrepTab";
 import { DucaniTab } from "./tabs/DucaniTab";
+import { PostavkeTab } from "./tabs/PostavkeTab";
 import { PanelProvider } from "./components/Panel";
 import { renderView } from "./components/RecipeViews";
 import { setDemo } from "./storage/storage";
@@ -24,6 +25,7 @@ const TABS: [string, string, IconName, string][] = [
   ["ducani", "Dućani", "ducani", "Gdje kupuješ"],
   ["troskovi", "Troškovi", "troskovi", "Potrošnja i usporedba"],
   ["prep", "Prep", "prep", "Priprema unaprijed"],
+  ["postavke", "Postavke", "gear", "Popisi, Claude, sinkronizacija, backup"],
 ];
 
 export function App() {
@@ -35,7 +37,7 @@ export function App() {
     update((d) => {
       const n = clone(d);
       n.ui.tab = t;
-      if (anchor === "sinkronizacija") n.ui.trTab = "set";
+      if (anchor === "sinkronizacija") n.ui.psTab = "sync";
       return n;
     });
     if (anchor) setTimeout(() => document.getElementById(anchor)?.scrollIntoView({ block: "start" }), 50);
@@ -49,7 +51,10 @@ export function App() {
     ? { cls: "", txt: "Učitavam…" }
     : saveError
       ? { cls: "err", txt: "Spremanje nije uspjelo. Provjeri da preglednik dopušta spremanje za ovu stranicu." }
-      : { cls: sync.state === "error" ? "err" : sync.state === "ok" ? "ok" : "", txt: syncText(sync.state, sync.at, sync.msg) };
+      : {
+          cls: sync.state === "error" ? "err" : sync.state === "ok" ? "ok" : "",
+          txt: syncText(sync.state, sync.at, sync.msg),
+        };
 
   return (
     <PanelProvider render={renderView}>
@@ -69,28 +74,16 @@ export function App() {
                 aria-current={tab === k ? "page" : undefined}
                 onClick={() => setTab(k)}
               >
-                <span className="railicon">
+                <span className={"railicon" + (k === "postavke" ? " sync-" + (status.cls || "off") : "")}>
                   <Icon name={ic} size={22} />
                   {k === "kupovina" && shopCount > 0 && <span className="badge">{shopCount}</span>}
+                  {k === "postavke" && <i className="syncdot" aria-hidden="true" title={status.txt} />}
                 </span>
                 <span className="raillabel">{l}</span>
               </button>
             ))}
           </div>
           <div className="rail-foot">
-            <button
-              type="button"
-              className={"railitem small sync-" + (status.cls || "off")}
-              title={status.txt}
-              aria-label={`Sinkronizacija: ${status.txt}`}
-              onClick={() => setTab("troskovi", "sinkronizacija")}
-            >
-              <span className="railicon">
-                <Icon name="sync" size={20} />
-                <i className="syncdot" aria-hidden="true" />
-              </span>
-              <span className="raillabel">Sync</span>
-            </button>
             <button
               type="button"
               className="railitem small"
@@ -132,6 +125,7 @@ export function App() {
           {tab === "recepti" && <ReceptiTab />}
           {tab === "ducani" && <DucaniTab />}
           {tab === "prep" && <PrepTab />}
+          {tab === "postavke" && <PostavkeTab />}
         </main>
 
         {toast && (

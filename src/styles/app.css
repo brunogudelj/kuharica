@@ -484,6 +484,10 @@ input[type="radio"] {
   background: var(--line-2);
   border: 2px solid var(--card);
 }
+.railicon .syncdot {
+  right: 4px;
+  bottom: 1px;
+}
 .sync-ok .syncdot {
   background: var(--ok);
 }
@@ -2812,7 +2816,6 @@ table.grid {
   }
 }
 
-
 /* =====================================================================
    Tablični izgled (kao Google Sheets): Arial, gotovo bez bolda,
    linije između ćelija, mali radijusi. Hijerarhija ide veličinom, ne debljinom.
@@ -3161,4 +3164,58 @@ textarea,
 .keepcell {
   flex-wrap: nowrap;
   white-space: nowrap;
+}
+
+/* Postavke */
+.listgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+.listcol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.listcol .grid td.sticky {
+  min-width: 140px;
+}
+.addrow {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-top: 1px solid var(--line);
+  background: var(--sunk);
+}
+.addrow input {
+  flex: 1;
+  min-width: 0;
+}
+ol.steps {
+  margin: 6px 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+@media (max-width: 899px) {
+  .raillabel {
+    font-size: 10px;
+  }
+}
+
+.needsbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 12px 14px;
+  margin-top: 12px;
+  border: 1px solid var(--line-2);
+  background: var(--sunk);
+}
+.needsbar span {
+  flex: 1 1 280px;
 }

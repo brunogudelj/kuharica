@@ -92,7 +92,13 @@ export function SelectCell<T extends string>({
   disabled?: boolean;
 }) {
   return (
-    <select className="cellsel" aria-label={label} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value as T)}>
+    <select
+      className="cellsel"
+      aria-label={label}
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value as T)}
+    >
       {options.map(([k, t]) => (
         <option key={k} value={k}>
           {t}
@@ -119,7 +125,7 @@ export function SortTh<K extends string>({
   const on = sort.k === k;
   return (
     <th className={className} aria-sort={on ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
-      <button type="button" onClick={() => setSort({ k, dir: on ? ((-sort.dir) as 1 | -1) : 1 })}>
+      <button type="button" onClick={() => setSort({ k, dir: on ? (-sort.dir as 1 | -1) : 1 })}>
         {children}
         <span aria-hidden="true">{on ? (sort.dir === 1 ? "▲" : "▼") : ""}</span>
       </button>

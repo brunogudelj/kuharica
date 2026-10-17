@@ -1,5 +1,6 @@
 import { del, get, set } from "idb-keyval";
-import { CATS, DAYS, GROUPS, ITEMS, NEW_ITEMS } from "../data";
+import { DAYS, ITEMS, NEW_ITEMS } from "../data";
+import { isBuiltin } from "../logic/lists";
 import type { Carb, CatId, GrpId, Shop, Unit } from "../data";
 import type { AppData, Slot } from "../state/model";
 import { SLOT_KEYS, defaultData, defaultOmWeek } from "../state/model";
@@ -128,6 +129,22 @@ export function migrate(raw: unknown): AppData {
   d.settings.dostava = num(obj(r.settings).dostava, 12);
   d.updatedAt = num(r.updatedAt, 0);
 
+  const ls = obj(r.lists);
+  for (const k of ["cats", "grps", "units"] as const) {
+    if (!Array.isArray(ls[k])) continue;
+    const got = (ls[k] as unknown[])
+      .map(obj)
+      .filter((e) => typeof e.id === "string" && e.id && typeof e.n === "string" && (e.n as string).trim())
+      .map((e) => ({ id: e.id as string, n: e.n as string }));
+    // ugrađene stavke uvijek postoje (mogu biti preimenovane)
+    const base = d.lists[k].filter((b) => isBuiltin(k, b.id) && !got.some((g) => g.id === b.id));
+    d.lists[k] = [...base, ...got];
+  }
+  const hasCat = (v: unknown) => typeof v === "string" && d.lists.cats.some((c) => c.id === v);
+  const hasGrp = (v: unknown) => typeof v === "string" && d.lists.grps.some((c) => c.id === v);
+  const hasUnit = (v: unknown) =>
+    typeof v === "string" && (d.lists.units.some((c) => c.id === v) || ["g", "ml", "kom"].includes(v));
+
   const it = obj(r.items);
   if (Array.isArray(it.custom))
     d.items.custom = it.custom
@@ -137,15 +154,15 @@ export function migrate(raw: unknown): AppData {
           typeof x.id === "string" &&
           x.id.startsWith("c-") &&
           typeof x.n === "string" &&
-          (x.cat as string) in CATS &&
+          hasCat(x.cat) &&
           typeof x.src === "string" &&
-          ["g", "ml", "kom"].includes(x.u as string),
+          hasUnit(x.u),
       )
       .map((x) => ({
         id: x.id as string,
         n: x.n as string,
         cat: x.cat as CatId,
-        ...((x.grp as string) in GROUPS ? { grp: x.grp as GrpId } : {}),
+        ...(hasGrp(x.grp) ? { grp: x.grp as GrpId } : {}),
         src: x.src as string,
         u: x.u as Unit,
         pack: Math.max(0.01, num(x.pack, 1)),
@@ -194,8 +211,8 @@ export function migrate(raw: unknown): AppData {
       ...(typeof o.min === "number" ? { min: Math.max(0, o.min) } : {}),
       ...(typeof o.pack === "number" && o.pack > 0 ? { pack: o.pack } : {}),
       ...(typeof o.n === "string" && o.n.trim() ? { n: o.n } : {}),
-      ...((o.cat as string) in CATS ? { cat: o.cat as CatId } : {}),
-      ...((o.grp as string) in GROUPS ? { grp: o.grp as GrpId } : {}),
+      ...(hasCat(o.cat) ? { cat: o.cat as CatId } : {}),
+      ...(hasGrp(o.grp) ? { grp: o.grp as GrpId } : {}),
       ...(typeof o.src === "string" && o.src ? { src: o.src } : {}),
       ...(typeof o.kcal === "number" ? { kcal: o.kcal } : {}),
       ...(typeof o.prot === "number" ? { prot: o.prot } : {}),
@@ -205,24 +222,22 @@ export function migrate(raw: unknown): AppData {
     const shops = r.shops
       .map(obj)
       .filter((x) => typeof x.id === "string" && x.id && typeof x.n === "string")
-      .map(
-        (x): Shop => ({
-          id: x.id as string,
-          n: x.n as string,
-          type: typeof x.type === "string" ? x.type : "",
-          addr: typeof x.addr === "string" ? x.addr : "",
-          url: typeof x.url === "string" ? x.url : "",
-          note: typeof x.note === "string" ? x.note : "",
-          ...(Array.isArray(x.links)
-            ? {
-                links: x.links
-                  .map(obj)
-                  .filter((l) => typeof l.n === "string" && typeof l.url === "string")
-                  .map((l) => ({ n: l.n as string, url: l.url as string })),
-              }
-            : {}),
-        }),
-      );
+      .map((x): Shop => ({
+        id: x.id as string,
+        n: x.n as string,
+        type: typeof x.type === "string" ? x.type : "",
+        addr: typeof x.addr === "string" ? x.addr : "",
+        url: typeof x.url === "string" ? x.url : "",
+        note: typeof x.note === "string" ? x.note : "",
+        ...(Array.isArray(x.links)
+          ? {
+              links: x.links
+                .map(obj)
+                .filter((l) => typeof l.n === "string" && typeof l.url === "string")
+                .map((l) => ({ n: l.n as string, url: l.url as string })),
+            }
+          : {}),
+      }));
     // "Ostalo" uvijek postoji, na njega idu namirnice obrisanog dućana
     if (!shops.some((s) => s.id === "O")) shops.push(d.shops.find((s) => s.id === "O")!);
     d.shops = shops;
@@ -235,6 +250,8 @@ export function migrate(raw: unknown): AppData {
   if (typeof ui.needsOpen === "boolean") d.ui.needsOpen = ui.needsOpen;
   if (ui.kupGroup === "shop" || ui.kupGroup === "cat" || ui.kupGroup === "none") d.ui.kupGroup = ui.kupGroup;
   if (ui.planView === "cal" || ui.planView === "needs") d.ui.planView = ui.planView;
+  if (typeof ui.psTab === "string" && ["lists", "claude", "sync", "backup", "other"].includes(ui.psTab))
+    d.ui.psTab = ui.psTab as typeof d.ui.psTab;
   if (ui.trTab === "log" || ui.trTab === "meal" || ui.trTab === "set") d.ui.trTab = ui.trTab;
   return d;
 }

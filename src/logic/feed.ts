@@ -61,7 +61,18 @@ export interface FeedEntry {
 }
 
 /** Redoslijed oznaka u filteru */
-export const TAG_ORDER = ["Omlet", "Wok", "Air fryer", "Lonac", "Varivo", "Juha", "Salata", "Bez kuhanja", "2 u 1", "Prep"];
+export const TAG_ORDER = [
+  "Omlet",
+  "Wok",
+  "Air fryer",
+  "Lonac",
+  "Varivo",
+  "Juha",
+  "Salata",
+  "Bez kuhanja",
+  "2 u 1",
+  "Prep",
+];
 
 function methodTags(text: string): string[] {
   const t = text.toLowerCase();
@@ -240,12 +251,7 @@ export const emptyFilter = (): FeedFilter => ({
 
 export type FacetKey = "tags" | "prot" | "carb" | "avail" | "time";
 
-const norm = (s: string) =>
-  s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/đ/g, "d");
+const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d");
 
 /** Unutar skupine filtera vrijedi "ili", između skupina "i". `skip` se ne primjenjuje (za brojeve u filterima). */
 export function matches(e: FeedEntry, f: FeedFilter, d: AppData, skip?: FacetKey): boolean {

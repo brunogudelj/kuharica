@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { fetchPage, parseRecipeHtml, parseRecipeText, toDraft } from "../logic/importRecipe";
+import { CLAUDE_MODEL, claudeRecipe, loadClaudeKey } from "../logic/claude";
 import type { ParsedRecipe } from "../logic/importRecipe";
 import { CYCLE, DAYS, DEFAULT_OM, OM_BASE, OM_CARB, OM_PRESETS, PBY, PREP, PREP_INV, REC_PREP } from "../data";
 import type { OmSel } from "../data";
@@ -12,7 +13,18 @@ import { BASE_SERVINGS, effUse, pc, qty } from "../logic/inventory";
 import { cook, eatMuffins, eatOmlet, removeRecipe, setOmDay, setPlanDay } from "../logic/actions";
 import { allRecipes, recipeOf } from "../logic/recipes";
 import { itemOf } from "../logic/items";
-import { fillOf, omEff, omIngredients, omName, omNorm, omProt, omSteps, omVeg, surpriseSel, validOm } from "../logic/omlet";
+import {
+  fillOf,
+  omEff,
+  omIngredients,
+  omName,
+  omNorm,
+  omProt,
+  omSteps,
+  omVeg,
+  surpriseSel,
+  validOm,
+} from "../logic/omlet";
 import { KIND_LABEL, mealEntry, omEntry, prepEntry, sortFeed } from "../logic/feed";
 import type { FeedEntry } from "../logic/feed";
 import { eur, fmt, pfmt, porcTxt, scaleText, todayIx } from "../logic/format";
@@ -62,7 +74,9 @@ export function Stats({ e, per = true }: { e: FeedEntry; per?: boolean }) {
         </dt>
         <dd>{e.time == null ? "–" : e.time + " min"}</dd>
       </div>
-      {per && <p className="stats-note">{e.kind === "meal" ? "po obroku" : e.kind === "om" ? "po omletu" : "cijela tura"}</p>}
+      {per && (
+        <p className="stats-note">{e.kind === "meal" ? "po obroku" : e.kind === "om" ? "po omletu" : "cijela tura"}</p>
+      )}
     </dl>
   );
 }
@@ -113,12 +127,26 @@ export function FeedCard({ e, onOpen }: { e: FeedEntry; onOpen: () => void }) {
 }
 
 /** Odabir dana u tjednu */
-function DayPicker({ on, onPick, label }: { on: (ix: number) => boolean; onPick: (ix: number) => void; label: string }) {
+function DayPicker({
+  on,
+  onPick,
+  label,
+}: {
+  on: (ix: number) => boolean;
+  onPick: (ix: number) => void;
+  label: string;
+}) {
   const t = todayIx();
   return (
     <div className="daypick" role="group" aria-label={label}>
       {DAYS.map((d, ix) => (
-        <button key={d} type="button" aria-pressed={on(ix)} className={ix === t ? "today" : ""} onClick={() => onPick(ix)}>
+        <button
+          key={d}
+          type="button"
+          aria-pressed={on(ix)}
+          className={ix === t ? "today" : ""}
+          onClick={() => onPick(ix)}
+        >
           <b>{d}</b>
           <small>{dateOf(ix)}</small>
         </button>
@@ -339,7 +367,9 @@ export function OmView({ sel: initSel, day, n }: { sel?: OmSel; day?: number; n?
       key={x}
       type="button"
       aria-pressed={sel.fill.includes(x)}
-      onClick={() => setSel({ ...sel, fill: sel.fill.includes(x) ? sel.fill.filter((y) => y !== x) : [...sel.fill, x] })}
+      onClick={() =>
+        setSel({ ...sel, fill: sel.fill.includes(x) ? sel.fill.filter((y) => y !== x) : [...sel.fill, x] })
+      }
     >
       {fillOf(data, x)?.n}
     </button>
@@ -661,8 +691,9 @@ export function renderView(v: View) {
 
 /** Recept iz linka (ili zalijepljenog teksta): povuci podatke pa ih provjeri u obrascu */
 function ImportRecipe() {
-  const { data } = useApp();
+  const { data, update } = useApp();
   const { close } = usePanel();
+  const key = loadClaudeKey();
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
   const [showText, setShowText] = useState(false);
@@ -680,21 +711,48 @@ function ImportRecipe() {
     setRes(toDraft(data, p));
   };
 
+  const viaClaude = async (src: { url?: string; text?: string }) => {
+    setBusy(true);
+    setErr("");
+    try {
+      const r = await claudeRecipe(data, key, src);
+      setRes(toDraft(data, r.parsed, r));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Claude nije uspio pročitati recept.");
+      if (src.url) setShowText(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const pull = async (e: FormEvent) => {
     e.preventDefault();
     const u = url.trim();
     if (!/^https?:\/\//i.test(u)) return setErr("Upiši cijeli link, npr. https://www.coolinarika.com/recept/…");
+    if (key) return viaClaude({ url: u });
     setBusy(true);
     setErr("");
     try {
       const html = await fetchPage(u);
       fromParsed(parseRecipeHtml(html, u));
     } catch {
-      setErr("Stranicu nije bilo moguće dohvatiti. Kopiraj tekst recepta i zalijepi ga ispod.");
+      setErr(
+        "Stranicu nije bilo moguće dohvatiti bez Claudea. Dodaj Claude API ključ u Postavkama ili zalijepi tekst recepta ispod.",
+      );
       setShowText(true);
     } finally {
       setBusy(false);
     }
+  };
+
+  const goSettings = () => {
+    close();
+    update((d) => {
+      const n = clone(d);
+      n.ui.tab = "postavke";
+      n.ui.psTab = "claude";
+      return n;
+    });
   };
 
   return (
@@ -703,8 +761,8 @@ function ImportRecipe() {
         <p className="kicker">Recepti</p>
         <h2 className="pname">Recept iz linka</h2>
         <p className="sub">
-          Zalijepi link na recept. Povući će se naziv, sastojci, koraci, vrijeme i broj porcija, a sastojci se spoje s
-          namirnicama iz zalihe. Sve provjeriš prije spremanja.
+          Zalijepi link na recept. {key ? "Claude dohvati stranicu i složi recept" : "Povuku se"} naziv, sastojci,
+          koraci, vrijeme i porcije, a sastojci se spoje s namirnicama iz zalihe. Sve provjeriš prije spremanja.
         </p>
       </header>
       {!res && (
@@ -720,18 +778,24 @@ function ImportRecipe() {
               autoFocus
             />
             <button type="submit" className="btn" disabled={busy}>
-              {busy ? "Povlačim…" : "Povuci recept"}
+              {busy ? (key ? "Claude čita recept…" : "Povlačim…") : "Povuci recept"}
             </button>
           </form>
+          {busy && key && <p className="fhint">Obično traje 10 do 30 sekundi.</p>}
           {err && <p className="miss">{err}</p>}
           {showText ? (
             <div className="edit one">
               <label htmlFor="impText">
-                Tekst recepta (naziv u prvom retku, sastojci s količinom na početku)
+                Tekst recepta (naziv u prvom retku, pa sastojci i priprema)
                 <textarea id="impText" rows={8} value={text} onChange={(e) => setText(e.target.value)} />
               </label>
               <div className="btnrow">
-                <button type="button" className="btn" disabled={!text.trim()} onClick={() => fromParsed(parseRecipeText(text))}>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={!text.trim() || busy}
+                  onClick={() => (key ? viaClaude({ text }) : fromParsed(parseRecipeText(text)))}
+                >
                   Pročitaj tekst
                 </button>
               </div>
@@ -741,10 +805,19 @@ function ImportRecipe() {
               ili zalijepi tekst recepta
             </button>
           )}
-          <p className="fhint">
-            Stranica se dohvaća preko javnog posrednika (corsproxy.io ili allorigins.win), jer preglednik ne smije izravno
-            čitati tuđe stranice. Posrednik vidi samo link recepta.
-          </p>
+          {key ? (
+            <p className="fhint">
+              Ide preko tvog Claude API ključa ({CLAUDE_MODEL}). Jedan recept košta oko 1 do 5 centi.
+            </p>
+          ) : (
+            <div className="note">
+              <b>Za pouzdano povlačenje s bilo koje stranice</b> dodaj Claude API ključ. Claude tada sam dohvati
+              stranicu, prevede recept na hrvatski i spoji sastojke s tvojim namirnicama.{" "}
+              <button type="button" className="linkbtn" onClick={goSettings}>
+                Postavke → Claude
+              </button>
+            </div>
+          )}
         </>
       )}
       {res && (
@@ -753,7 +826,9 @@ function ImportRecipe() {
             <b>
               Prepoznato {res.matched} od {res.lines.length} sastojaka
             </b>
-            <span className="sub">Neprepoznate su u polju „Ostalo”. Za njih odaberi namirnicu ili ih ostavi kao bilješku.</span>
+            <span className="sub">
+              Neprepoznati su u polju „Ostalo”. Za njih odaberi namirnicu ili ih ostavi kao bilješku.
+            </span>
             <table className="grid compact">
               <tbody>
                 {res.lines.map((l, k) => (
@@ -762,7 +837,9 @@ function ImportRecipe() {
                       <span className={"dot " + (l.item ? "ok" : "out")} aria-hidden="true" />
                       {l.raw}
                     </td>
-                    <td className="muted">{l.item ? `→ ${l.item.n}` : "nije prepoznato"}</td>
+                    <td className="muted">
+                      {l.item ? `→ ${l.item.n}${l.amount ? ` · ${fmt(l.amount, l.item.u)}` : ""}` : "nije prepoznato"}
+                    </td>
                   </tr>
                 ))}
               </tbody>

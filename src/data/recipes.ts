@@ -369,7 +369,12 @@ export const RECIPES: Recipe[] = [
     side: "juha",
     d: "Lonac · 5 min",
     use: { miso: 15, wakame: 2, tofu: 50 },
-    ing: ["<span class=g>15 g</span> miso paste", "<span class=g>2 g</span> wakame", "<span class=g>50 g</span> tofua", "mladi luk po želji"],
+    ing: [
+      "<span class=g>15 g</span> miso paste",
+      "<span class=g>2 g</span> wakame",
+      "<span class=g>50 g</span> tofua",
+      "mladi luk po želji",
+    ],
     st: [
       "Zagrij 300 ml vode, ne do vrenja.",
       "Dodaj wakame i tofu na kockice, 2 min.",
@@ -389,7 +394,11 @@ export const RECIPES: Recipe[] = [
       "<span class=g>200 g</span> rajčica",
       "<span class=g>10 ml</span> maslinovog ulja ili dresing iz prepa",
     ],
-    st: ["Operi i nareži povrće.", "Podijeli na dvije zdjele: uz ručak i uz večeru.", "Začini dresingom tek prije jela."],
+    st: [
+      "Operi i nareži povrće.",
+      "Podijeli na dvije zdjele: uz ručak i uz večeru.",
+      "Začini dresingom tek prije jela.",
+    ],
   },
 ];
 

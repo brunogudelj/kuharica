@@ -1,6 +1,5 @@
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { CATS, GROUPS } from "../data";
 import type { CatId, GrpId, Item } from "../data";
 import { useApp } from "../state/AppContext";
 import { price, shopping } from "../logic/inventory";
@@ -10,6 +9,7 @@ import { purchase, undoPurchase } from "../logic/actions";
 import { shopIndex, shopName } from "../logic/shops";
 import { clone } from "../state/model";
 import { SortTh } from "../components/Cells";
+import { catName, catOpts, grpName, grpOpts } from "../logic/lists";
 import { FCheck, FGroup, FSearch, Page, toggle } from "../components/Page";
 import type { Chip } from "../components/Page";
 
@@ -97,7 +97,11 @@ function AmountFields({
 
 /** "0,512 kg" ili "512" → količina u jedinici namirnice (g, ml, kom) */
 export function parseAmount(t: string, u: string): number {
-  const m = t.trim().toLowerCase().replace(",", ".").match(/^([\d.]+)\s*(kg|g|l|ml|kom)?$/);
+  const m = t
+    .trim()
+    .toLowerCase()
+    .replace(",", ".")
+    .match(/^([\d.]+)\s*(kg|g|l|ml|kom)?$/);
   if (!m) return NaN;
   const v = parseFloat(m[1]);
   if ((m[2] === "kg" && u === "g") || (m[2] === "l" && u === "ml")) return v * 1000;
@@ -136,7 +140,7 @@ function ShopTr({ x }: { x: ShopRow }) {
       </td>
       <td className="muted">{shopName(data, x.i.src)}</td>
       <td>
-        <span className={`label l-${x.i.cat}`}>{CATS[x.i.cat]}</span>
+        <span className={`label l-${x.i.cat}`}>{catName(data, x.i.cat)}</span>
       </td>
       <td className="txt num">{fmt(x.short, x.i.u)}</td>
       <td className="txt num">
@@ -221,7 +225,7 @@ function Extra({ open, setOpen }: { open: boolean; setOpen: (v: boolean) => void
             >
               <option value="">Odaberi…</option>
               <option value="__new">+ Nova namirnica</option>
-              {(Object.entries(CATS) as [CatId, string][]).map(([k, t]) => (
+              {catOpts(data).map(([k, t]) => (
                 <optgroup key={k} label={t}>
                   {items
                     .filter((i) => i.cat === k)
@@ -356,7 +360,15 @@ export function KupovinaTab() {
   const [q, setQ] = useState("");
   const [fShop, setFShop] = useState<string[]>([]);
   const [fCat, setFCat] = useState<CatId[]>([]);
-  const [fWhy, setFWhy] = useState<("plan" | "min")[]>([]);
+  const [fWhy, setFWhy] = useState<("plan" | "min")[]>(() => (data.ui.kupFocus === "plan" ? ["plan"] : []));
+  useEffect(() => {
+    if (data.ui.kupFocus)
+      update((d) => {
+        const n = clone(d);
+        delete n.ui.kupFocus;
+        return n;
+      });
+  }, [data.ui.kupFocus, update]);
   const [fGrp, setFGrp] = useState<GrpId[]>([]);
   const ta = useRef<HTMLTextAreaElement>(null);
   const group: Group = data.ui.kupGroup ?? "shop";
@@ -375,7 +387,8 @@ export function KupovinaTab() {
     (skip === "shop" || !fShop.length || fShop.includes(x.i.src)) &&
     (skip === "cat" || !fCat.length || fCat.includes(x.i.cat)) &&
     (skip === "why" || !fWhy.length || fWhy.includes(why(x)));
-  const cnt = (skip: "shop" | "cat" | "why" | "grp", ok: (x: ShopRow) => boolean) => full.filter((x) => pass(x, skip) && ok(x)).length;
+  const cnt = (skip: "shop" | "cat" | "why" | "grp", ok: (x: ShopRow) => boolean) =>
+    full.filter((x) => pass(x, skip) && ok(x)).length;
   const list = full.filter((x) => pass(x));
 
   const val: Record<SK, (x: ShopRow) => number | string> = {
@@ -401,7 +414,7 @@ export function KupovinaTab() {
   }
   if (group === "shop") groups.sort((a, b) => shopIndex(data, a[0]) - shopIndex(data, b[0]));
   if (group === "cat") groups.sort((a, b) => CAT_ORDER.indexOf(a[0] as CatId) - CAT_ORDER.indexOf(b[0] as CatId));
-  const groupName = (k: string) => (group === "shop" ? shopName(data, k) : group === "cat" ? CATS[k as CatId] : "");
+  const groupName = (k: string) => (group === "shop" ? shopName(data, k) : group === "cat" ? catName(data, k) : "");
 
   let total = 0;
   let priced = 0;
@@ -420,7 +433,12 @@ export function KupovinaTab() {
   const txt =
     byShop
       .sort((a, b) => shopIndex(data, a[0]) - shopIndex(data, b[0]))
-      .map(([s, a]) => shopName(data, s).toUpperCase() + "\n" + a.map((x) => `- ${x.i.n}: ${x.packs} × ${fmt(x.i.pack, x.i.u)}`).join("\n"))
+      .map(
+        ([s, a]) =>
+          shopName(data, s).toUpperCase() +
+          "\n" +
+          a.map((x) => `- ${x.i.n}: ${x.packs} × ${fmt(x.i.pack, x.i.u)}`).join("\n"),
+      )
       .join("\n\n") || "Ništa ne fali.";
 
   const copy = () => {
@@ -439,9 +457,9 @@ export function KupovinaTab() {
 
   const chips: Chip[] = [
     ...fShop.map((x): Chip => [shopName(data, x), () => setFShop(toggle(fShop, x))]),
-    ...fCat.map((x): Chip => [CATS[x], () => setFCat(toggle(fCat, x))]),
+    ...fCat.map((x): Chip => [catName(data, x), () => setFCat(toggle(fCat, x))]),
     ...fWhy.map((x): Chip => [x === "plan" ? "Za plan" : "Dopuna zalihe", () => setFWhy(toggle(fWhy, x))]),
-    ...fGrp.map((x): Chip => [GROUPS[x], () => setFGrp(toggle(fGrp, x))]),
+    ...fGrp.map((x): Chip => [grpName(data, x), () => setFGrp(toggle(fGrp, x))]),
   ];
   const shopsInList = data.shops.filter((sh) => full.some((x) => x.i.src === sh.id));
 
@@ -462,27 +480,57 @@ export function KupovinaTab() {
       <FGroup title="Dućan" count={fShop.length}>
         {shopsInList.length ? (
           shopsInList.map((sh) => (
-            <FCheck key={sh.id} on={fShop.includes(sh.id)} label={sh.n} count={cnt("shop", (x) => x.i.src === sh.id)} onChange={() => setFShop(toggle(fShop, sh.id))} />
+            <FCheck
+              key={sh.id}
+              on={fShop.includes(sh.id)}
+              label={sh.n}
+              count={cnt("shop", (x) => x.i.src === sh.id)}
+              onChange={() => setFShop(toggle(fShop, sh.id))}
+            />
           ))
         ) : (
           <p className="fhint">Popis je prazan.</p>
         )}
       </FGroup>
       <FGroup title="Skupina" count={fGrp.length}>
-        {(Object.keys(GROUPS) as GrpId[])
+        {grpOpts(data)
+          .map(([k]) => k)
           .filter((k) => full.some((x) => (x.i.grp ?? "ostalo") === k))
           .map((k) => (
-            <FCheck key={k} on={fGrp.includes(k)} label={GROUPS[k]} count={cnt("grp", (x) => (x.i.grp ?? "ostalo") === k)} onChange={() => setFGrp(toggle(fGrp, k))} />
+            <FCheck
+              key={k}
+              on={fGrp.includes(k)}
+              label={grpName(data, k)}
+              count={cnt("grp", (x) => (x.i.grp ?? "ostalo") === k)}
+              onChange={() => setFGrp(toggle(fGrp, k))}
+            />
           ))}
       </FGroup>
       <FGroup title="Spremanje" count={fCat.length}>
         {CAT_ORDER.map((k) => (
-          <FCheck key={k} on={fCat.includes(k)} label={CATS[k]} dot={`l-${k}`} count={cnt("cat", (x) => x.i.cat === k)} onChange={() => setFCat(toggle(fCat, k))} />
+          <FCheck
+            key={k}
+            on={fCat.includes(k)}
+            label={catName(data, k)}
+            dot={`l-${k}`}
+            count={cnt("cat", (x) => x.i.cat === k)}
+            onChange={() => setFCat(toggle(fCat, k))}
+          />
         ))}
       </FGroup>
       <FGroup title="Zašto na popisu" count={fWhy.length}>
-        <FCheck on={fWhy.includes("plan")} label="Treba za plan" count={cnt("why", (x) => x.forPlan)} onChange={() => setFWhy(toggle(fWhy, "plan"))} />
-        <FCheck on={fWhy.includes("min")} label="Dopuna zalihe" count={cnt("why", (x) => !x.forPlan)} onChange={() => setFWhy(toggle(fWhy, "min"))} />
+        <FCheck
+          on={fWhy.includes("plan")}
+          label="Treba za plan"
+          count={cnt("why", (x) => x.forPlan)}
+          onChange={() => setFWhy(toggle(fWhy, "plan"))}
+        />
+        <FCheck
+          on={fWhy.includes("min")}
+          label="Dopuna zalihe"
+          count={cnt("why", (x) => !x.forPlan)}
+          onChange={() => setFWhy(toggle(fWhy, "min"))}
+        />
       </FGroup>
     </>
   );
@@ -515,7 +563,14 @@ export function KupovinaTab() {
               ["today", "Kupljeno danas", todayCount(data)],
             ] as [KTab, string, number][]
           ).map(([k, l, c]) => (
-            <button key={k} type="button" role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>
+            <button
+              key={k}
+              type="button"
+              role="tab"
+              aria-selected={tab === k}
+              aria-pressed={tab === k}
+              onClick={() => setTab(k)}
+            >
               {l} <small>{c}</small>
             </button>
           ))}

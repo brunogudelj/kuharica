@@ -1,5 +1,6 @@
 import { Fragment, useState } from "react";
-import { CATS, GROUPS, OM_FILL, PREP, PREP_INV } from "../data";
+import { OM_FILL, PREP, PREP_INV } from "../data";
+import { catName, catOpts, grpName, grpOpts, isMass } from "../logic/lists";
 import type { CatId, GrpId, Item } from "../data";
 import { shopIndex, shopName, shopOpts } from "../logic/shops";
 import { useApp } from "../state/AppContext";
@@ -20,8 +21,6 @@ import { Icon } from "../components/icons";
 
 type SortK = "mjesto" | "grp" | "n" | "src" | "qty" | "stanje" | "min" | "pack" | "price" | "kcal" | "prot";
 
-const CAT_OPTS = Object.entries(CATS) as [CatId, string][];
-const GRP_OPTS = Object.entries(GROUPS) as [GrpId, string][];
 const OM_OPTS: ["" | "prot" | "veg", string][] = [
   ["", "—"],
   ["prot", "protein"],
@@ -79,7 +78,7 @@ function Row({ i, open, onToggle }: { i: Item; open: boolean; onToggle: () => vo
   const p = price(data, i.id);
   const custom = isCustom(i.id);
   const [kcal, prot] = macDisplay(data, i.id);
-  const per = i.u === "kom" ? "/kom" : `/100 ${i.u}`;
+  const per = isMass(i.u) ? `/100 ${i.u}` : `/${i.u}`;
   const change = (fn: (n: AppData) => AppData | void) =>
     update((d) => {
       const n = clone(d);
@@ -96,13 +95,28 @@ function Row({ i, open, onToggle }: { i: Item; open: boolean; onToggle: () => vo
           </div>
         </td>
         <td style={{ minWidth: 112 }}>
-          <SelectCell<CatId> label={`Mjesto: ${i.n}`} value={i.cat} options={CAT_OPTS} onChange={(v) => change((n) => editItem(n, i.id, { cat: v }))} />
+          <SelectCell<CatId>
+            label={`Mjesto: ${i.n}`}
+            value={i.cat}
+            options={catOpts(data)}
+            onChange={(v) => change((n) => editItem(n, i.id, { cat: v }))}
+          />
         </td>
         <td style={{ minWidth: 150 }}>
-          <SelectCell<GrpId> label={`Skupina: ${i.n}`} value={i.grp ?? "ostalo"} options={GRP_OPTS} onChange={(v) => change((n) => editItem(n, i.id, { grp: v }))} />
+          <SelectCell<GrpId>
+            label={`Skupina: ${i.n}`}
+            value={i.grp ?? "ostalo"}
+            options={grpOpts(data)}
+            onChange={(v) => change((n) => editItem(n, i.id, { grp: v }))}
+          />
         </td>
         <td style={{ minWidth: 118 }}>
-          <SelectCell<string> label={`Dućan: ${i.n}`} value={i.src} options={shopOpts(data)} onChange={(v) => change((n) => editItem(n, i.id, { src: v }))} />
+          <SelectCell<string>
+            label={`Dućan: ${i.n}`}
+            value={i.src}
+            options={shopOpts(data)}
+            onChange={(v) => change((n) => editItem(n, i.id, { src: v }))}
+          />
         </td>
         <td style={{ minWidth: 96 }}>
           <NumCell label={`Imam (${i.u}): ${i.n}`} value={q} onCommit={(v) => change((n) => setQty(n, i.id, v ?? 0))} />
@@ -113,10 +127,18 @@ function Row({ i, open, onToggle }: { i: Item; open: boolean; onToggle: () => vo
         <td className="txt c">{i.u}</td>
         <td className="c" style={{ minWidth: 76 }}>
           <span className="stepper inline">
-            <button type="button" aria-label={`Manje: ${i.n}`} onClick={() => change((n) => setQty(n, i.id, qty(n, i.id) - i.step))}>
+            <button
+              type="button"
+              aria-label={`Manje: ${i.n}`}
+              onClick={() => change((n) => setQty(n, i.id, qty(n, i.id) - i.step))}
+            >
               −
             </button>
-            <button type="button" aria-label={`Više: ${i.n}`} onClick={() => change((n) => setQty(n, i.id, qty(n, i.id) + i.step))}>
+            <button
+              type="button"
+              aria-label={`Više: ${i.n}`}
+              onClick={() => change((n) => setQty(n, i.id, qty(n, i.id) + i.step))}
+            >
               +
             </button>
           </span>
@@ -125,10 +147,18 @@ function Row({ i, open, onToggle }: { i: Item; open: boolean; onToggle: () => vo
           <StatusPill s={st} />
         </td>
         <td style={{ width: 84 }}>
-          <NumCell label={`Minimum (${i.u}): ${i.n}`} value={i.min} onCommit={(v) => change((n) => editItem(n, i.id, { min: v ?? 0 }))} />
+          <NumCell
+            label={`Minimum (${i.u}): ${i.n}`}
+            value={i.min}
+            onCommit={(v) => change((n) => editItem(n, i.id, { min: v ?? 0 }))}
+          />
         </td>
         <td style={{ width: 92 }}>
-          <NumCell label={`Pakiranje (${i.u}): ${i.n}`} value={i.pack} onCommit={(v) => v && change((n) => editItem(n, i.id, { pack: v }))} />
+          <NumCell
+            label={`Pakiranje (${i.u}): ${i.n}`}
+            value={i.pack}
+            onCommit={(v) => v && change((n) => editItem(n, i.id, { pack: v }))}
+          />
         </td>
         <td style={{ width: 92 }}>
           <NumCell
@@ -144,10 +174,22 @@ function Row({ i, open, onToggle }: { i: Item; open: boolean; onToggle: () => vo
           />
         </td>
         <td style={{ width: 84 }} title={`kcal ${per}`}>
-          <NumCell label={`kcal ${per}: ${i.n}`} placeholder="–" allowEmpty value={kcal} onCommit={(v) => change((n) => editItem(n, i.id, { kcal: v ?? undefined }))} />
+          <NumCell
+            label={`kcal ${per}: ${i.n}`}
+            placeholder="–"
+            allowEmpty
+            value={kcal}
+            onCommit={(v) => change((n) => editItem(n, i.id, { kcal: v ?? undefined }))}
+          />
         </td>
         <td style={{ width: 76 }} title={`proteini g ${per}`}>
-          <NumCell label={`Proteini ${per}: ${i.n}`} placeholder="–" allowEmpty value={prot} onCommit={(v) => change((n) => editItem(n, i.id, { prot: v ?? undefined }))} />
+          <NumCell
+            label={`Proteini ${per}: ${i.n}`}
+            placeholder="–"
+            allowEmpty
+            value={prot}
+            onCommit={(v) => change((n) => editItem(n, i.id, { prot: v ?? undefined }))}
+          />
         </td>
         <td style={{ minWidth: 96 }}>
           {custom ? (
@@ -156,7 +198,13 @@ function Row({ i, open, onToggle }: { i: Item; open: boolean; onToggle: () => vo
               value={i.om?.role ?? ""}
               options={OM_OPTS}
               onChange={(v) =>
-                change((n) => editItem(n, i.id, { om: v ? { role: v, amt: i.om?.amt ?? (i.u === "kom" ? 1 : 50), ...(i.om?.pre ? { pre: i.om.pre } : {}) } : undefined }))
+                change((n) =>
+                  editItem(n, i.id, {
+                    om: v
+                      ? { role: v, amt: i.om?.amt ?? (isMass(i.u) ? 50 : 1), ...(i.om?.pre ? { pre: i.om.pre } : {}) }
+                      : undefined,
+                  }),
+                )
               }
             />
           ) : (
@@ -167,7 +215,11 @@ function Row({ i, open, onToggle }: { i: Item; open: boolean; onToggle: () => vo
         </td>
         <td style={{ width: 84 }}>
           {custom && i.om ? (
-            <NumCell label={`Količina u omletu (${i.u}): ${i.n}`} value={i.om.amt} onCommit={(v) => v && change((n) => editItem(n, i.id, { om: { ...i.om!, amt: v } }))} />
+            <NumCell
+              label={`Količina u omletu (${i.u}): ${i.n}`}
+              value={i.om.amt}
+              onCommit={(v) => v && change((n) => editItem(n, i.id, { om: { ...i.om!, amt: v } }))}
+            />
           ) : (
             <span className="txt" style={{ padding: "7px 8px", display: "block", color: "var(--muted)" }}>
               –
@@ -175,7 +227,13 @@ function Row({ i, open, onToggle }: { i: Item; open: boolean; onToggle: () => vo
           )}
         </td>
         <td className="c">
-          <button type="button" className="rowbtn" aria-expanded={open} aria-label={`Više opcija: ${i.n}`} onClick={onToggle}>
+          <button
+            type="button"
+            className="rowbtn"
+            aria-expanded={open}
+            aria-label={`Više opcija: ${i.n}`}
+            onClick={onToggle}
+          >
             <Icon name="more" />
           </button>
         </td>
@@ -226,7 +284,9 @@ function Row({ i, open, onToggle }: { i: Item; open: boolean; onToggle: () => vo
                     type="text"
                     defaultValue={i.om.pre ?? ""}
                     placeholder="npr. Nareži i zapeci 3 min."
-                    onBlur={(e) => change((n) => editItem(n, i.id, { om: { ...i.om!, pre: e.target.value.trim() || undefined } }))}
+                    onBlur={(e) =>
+                      change((n) => editItem(n, i.id, { om: { ...i.om!, pre: e.target.value.trim() || undefined } }))
+                    }
                   />
                 </label>
               )}
@@ -273,7 +333,8 @@ export function ZalihaTab() {
     (skip === "st" || !fSt.length || fSt.includes(status(data, i))) &&
     (skip === "cat" || !fCat.length || fCat.includes(i.cat)) &&
     (skip === "shop" || !fShop.length || fShop.includes(i.src));
-  const cnt = (skip: "st" | "cat" | "shop" | "grp", ok: (i: Item) => boolean) => items.filter((i) => pass(i, skip) && ok(i)).length;
+  const cnt = (skip: "st" | "cat" | "shop" | "grp", ok: (i: Item) => boolean) =>
+    items.filter((i) => pass(i, skip) && ok(i)).length;
 
   let rows = items.filter((i) => pass(i));
   const val = (i: Item): number | string => {
@@ -293,13 +354,13 @@ export function ZalihaTab() {
       case "price":
         return price(data, i.id) ?? -1;
       case "grp":
-        return GRP_OPTS.findIndex(([k]) => k === i.grp);
+        return grpOpts(data).findIndex(([k]) => k === i.grp);
       case "kcal":
         return macDisplay(data, i.id)[0] ?? -1;
       case "prot":
         return macDisplay(data, i.id)[1] ?? -1;
       default:
-        return CAT_OPTS.findIndex(([k]) => k === i.cat) * 1000 + 0;
+        return catOpts(data).findIndex(([k]) => k === i.cat) * 1000 + 0;
     }
   };
   rows = rows.slice().sort((a, b) => {
@@ -310,15 +371,15 @@ export function ZalihaTab() {
   });
   const grouped = sort.k === "mjesto" || sort.k === "grp";
   const gkey = (i: Item) => (sort.k === "grp" ? (i.grp ?? "ostalo") : i.cat);
-  const gname = (i: Item) => (sort.k === "grp" ? GROUPS[i.grp ?? "ostalo"] : CATS[i.cat]);
+  const gname = (i: Item) => (sort.k === "grp" ? grpName(data, i.grp) : catName(data, i.cat));
   const hiddenMatches = term ? hidden.filter((i) => i.n.toLowerCase().includes(term)) : [];
   const nOut = items.filter((i) => status(data, i) === "out").length;
   const nLow = items.filter((i) => status(data, i) === "low").length;
 
   const chips: Chip[] = [
     ...fSt.map((x): Chip => [ST_LABEL.find(([k]) => k === x)![1], () => setFSt(toggle(fSt, x))]),
-    ...fCat.map((x): Chip => [CATS[x], () => setFCat(toggle(fCat, x))]),
-    ...fGrp.map((x): Chip => [GROUPS[x], () => setFGrp(toggle(fGrp, x))]),
+    ...fCat.map((x): Chip => [catName(data, x), () => setFCat(toggle(fCat, x))]),
+    ...fGrp.map((x): Chip => [grpName(data, x), () => setFGrp(toggle(fGrp, x))]),
     ...fShop.map((x): Chip => [shopName(data, x), () => setFShop(toggle(fShop, x))]),
   ];
   const clear = () => {
@@ -333,22 +394,48 @@ export function ZalihaTab() {
       <FSearch id="itemSearch" value={q} onChange={setQ} placeholder="Traži namirnicu" />
       <FGroup title="Stanje" count={fSt.length}>
         {ST_LABEL.map(([k, l, cls]) => (
-          <FCheck key={k} on={fSt.includes(k)} label={l} dot={cls} count={cnt("st", (i) => status(data, i) === k)} onChange={() => setFSt(toggle(fSt, k))} />
+          <FCheck
+            key={k}
+            on={fSt.includes(k)}
+            label={l}
+            dot={cls}
+            count={cnt("st", (i) => status(data, i) === k)}
+            onChange={() => setFSt(toggle(fSt, k))}
+          />
         ))}
       </FGroup>
       <FGroup title="Mjesto" count={fCat.length}>
-        {CAT_OPTS.map(([k, l]) => (
-          <FCheck key={k} on={fCat.includes(k)} label={l} dot={`l-${k}`} count={cnt("cat", (i) => i.cat === k)} onChange={() => setFCat(toggle(fCat, k))} />
+        {catOpts(data).map(([k, l]) => (
+          <FCheck
+            key={k}
+            on={fCat.includes(k)}
+            label={l}
+            dot={`l-${k}`}
+            count={cnt("cat", (i) => i.cat === k)}
+            onChange={() => setFCat(toggle(fCat, k))}
+          />
         ))}
       </FGroup>
       <FGroup title="Skupina" count={fGrp.length}>
-        {GRP_OPTS.map(([k, l]) => (
-          <FCheck key={k} on={fGrp.includes(k)} label={l} count={cnt("grp", (i) => (i.grp ?? "ostalo") === k)} onChange={() => setFGrp(toggle(fGrp, k))} />
+        {grpOpts(data).map(([k, l]) => (
+          <FCheck
+            key={k}
+            on={fGrp.includes(k)}
+            label={l}
+            count={cnt("grp", (i) => (i.grp ?? "ostalo") === k)}
+            onChange={() => setFGrp(toggle(fGrp, k))}
+          />
         ))}
       </FGroup>
       <FGroup title="Dućan" count={fShop.length}>
         {data.shops.map((sh) => (
-          <FCheck key={sh.id} on={fShop.includes(sh.id)} label={sh.n} count={cnt("shop", (i) => i.src === sh.id)} onChange={() => setFShop(toggle(fShop, sh.id))} />
+          <FCheck
+            key={sh.id}
+            on={fShop.includes(sh.id)}
+            label={sh.n}
+            count={cnt("shop", (i) => i.src === sh.id)}
+            onChange={() => setFShop(toggle(fShop, sh.id))}
+          />
         ))}
       </FGroup>
     </>
@@ -360,7 +447,8 @@ export function ZalihaTab() {
       title="Zaliha"
       count={
         <>
-          <b>{rows.length}</b> od {items.length} · <span className="t-out">{nOut} nema</span> · <span className="t-low">{nLow} nisko</span>
+          <b>{rows.length}</b> od {items.length} · <span className="t-out">{nOut} nema</span> ·{" "}
+          <span className="t-low">{nLow} nisko</span>
         </>
       }
       filters={filters}
@@ -376,7 +464,14 @@ export function ZalihaTab() {
               ["hidden", "Skrivene", hidden.length],
             ] as [ZTab, string, number][]
           ).map(([k, l, c]) => (
-            <button key={k} type="button" role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>
+            <button
+              key={k}
+              type="button"
+              role="tab"
+              aria-selected={tab === k}
+              aria-pressed={tab === k}
+              onClick={() => setTab(k)}
+            >
               {l} <small>{c}</small>
             </button>
           ))}
@@ -392,7 +487,12 @@ export function ZalihaTab() {
     >
       {adding && <ItemForm initialName={q.trim()} onDone={() => setAdding(false)} />}
 
-      {tab === "prep" && (prepHave.length ? <PrepStock data={data} update={update} /> : <Note>Nemaš ništa pripremljeno. Recepte za prep nađeš u Receptima.</Note>)}
+      {tab === "prep" &&
+        (prepHave.length ? (
+          <PrepStock data={data} update={update} />
+        ) : (
+          <Note>Nemaš ništa pripremljeno. Recepte za prep nađeš u Receptima.</Note>
+        ))}
 
       {tab === "hidden" &&
         (hidden.length ? (
@@ -415,7 +515,7 @@ export function ZalihaTab() {
                         <span className="iname">{i.n}</span>
                       </td>
                       <td>
-                        <span className={`label l-${i.cat}`}>{CATS[i.cat]}</span>
+                        <span className={`label l-${i.cat}`}>{catName(data, i.cat)}</span>
                       </td>
                       <td className="muted">{shopName(data, i.src)}</td>
                       <td className="c" style={{ width: 90 }}>
@@ -435,7 +535,9 @@ export function ZalihaTab() {
               </tbody>
             </table>
             <div className="tblfoot">
-              <span>Skrivene ne dolaze na popis za kupovinu, osim ako ih traži recept ili omlet koji si isplanirao.</span>
+              <span>
+                Skrivene ne dolaze na popis za kupovinu, osim ako ih traži recept ili omlet koji si isplanirao.
+              </span>
             </div>
           </div>
         ) : (
@@ -525,8 +627,8 @@ export function ZalihaTab() {
             )
           ) : items.length === 0 ? (
             <Note>
-              <strong>Zaliha je prazna.</strong> U tražilicu lijevo upiši što imaš, npr. „jaja”. Ako je to u katalogu, vratiš
-              ga jednim klikom, a ako nije, dodaš novu namirnicu.
+              <strong>Zaliha je prazna.</strong> U tražilicu lijevo upiši što imaš, npr. „jaja”. Ako je to u katalogu,
+              vratiš ga jednim klikom, a ako nije, dodaš novu namirnicu.
             </Note>
           ) : (
             <Note>Nijedna namirnica ne odgovara filterima.</Note>
@@ -546,7 +648,7 @@ export function ZalihaTab() {
                         <td className="sticky">
                           <span className="iname">{i.n}</span>
                         </td>
-                        <td className="txt">{CATS[i.cat]}</td>
+                        <td className="txt">{catName(data, i.cat)}</td>
                         <td className="txt">
                           {i.u} · pakiranje {fmt(i.pack, i.u)}
                         </td>

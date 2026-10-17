@@ -5,6 +5,7 @@ import type { AppData } from "../state/model";
 import { allItems } from "./items";
 import { newRecipeId } from "./recipes";
 import { BASE_SERVINGS } from "./inventory";
+import { isMass } from "./lists";
 
 export interface ParsedRecipe {
   n: string;
@@ -91,7 +92,11 @@ function findRecipe(node: unknown): Record<string, unknown> | null {
 }
 
 function steps(v: unknown): string[] {
-  if (typeof v === "string") return v.split(/\n+|(?<=\.)\s+(?=[A-ZČĆŠŽĐ])/).map(stripHtml).filter(Boolean);
+  if (typeof v === "string")
+    return v
+      .split(/\n+|(?<=\.)\s+(?=[A-ZČĆŠŽĐ])/)
+      .map(stripHtml)
+      .filter(Boolean);
   if (Array.isArray(v)) return v.flatMap(steps);
   if (v && typeof v === "object") {
     const o = v as Record<string, unknown>;
@@ -115,7 +120,9 @@ export function parseRecipeHtml(html: string, url = ""): ParsedRecipe | null {
     const r = findRecipe(j);
     if (!r) continue;
     const nut = (r.nutrition || {}) as Record<string, unknown>;
-    const ing = (Array.isArray(r.recipeIngredient) ? r.recipeIngredient : Array.isArray(r.ingredients) ? r.ingredients : [])
+    const ing = (
+      Array.isArray(r.recipeIngredient) ? r.recipeIngredient : Array.isArray(r.ingredients) ? r.ingredients : []
+    )
       .filter((x): x is string => typeof x === "string")
       .map(stripHtml)
       .filter(Boolean);
@@ -132,10 +139,24 @@ export function parseRecipeHtml(html: string, url = ""): ParsedRecipe | null {
   }
   // bez JSON-LD: <li> unutar elementa kojem klasa sadrži "ingredient"
   const block = html.match(/class="[^"]*ingredient[^"]*"[\s\S]*?<\/(ul|ol|div)>/i);
-  const ing = block ? [...block[0].matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)].map((m) => stripHtml(m[1])).filter(Boolean) : [];
+  const ing = block
+    ? [...block[0].matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)].map((m) => stripHtml(m[1])).filter(Boolean)
+    : [];
   if (!ing.length) return null;
-  const title = html.match(/<meta[^>]+property="og:title"[^>]+content="([^"]+)"/i)?.[1] ?? html.match(/<title>([^<]+)<\/title>/i)?.[1] ?? "";
-  return { n: stripHtml(title) || "Recept s weba", ingredients: ing, steps: [], minutes: null, servings: null, kcal: null, prot: null, url };
+  const title =
+    html.match(/<meta[^>]+property="og:title"[^>]+content="([^"]+)"/i)?.[1] ??
+    html.match(/<title>([^<]+)<\/title>/i)?.[1] ??
+    "";
+  return {
+    n: stripHtml(title) || "Recept s weba",
+    ingredients: ing,
+    steps: [],
+    minutes: null,
+    servings: null,
+    kcal: null,
+    prot: null,
+    url,
+  };
 }
 
 /** Zalijepljeni tekst: redovi s brojem na početku su sastojci, dulji ostali redovi su koraci */
@@ -274,7 +295,10 @@ export function matchItem(d: AppData, name: string): Item | null {
       .filter((w) => w.length >= 3);
     let s = 0;
     for (const w of iw)
-      if (words.some((x) => x.slice(0, Math.min(5, x.length, w.length)) === w.slice(0, Math.min(5, x.length, w.length)))) s++;
+      if (
+        words.some((x) => x.slice(0, Math.min(5, x.length, w.length)) === w.slice(0, Math.min(5, x.length, w.length)))
+      )
+        s++;
     const sc = iw.length ? s / iw.length : 0;
     if (sc > score) {
       score = sc;
@@ -287,7 +311,9 @@ export function matchItem(d: AppData, name: string): Item | null {
 /** "200 g pilećih prsa" → količina, jedinica, naziv, namirnica */
 export function parseIngredient(d: AppData, raw: string): IngLine {
   const t = raw.replace(/\(.*?\)/g, " ").trim();
-  const m = t.match(/^(\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\d+)?)?|\d+\s*\/\s*\d+|\d*\s*[½¼¾⅓⅔])\s*([^\s\d]+)?\s*(.*)$/);
+  const m = t.match(
+    /^(\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\d+)?)?|\d+\s*\/\s*\d+|\d*\s*[½¼¾⅓⅔])\s*([^\s\d]+)?\s*(.*)$/,
+  );
   let amount: number | null = null;
   let unit = "";
   let rest = t;
@@ -311,9 +337,9 @@ export function parseIngredient(d: AppData, raw: string): IngLine {
   const item = matchItem(d, rest);
   if (item && amount != null) {
     // jedinica namirnice: komadi ostaju komadi; grami za komade → 1 komad na ~100 g
-    if (item.u === "kom" && unit && unit !== "kom") amount = Math.max(1, Math.round(amount / 100));
+    if (!isMass(item.u) && unit && unit !== "kom") amount = Math.max(1, Math.round(amount / 100));
     // bez jedinice za grame/ml: npr. "1 piletina" → oko 100 g po komadu
-    if (item.u !== "kom" && (!unit || unit === "kom")) amount = amount * 100;
+    if (isMass(item.u) && (!unit || unit === "kom")) amount = amount * 100;
   }
   return { raw, amount, unit: unit || (item ? item.u : ""), name: rest, item };
 }
@@ -337,8 +363,12 @@ function guessMethod(p: ParsedRecipe): string {
 }
 
 /** Nacrt vlastitog recepta: količine po 1,5 porcije (kao u aplikaciji), neprepoznato ide u "ostalo" */
-export function toDraft(d: AppData, p: ParsedRecipe): { draft: CustomRecipe; lines: IngLine[]; matched: number } {
-  const lines = p.ingredients.map((x) => parseIngredient(d, x));
+export function toDraft(
+  d: AppData,
+  p: ParsedRecipe,
+  pre?: { lines: IngLine[]; method?: string; carb?: string },
+): { draft: CustomRecipe; lines: IngLine[]; matched: number } {
+  const lines = pre?.lines ?? p.ingredients.map((x) => parseIngredient(d, x));
   const serv = p.servings && p.servings > 0 ? p.servings : 2;
   const use: Record<string, number> = {};
   const extra: string[] = [];
@@ -348,12 +378,13 @@ export function toDraft(d: AppData, p: ParsedRecipe): { draft: CustomRecipe; lin
       use[l.item.id] = Math.round(((use[l.item.id] || 0) + a) * 10) / 10;
     } else extra.push(l.raw);
   }
-  const method = guessMethod(p);
+  const method = pre?.method || guessMethod(p);
+  const carb = (["Riža", "Krumpir", "Tjestenina", "Ostalo"] as Carb[]).find((c) => c === pre?.carb) ?? guessCarb(lines);
   return {
     draft: {
       id: newRecipeId(p.n),
       n: p.n,
-      c: guessCarb(lines),
+      c: carb,
       d: `${method}${p.minutes ? ` · ${p.minutes} min` : ""}`,
       use,
       extra: p.url ? [...extra, `Izvor: ${p.url}`] : extra,

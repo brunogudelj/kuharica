@@ -13,7 +13,6 @@ import type { Chip } from "../components/Page";
 import { usePanel } from "../components/Panel";
 import { Thumb } from "./ReceptiTab";
 
-
 export function prepMeta(data: ReturnType<typeof useApp>["data"], p: PrepRecipe) {
   const t = data.ui.ture[p.id] ?? 1;
   const miss = Object.entries(p.use)
@@ -127,7 +126,10 @@ const KEEP_LABEL: Record<Keep, string> = { fri: "Hladnjak", frz: "Zamrzivač" };
 /** Gdje se prep čuva, iz teksta "Hladnjak 4 dana · zamrzivač 1 mjesec" */
 export const keepOf = (p: PrepRecipe): Keep[] => {
   const t = p.keep.toLowerCase();
-  return [...(t.includes("hladnjak") ? (["fri"] as Keep[]) : []), ...(t.includes("zamrziva") ? (["frz"] as Keep[]) : [])];
+  return [
+    ...(t.includes("hladnjak") ? (["fri"] as Keep[]) : []),
+    ...(t.includes("zamrziva") ? (["frz"] as Keep[]) : []),
+  ];
 };
 
 export function PrepTab() {
@@ -160,7 +162,13 @@ export function PrepTab() {
       <FSearch value={q} onChange={setQ} placeholder="Traži prep recept" />
       <FGroup title="Vrsta" count={fK.length}>
         {cats.map((k) => (
-          <FCheck key={k} on={fK.includes(k)} label={PREP_K[k]} count={PREP.filter((p) => pass(p, "k") && p.k === k).length} onChange={() => setFK(toggle(fK, k))} />
+          <FCheck
+            key={k}
+            on={fK.includes(k)}
+            label={PREP_K[k]}
+            count={PREP.filter((p) => pass(p, "k") && p.k === k).length}
+            onChange={() => setFK(toggle(fK, k))}
+          />
         ))}
       </FGroup>
       <FGroup title="Spremanje" count={fKeep.length}>
@@ -176,12 +184,22 @@ export function PrepTab() {
         ))}
       </FGroup>
       <FGroup title="Dostupnost" count={(fAvail ? 1 : 0) + (fHave ? 1 : 0)}>
-        <FCheck on={fAvail} label="Imam sve sastojke" count={PREP.filter((p) => !prepMeta(data, p).miss.length).length} onChange={() => setFAvail(!fAvail)} />
-        <FCheck on={fHave} label="Već pripremljeno" count={PREP.filter((p) => pc(data, p.id) > 0).length} onChange={() => setFHave(!fHave)} />
+        <FCheck
+          on={fAvail}
+          label="Imam sve sastojke"
+          count={PREP.filter((p) => !prepMeta(data, p).miss.length).length}
+          onChange={() => setFAvail(!fAvail)}
+        />
+        <FCheck
+          on={fHave}
+          label="Već pripremljeno"
+          count={PREP.filter((p) => pc(data, p.id) > 0).length}
+          onChange={() => setFHave(!fHave)}
+        />
       </FGroup>
       <p className="fhint">
-        Prep radiš jednom, a koristiš cijeli tjedan. „Napravio sam” skida sirove sastojke i dodaje pripremljeno, a recepti onda
-        troše pripremljeno umjesto sirovog.
+        Prep radiš jednom, a koristiš cijeli tjedan. „Napravio sam” skida sirove sastojke i dodaje pripremljeno, a
+        recepti onda troše pripremljeno umjesto sirovog.
       </p>
     </>
   );
@@ -212,7 +230,14 @@ export function PrepTab() {
               ["order", "Nedjeljni redoslijed"],
             ] as [PTab, string][]
           ).map(([k, l]) => (
-            <button key={k} type="button" role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>
+            <button
+              key={k}
+              type="button"
+              role="tab"
+              aria-selected={tab === k}
+              aria-pressed={tab === k}
+              onClick={() => setTab(k)}
+            >
               {l}
             </button>
           ))}
@@ -266,7 +291,9 @@ export function PrepTab() {
                           >
                             {p.n}
                           </button>
-                          <span className="ent-meta">{p.for.length ? `za: ${p.for.slice(0, 2).join(", ")}` : p.tip}</span>
+                          <span className="ent-meta">
+                            {p.for.length ? `za: ${p.for.slice(0, 2).join(", ")}` : p.tip}
+                          </span>
                         </div>
                       </div>
                     </td>
@@ -286,7 +313,12 @@ export function PrepTab() {
                             {KEEP_LABEL[k]}
                           </span>
                         ))}
-                        <span className="muted">{p.keep.replace(/hladnjak|zamrzivač/gi, "").replace(/^\s*·?\s*/, "").replace(/\s*·\s*/g, " / ")}</span>
+                        <span className="muted">
+                          {p.keep
+                            .replace(/hladnjak|zamrzivač/gi, "")
+                            .replace(/^\s*·?\s*/, "")
+                            .replace(/\s*·\s*/g, " / ")}
+                        </span>
                       </span>
                     </td>
                     <td data-l="Imaš" className="num strong">

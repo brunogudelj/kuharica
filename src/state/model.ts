@@ -1,4 +1,4 @@
-import { DAYS, DEFAULT_SHOPS, OM_PRESETS } from "../data";
+import { CATS, DAYS, DEFAULT_SHOPS, GROUPS, OM_PRESETS } from "../data";
 import type { CustomRecipe, Item, OmSel, Shop } from "../data";
 
 export interface StockEntry {
@@ -68,6 +68,10 @@ export interface UiState {
   needsOpen?: boolean;
   /** prikaz u Planu: kalendar ili namirnice za tjedan */
   planView?: "cal" | "needs";
+  /** Kupovina se otvara s filterom "Treba za plan" (jednokratno, iz Plana) */
+  kupFocus?: "plan";
+  /** kartica u Postavkama */
+  psTab?: "lists" | "claude" | "sync" | "backup" | "other";
   /** kartica u Troškovima */
   trTab?: "log" | "meal" | "set";
   /** grupiranje popisa za kupovinu */
@@ -88,8 +92,36 @@ export interface AppData {
   recipes: CustomRecipe[];
   /** popis dućana */
   shops: Shop[];
+  /** mjesta spremanja, skupine i jedinice (uređuju se u Postavkama) */
+  lists: Lists;
   ui: UiState;
 }
+
+/** Stavka popisa (mjesto spremanja, skupina, jedinica) */
+export interface Entry {
+  id: string;
+  n: string;
+}
+export interface Lists {
+  cats: Entry[];
+  grps: Entry[];
+  units: Entry[];
+}
+export const BUILTIN_UNITS: Entry[] = [
+  { id: "g", n: "grami (g)" },
+  { id: "ml", n: "mililitri (ml)" },
+  { id: "kom", n: "komadi (kom)" },
+];
+export const defaultLists = (): Lists => ({
+  cats: Object.entries(CATS).map(([id, n]) => ({ id, n })),
+  grps: Object.entries(GROUPS).map(([id, n]) => ({ id, n })),
+  units: [
+    ...BUILTIN_UNITS,
+    { id: "kocka", n: "kocka" },
+    { id: "konzerva", n: "konzerva" },
+    { id: "vrećica", n: "vrećica" },
+  ],
+});
 
 export const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
@@ -118,6 +150,7 @@ export function defaultData(): AppData {
     items: { v: 2, custom: [], hidden: [], over: {} },
     recipes: [],
     shops: clone(DEFAULT_SHOPS),
+    lists: defaultLists(),
     ui: { servings: {}, ture: {}, tab: "plan" },
   };
 }

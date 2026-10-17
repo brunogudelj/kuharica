@@ -50,7 +50,9 @@ describe("recept iz linka", () => {
   });
 
   it("zalijepljeni tekst i ISO vrijeme", () => {
-    const p = parseRecipeText("Tuna salata\n2 porcije, 10 min\n- 1 konzerva tune\n- 200 g rajčica\nSve nareži i pomiješaj u zdjeli, začini limunom.");
+    const p = parseRecipeText(
+      "Tuna salata\n2 porcije, 10 min\n- 1 konzerva tune\n- 200 g rajčica\nSve nareži i pomiješaj u zdjeli, začini limunom.",
+    );
     expect(p.n).toBe("Tuna salata");
     expect(p.ingredients).toHaveLength(2);
     expect(p.steps).toHaveLength(1);

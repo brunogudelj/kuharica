@@ -1,9 +1,11 @@
-export type CatId = "frz" | "fri" | "dry" | "fre";
+/** mjesto spremanja: ugrađena (frz, fri, dry, fre) ili vlastita (k-…) */
+export type CatId = string;
 /** skupina namirnice (vrsta hrane), neovisno o mjestu čuvanja */
-export type GrpId = "voce" | "povrce" | "meso" | "riba" | "jaja" | "mlijecno" | "soja" | "prilog" | "mast" | "umaci" | "ostalo";
+export type GrpId = string;
 /** id dućana: ugrađeni (K, BIO, AZ, O) ili vlastiti (s-…) */
 export type ShopId = string;
-export type Unit = "g" | "ml" | "kom";
+/** g, ml, kom ili vlastita jedinica (kocka, konzerva…) koja se broji kao komad */
+export type Unit = string;
 export type UnitId = "vrecica" | "kutija" | "porcija" | "kockica" | "cufta" | "muffin" | "obrok";
 export type Carb = "Riža" | "Krumpir" | "Tjestenina" | "Ostalo";
 export type PrepCat = "Umaci" | "Marinade" | "Baze" | "Gotovo";

@@ -1,3 +1,4 @@
+import { isMass } from "./lists";
 import { DEFAULT_OM, MAC, OFBY, OM_BASE, OM_CARB, OM_PRESETS, OM_PROT, OM_VEG, PREP_INV } from "../data";
 import type { OmFill, OmSel, Use } from "../data";
 import type { AppData, ItemsState, OmDay } from "../state/model";
@@ -54,7 +55,7 @@ export function macOf(d: AppData, id: string): [number, number] | null {
   const i = itemOf(d, id);
   const base = MAC[id] ?? null;
   if (!i || (i.kcal == null && i.prot == null)) return base;
-  const k = i.u === "kom" ? 1 : 1 / 100;
+  const k = isMass(i.u) ? 1 / 100 : 1;
   return [i.kcal != null ? i.kcal * k : (base?.[0] ?? 0), i.prot != null ? i.prot * k : (base?.[1] ?? 0)];
 }
 
@@ -63,7 +64,7 @@ export function macDisplay(d: AppData, id: string): [number | null, number | nul
   const m = macOf(d, id);
   const i = itemOf(d, id);
   if (!m || !i) return [null, null];
-  const k = i.u === "kom" ? 1 : 100;
+  const k = isMass(i.u) ? 100 : 1;
   return [Math.round(m[0] * k), Math.round(m[1] * k * 10) / 10];
 }
 

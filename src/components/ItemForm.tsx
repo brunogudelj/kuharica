@@ -1,19 +1,16 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { CATS, GROUPS } from "../data";
+
 import { shopOpts } from "../logic/shops";
 import type { CatId, GrpId, Item, ShopId, Unit } from "../data";
+import { LIST_LABEL, addEntry, catOpts, grpOpts, isMass, unitOpts } from "../logic/lists";
+import type { ListKind } from "../logic/lists";
 import { useApp } from "../state/AppContext";
 import { newCustomItem, visibleItems } from "../logic/items";
 import { addItem } from "../logic/actions";
 
-const UNITS: [Unit, string][] = [
-  ["g", "grami (g)"],
-  ["ml", "mililitri (ml)"],
-  ["kom", "komadi (kom)"],
-];
 const parse = (s: string) => parseFloat(s.replace(",", "."));
-const per = (u: Unit) => (u === "kom" ? "po komadu" : `na 100 ${u}`);
+const per = (u: Unit) => (isMass(u) ? `na 100 ${u}` : u === "kom" ? "po komadu" : `po ${u}`);
 
 export type OmRole = "" | "prot" | "veg";
 
@@ -67,7 +64,7 @@ export function OmFields({
               inputMode="decimal"
               min="0"
               step="any"
-              placeholder={u === "kom" ? "1" : "50"}
+              placeholder={isMass(u) ? "50" : "1"}
               value={amt}
               onChange={(e) => setAmt(e.target.value)}
               onBlur={onBlur}
@@ -151,6 +148,15 @@ export function ItemForm({ onDone, initialName = "" }: { onDone: (item?: Item) =
   const [kcal, setKcal] = useState("");
   const [prot, setProt] = useState("");
   const [err, setErr] = useState("");
+  // "+ Nova…" u padajućem izborniku: doda stavku popisa (vidi Postavke) i odmah je odabere
+  const addNew = (kind: ListKind, set: (id: string) => void) => {
+    const name = window.prompt(`Naziv: ${LIST_LABEL[kind].one}`);
+    if (!name?.trim()) return;
+    const r = addEntry(data, kind, name);
+    if (!r.id) return setErr(r.msg);
+    apply(r.data, r.msg);
+    set(r.id);
+  };
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -191,32 +197,47 @@ export function ItemForm({ onDone, initialName = "" }: { onDone: (item?: Item) =
         </label>
         <label htmlFor="niCat">
           Gdje stoji
-          <select id="niCat" value={cat} onChange={(e) => setCat(e.target.value as CatId)}>
-            {(Object.entries(CATS) as [CatId, string][]).map(([k, t]) => (
+          <select
+            id="niCat"
+            value={cat}
+            onChange={(e) => (e.target.value === "__new" ? addNew("cats", setCat) : setCat(e.target.value))}
+          >
+            {catOpts(data).map(([k, t]) => (
               <option key={k} value={k}>
                 {t}
               </option>
             ))}
+            <option value="__new">+ Novo mjesto…</option>
           </select>
         </label>
         <label htmlFor="niGrp">
           Skupina
-          <select id="niGrp" value={grp} onChange={(e) => setGrp(e.target.value as GrpId)}>
-            {(Object.entries(GROUPS) as [GrpId, string][]).map(([k, t]) => (
+          <select
+            id="niGrp"
+            value={grp}
+            onChange={(e) => (e.target.value === "__new" ? addNew("grps", setGrp) : setGrp(e.target.value))}
+          >
+            {grpOpts(data).map(([k, t]) => (
               <option key={k} value={k}>
                 {t}
               </option>
             ))}
+            <option value="__new">+ Nova skupina…</option>
           </select>
         </label>
         <label htmlFor="niUnit">
           Mjeri se u
-          <select id="niUnit" value={u} onChange={(e) => setU(e.target.value as Unit)}>
-            {UNITS.map(([k, t]) => (
+          <select
+            id="niUnit"
+            value={u}
+            onChange={(e) => (e.target.value === "__new" ? addNew("units", setU) : setU(e.target.value))}
+          >
+            {unitOpts(data).map(([k, t]) => (
               <option key={k} value={k}>
                 {t}
               </option>
             ))}
+            <option value="__new">+ Nova jedinica…</option>
           </select>
         </label>
         <label htmlFor="niPack">
@@ -227,7 +248,7 @@ export function ItemForm({ onDone, initialName = "" }: { onDone: (item?: Item) =
             inputMode="decimal"
             min="0"
             step="any"
-            placeholder={u === "kom" ? "npr. 10" : "npr. 400"}
+            placeholder={isMass(u) ? "npr. 400" : "npr. 10"}
             value={pack}
             onChange={(e) => setPack(e.target.value)}
           />

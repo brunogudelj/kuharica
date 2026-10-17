@@ -205,7 +205,7 @@ export function toggleSlot(src: AppData, k: SlotKey, ix: number): Result {
 function fruitPool(d: AppData): Item[] {
   return allItems(d).filter((i) => i.grp === "voce" && !d.items.hidden.includes(i.id) && qty(d, i.id) > 0);
 }
-export const defaultFruitQty = (i: Item) => (i.u === "kom" ? 1 : i.u === "g" ? 150 : 150);
+export const defaultFruitQty = (i: Item) => (i.u === "g" || i.u === "ml" ? 150 : 1);
 
 /** Novi tjedan: ciklus se pomiče za 7 dana, plan se prazni, slažu se novi omleti */
 export function newWeek(src: AppData, rng: () => number = Math.random): AppData {
@@ -287,7 +287,8 @@ export function removeRecipe(src: AppData, id: string): Result {
   d.recipes = d.recipes.filter((x) => x.id !== id);
   d.plan.days = d.plan.days.map((x) => (x.r === id && !x.done ? { r: "", done: false } : x));
   d.plan.om = d.plan.om.map((x) => (x.r === id && !x.done ? { sel: null, done: false } : x));
-  for (const k of SLOT_KEYS) d.plan.extra[k] = d.plan.extra[k].map((x) => (x.r === id && !x.done ? { done: false } : x));
+  for (const k of SLOT_KEYS)
+    d.plan.extra[k] = d.plan.extra[k].map((x) => (x.r === id && !x.done ? { done: false } : x));
   return { data: d, msg: `${r?.n ?? "Recept"} je obrisan.` };
 }
 
@@ -342,7 +343,12 @@ export function undoPurchase(src: AppData, mk: string, entryId: string): Result 
 }
 
 /** Promijeni zapis troška (iznos, dućan, opis) */
-export function editCost(src: AppData, mk: string, id: string, patch: Partial<Pick<CostEntry, "amount" | "shop" | "note">>): AppData {
+export function editCost(
+  src: AppData,
+  mk: string,
+  id: string,
+  patch: Partial<Pick<CostEntry, "amount" | "shop" | "note">>,
+): AppData {
   const d = clone(src);
   d.costs[mk] = (d.costs[mk] || []).map((e) => (e.id === id ? { ...e, ...patch } : e));
   return d;

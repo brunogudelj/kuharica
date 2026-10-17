@@ -84,7 +84,9 @@ export function DucaniTab() {
     (skip === "type" || !fType.length || fType.includes(s.type)) &&
     (!fBuy || toBuy.some((x) => x.i.src === s.id));
   const shops = data.shops.filter((s) => pass(s));
-  const types = [...new Set([...TYPES, ...data.shops.map((s) => s.type)])].filter((t) => data.shops.some((s) => s.type === t));
+  const types = [...new Set([...TYPES, ...data.shops.map((s) => s.type)])].filter((t) =>
+    data.shops.some((s) => s.type === t),
+  );
   const chips: Chip[] = [
     ...fType.map((t): Chip => [t, () => setFType(toggle(fType, t))]),
     ...(fBuy ? [["Ima nešto za kupiti", () => setFBuy(false)] as Chip] : []),
@@ -95,13 +97,26 @@ export function DucaniTab() {
       <FSearch value={q} onChange={setQ} placeholder="Traži dućan" />
       <FGroup title="Vrsta" count={fType.length}>
         {types.map((t) => (
-          <FCheck key={t} on={fType.includes(t)} label={t} count={data.shops.filter((s) => pass(s, "type") && s.type === t).length} onChange={() => setFType(toggle(fType, t))} />
+          <FCheck
+            key={t}
+            on={fType.includes(t)}
+            label={t}
+            count={data.shops.filter((s) => pass(s, "type") && s.type === t).length}
+            onChange={() => setFType(toggle(fType, t))}
+          />
         ))}
       </FGroup>
       <FGroup title="Kupovina" count={fBuy ? 1 : 0}>
-        <FCheck on={fBuy} label="Ima nešto za kupiti" count={data.shops.filter((s) => toBuy.some((x) => x.i.src === s.id)).length} onChange={() => setFBuy(!fBuy)} />
+        <FCheck
+          on={fBuy}
+          label="Ima nešto za kupiti"
+          count={data.shops.filter((s) => toBuy.some((x) => x.i.src === s.id)).length}
+          onChange={() => setFBuy(!fBuy)}
+        />
       </FGroup>
-      <p className="fhint">Svaka namirnica ima svoj dućan (mijenjaš ga u Zalihi), pa se po njemu slaže popis za kupovinu.</p>
+      <p className="fhint">
+        Svaka namirnica ima svoj dućan (mijenjaš ga u Zalihi), pa se po njemu slaže popis za kupovinu.
+      </p>
     </>
   );
 
@@ -143,7 +158,9 @@ export function DucaniTab() {
               <th className="num">Za kupiti</th>
               <th className="num">Ovaj mjesec</th>
               <th className="num">Dosad ukupno</th>
-              <th className="num" title="Klizni prosjek zadnjih 26 tjedana">Tjedno (6 mj.)</th>
+              <th className="num" title="Klizni prosjek zadnjih 26 tjedana">
+                Tjedno (6 mj.)
+              </th>
               <th className="c">
                 <span className="sr-only">Više</span>
               </th>
@@ -170,7 +187,12 @@ export function DucaniTab() {
                       </div>
                     </td>
                     <td>
-                      <select className="cellsel" aria-label={`Vrsta: ${s.n}`} value={s.type} onChange={(e) => ed({ type: e.target.value })}>
+                      <select
+                        className="cellsel"
+                        aria-label={`Vrsta: ${s.n}`}
+                        value={s.type}
+                        onChange={(e) => ed({ type: e.target.value })}
+                      >
                         {[...new Set([...TYPES, s.type])].filter(Boolean).map((t) => (
                           <option key={t}>{t}</option>
                         ))}
@@ -252,7 +274,10 @@ export function DucaniTab() {
                             {its.length ? (
                               <div className="chips">
                                 {its.map((i) => (
-                                  <span key={i.id} className={"chip" + (buy.some((x) => x.i.id === i.id) ? " warn" : "")}>
+                                  <span
+                                    key={i.id}
+                                    className={"chip" + (buy.some((x) => x.i.id === i.id) ? " warn" : "")}
+                                  >
                                     {i.n}
                                   </span>
                                 ))}
@@ -301,7 +326,10 @@ export function DucaniTab() {
           </tbody>
         </table>
         <div className="tblfoot">
-          <span>Tjedni prosjek je klizni prosjek zadnjih 6 mjeseci{sp.weeks < 26 ? ` (zapisi postoje ${Math.round(sp.weeks)} tjedana)` : ""}.</span>
+          <span>
+            Tjedni prosjek je klizni prosjek zadnjih 6 mjeseci
+            {sp.weeks < 26 ? ` (zapisi postoje ${Math.round(sp.weeks)} tjedana)` : ""}.
+          </span>
           <span className="tblsum">
             Ukupno tjedno: <b>{eur(Object.values(sp.byShop).reduce((t, x) => t + x.weekly, 0))}</b>
           </span>

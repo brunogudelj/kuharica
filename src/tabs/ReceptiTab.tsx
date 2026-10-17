@@ -1,7 +1,18 @@
 import { useMemo, useState } from "react";
 import { useApp } from "../state/AppContext";
 import { allItems } from "../logic/items";
-import { CARB_ORDER, PROT_GROUPS, SORTS, TAG_ORDER, emptyFilter, facetCounts, feed, filterFeed, matches, sortFeed } from "../logic/feed";
+import {
+  CARB_ORDER,
+  PROT_GROUPS,
+  SORTS,
+  TAG_ORDER,
+  emptyFilter,
+  facetCounts,
+  feed,
+  filterFeed,
+  matches,
+  sortFeed,
+} from "../logic/feed";
 import type { FeedEntry, FeedFilter, Kind, SortKey } from "../logic/feed";
 import { eur } from "../logic/format";
 import { usePanel } from "../components/Panel";
@@ -97,12 +108,18 @@ export function ReceptiTab() {
   const all = useMemo(() => feed(data), [data]);
   const list = sortFeed(filterFeed(all, f, data), sort);
   const tagCounts = facetCounts(all, f, data, "tags");
-  const tagList = [...TAG_ORDER.filter((t) => all.some((e) => e.tags.includes(t))), ...[...new Set(all.flatMap((e) => e.tags))].filter((t) => !TAG_ORDER.includes(t))];
+  const tagList = [
+    ...TAG_ORDER.filter((t) => all.some((e) => e.tags.includes(t))),
+    ...[...new Set(all.flatMap((e) => e.tags))].filter((t) => !TAG_ORDER.includes(t)),
+  ];
   const prots = facetCounts(all, f, data, "prot");
   const carbs = facetCounts(all, f, data, "carb");
   const set = (p: Partial<FeedFilter>) => setF({ ...f, ...p });
 
-  const protList = [...PROT_GROUPS.map(([g]) => g), ...Object.keys(prots).filter((p) => !PROT_GROUPS.some(([g]) => g === p))];
+  const protList = [
+    ...PROT_GROUPS.map(([g]) => g),
+    ...Object.keys(prots).filter((p) => !PROT_GROUPS.some(([g]) => g === p)),
+  ];
   const carbList = CARB_ORDER.filter((c) => all.some((e) => e.carb === c));
 
   const usedItems = useMemo(() => {
@@ -111,13 +128,17 @@ export function ReceptiTab() {
       .filter((i) => ids.has(i.id))
       .sort((a, b) => a.n.localeCompare(b.n, "hr"));
   }, [all, data]);
-  const itemCount = (id: string) => all.filter((e) => matches(e, { ...f, items: [...f.items.filter((x) => x !== id), id] }, data)).length;
+  const itemCount = (id: string) =>
+    all.filter((e) => matches(e, { ...f, items: [...f.items.filter((x) => x !== id), id] }, data)).length;
 
   const chips: Chip[] = [
     ...f.tags.map((k): Chip => [k, () => set({ tags: toggle(f.tags, k) })]),
     ...f.prot.map((p): Chip => [p, () => set({ prot: toggle(f.prot, p) })]),
     ...f.carb.map((c): Chip => [c, () => set({ carb: toggle(f.carb, c) })]),
-    ...f.items.map((id): Chip => ["s: " + (allItems(data).find((i) => i.id === id)?.n ?? id), () => set({ items: toggle(f.items, id) })]),
+    ...f.items.map((id): Chip => [
+      "s: " + (allItems(data).find((i) => i.id === id)?.n ?? id),
+      () => set({ items: toggle(f.items, id) }),
+    ]),
     ...(f.avail ? [[f.avail === "all" ? "Imam sve" : "Fale najviše 2", () => set({ avail: "" })] as Chip] : []),
     ...(f.time ? [[`do ${f.time} min`, () => set({ time: 0 })] as Chip] : []),
     ...(f.mine ? [["Moji recepti", () => set({ mine: false })] as Chip] : []),
@@ -134,12 +155,24 @@ export function ReceptiTab() {
       <FSearch id="recipeSearch" value={f.q} onChange={(q) => set({ q })} placeholder="Traži recept ili sastojak" />
       <FGroup title="Oznake" count={f.tags.length}>
         {tagList.map((k) => (
-          <FCheck key={k} on={f.tags.includes(k)} label={k} count={tagCounts[k] || 0} onChange={() => set({ tags: toggle(f.tags, k) })} />
+          <FCheck
+            key={k}
+            on={f.tags.includes(k)}
+            label={k}
+            count={tagCounts[k] || 0}
+            onChange={() => set({ tags: toggle(f.tags, k) })}
+          />
         ))}
       </FGroup>
       <FGroup title="Protein" count={f.prot.length}>
         {protList.map((p) => (
-          <FCheck key={p} on={f.prot.includes(p)} label={p} count={prots[p] || 0} onChange={() => set({ prot: toggle(f.prot, p) })} />
+          <FCheck
+            key={p}
+            on={f.prot.includes(p)}
+            label={p}
+            count={prots[p] || 0}
+            onChange={() => set({ prot: toggle(f.prot, p) })}
+          />
         ))}
       </FGroup>
       <FGroup title="Ugljikohidrat" count={f.carb.length}>
@@ -190,13 +223,24 @@ export function ReceptiTab() {
           {usedItems
             .filter((i) => !itemQ.trim() || i.n.toLowerCase().includes(itemQ.trim().toLowerCase()))
             .map((i) => (
-              <FCheck key={i.id} on={f.items.includes(i.id)} label={i.n} count={itemCount(i.id)} onChange={() => set({ items: toggle(f.items, i.id) })} />
+              <FCheck
+                key={i.id}
+                on={f.items.includes(i.id)}
+                label={i.n}
+                count={itemCount(i.id)}
+                onChange={() => set({ items: toggle(f.items, i.id) })}
+              />
             ))}
         </div>
         <p className="fhint">Recept mora imati sve odabrane namirnice.</p>
       </FGroup>
       <FGroup title="Moji recepti" count={f.mine ? 1 : 0} open={false}>
-        <FCheck on={f.mine} label="Samo recepti koje sam dodao" count={all.filter((e) => e.custom).length} onChange={() => set({ mine: !f.mine })} />
+        <FCheck
+          on={f.mine}
+          label="Samo recepti koje sam dodao"
+          count={all.filter((e) => e.custom).length}
+          onChange={() => set({ mine: !f.mine })}
+        />
       </FGroup>
     </>
   );
@@ -258,7 +302,9 @@ export function ReceptiTab() {
             </tbody>
           </table>
           <div className="tblfoot">
-            <span>Brojke su po obroku, za omlet po omletu, a za prep za cijelu turu. Klik na recept otvara ga sa strane.</span>
+            <span>
+              Brojke su po obroku, za omlet po omletu, a za prep za cijelu turu. Klik na recept otvara ga sa strane.
+            </span>
           </div>
         </div>
       ) : (
