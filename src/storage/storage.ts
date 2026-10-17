@@ -70,6 +70,7 @@ export function migrate(raw: unknown): AppData {
   }
 
   d.settings.dostava = num(obj(r.settings).dostava, 12);
+  d.updatedAt = num(r.updatedAt, 0);
   const ui = obj(r.ui);
   for (const [k, v] of Object.entries(obj(ui.servings))) d.ui.servings[k] = num(v, 1);
   for (const [k, v] of Object.entries(obj(ui.ture))) d.ui.ture[k] = num(v, 1);

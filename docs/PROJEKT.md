@@ -13,6 +13,7 @@ Upute za Claude Code. Napravi novi projekt iz ovog dokumenta, pokreni ga lokalno
 Pretvori postojeći prototip (`reference/kuharica-prototip.html`, jedna HTML datoteka od oko 1400 redaka) u pravi web projekt. Aplikacija se mora moći instalirati na mobitel (PWA) i raditi offline. Prototip je izvor istine za sve podatke i logiku: recepte, namirnice, prep recepte, omlete, količine, makronutrijente i tekstove. **Podatke prenesi doslovno, ništa ne izmišljaj i ne skraćuj.**
 
 Prije pisanja koda:
+
 1. Pročitaj cijeli prototip.
 2. Napravi kratak plan u `docs/PLAN.md` i nastavi bez čekanja. Stani samo kod koraka označenih s **[PITAJ]**.
 
@@ -66,13 +67,13 @@ Ugljikohidrati se izmjenjuju u ciklusu od 5 dana: **riža → krumpir → tjeste
 
 ### Kartice (istim redoslijedom kao u prototipu)
 
-1. **Plan:** tjedan od ponedjeljka do nedjelje. Svaki dan ima oznaku dana ciklusa i odabir recepta, uz napomenu „sve imaš” ili „fali: …”. Gumbi su *Popuni tjedan* (odabire recepte prema ciklusu, ravnomjerno, prednost imaju oni za koje ima sastojaka), *Novi tjedan* (pomiče ciklus za 7 dana i slaže nove omlete) i *Skuhano* po danu. Ispod je povijest kuhanja.
-2. **Omlet:** tjedni plan od 7 omleta (svaki dan drugi) s gumbom *Novi omleti za tjedan*, koji ne ponavlja kombinacije i daje prednost onima za koje ima sastojaka. Dodir na dan otvara uređivanje tog dana. Tu je 15 gotovih kombinacija, *Iznenadi me* (nasumično 1 protein i 2 povrća, prednost onome što je na zalihi) i slaganje vlastitog omleta (baza, protein, povrće, prilog). Svaki omlet ima makronutrijente, cijenu, brojač porcija, korake za wok ili air fryer koji se slažu prema nadjevu, *Pojeo sam* i *Označi kao nepojeden*. Ako na zalihi ima barem 4 egg muffina, nudi ih kao zamjenu.
-3. **Zaliha:** blok *Pripremljeno* (vrećice i kutije iz prepa), sažetak (na zalihi, nisko, nema), filtri, a za svaku namirnicu stepper, oznaka stanja, dućan, točan unos količine i cijena po pakiranju.
-4. **Kupovina:** popis koji se računa sam, grupiran po dućanu, s pakiranjima i cijenom. Gumb *Kupio* povećava zalihu i bilježi trošak. Tu su i kopiranje popisa te linkovi na dućane (preuzmi iz prototipa).
+1. **Plan:** tjedan od ponedjeljka do nedjelje. Svaki dan ima oznaku dana ciklusa i odabir recepta, uz napomenu „sve imaš” ili „fali: …”. Gumbi su _Popuni tjedan_ (odabire recepte prema ciklusu, ravnomjerno, prednost imaju oni za koje ima sastojaka), _Novi tjedan_ (pomiče ciklus za 7 dana i slaže nove omlete) i _Skuhano_ po danu. Ispod je povijest kuhanja.
+2. **Omlet:** tjedni plan od 7 omleta (svaki dan drugi) s gumbom _Novi omleti za tjedan_, koji ne ponavlja kombinacije i daje prednost onima za koje ima sastojaka. Dodir na dan otvara uređivanje tog dana. Tu je 15 gotovih kombinacija, _Iznenadi me_ (nasumično 1 protein i 2 povrća, prednost onome što je na zalihi) i slaganje vlastitog omleta (baza, protein, povrće, prilog). Svaki omlet ima makronutrijente, cijenu, brojač porcija, korake za wok ili air fryer koji se slažu prema nadjevu, _Pojeo sam_ i _Označi kao nepojeden_. Ako na zalihi ima barem 4 egg muffina, nudi ih kao zamjenu.
+3. **Zaliha:** blok _Pripremljeno_ (vrećice i kutije iz prepa), sažetak (na zalihi, nisko, nema), filtri, a za svaku namirnicu stepper, oznaka stanja, dućan, točan unos količine i cijena po pakiranju.
+4. **Kupovina:** popis koji se računa sam, grupiran po dućanu, s pakiranjima i cijenom. Gumb _Kupio_ povećava zalihu i bilježi trošak. Tu su i kopiranje popisa te linkovi na dućane (preuzmi iz prototipa).
 5. **Troškovi:** pločice (potrošeno ovaj mjesec, procjena za mjesec, prosječan obrok, ušteda u odnosu na dostavu), unos računa, potrošnja po dućanu, cijena po obroku za svaki recept, postavke usporedbe i zapisi po mjesecima.
-6. **Recepti:** 12 recepata s filterima (Sve, Mogu skuhati, Riža, Krumpir, Tjestenina, 2 u 1), brojač porcija od 1 naviše, informacija što fali i što se koristi iz prepa te gumb *Skuhao sam*.
-7. **Prep:** nedjeljni redoslijed minutu po minutu i 18 prep recepata s filterima. Svaki ima količinu, vrijeme, čuvanje, množitelj, stanje na zalihi, sastojke, korake, savjet, „koristi u” i gumb *Napravio sam*.
+6. **Recepti:** 12 recepata s filterima (Sve, Mogu skuhati, Riža, Krumpir, Tjestenina, 2 u 1), brojač porcija od 1 naviše, informacija što fali i što se koristi iz prepa te gumb _Skuhao sam_.
+7. **Prep:** nedjeljni redoslijed minutu po minutu i 18 prep recepata s filterima. Svaki ima količinu, vrijeme, čuvanje, množitelj, stanje na zalihi, sastojke, korake, savjet, „koristi u” i gumb _Napravio sam_.
 
 Sve radnje koje mijenjaju podatke imaju toast s gumbom **Poništi** (6 s).
 
@@ -82,7 +83,7 @@ Prenesi točno ponašanje iz prototipa. Funkcije u prototipu: `effUse`, `planNee
 
 1. **Osnovna količina recepta je 1,5 porcija.** Brojač na receptu kreće od 1, pa je faktor `porcije / 1,5`. Tjedni plan uvijek računa faktor 1 (dakle 1,5 porcija).
 2. **Dnevni dodaci** (`DAILY`: miso, wakame, tofu, posni sir, salata, krastavci, rajčice, ulje) troše se jednom po skuhanom danu i ne skaliraju se s porcijama.
-3. **Pripremljeno je zaseban inventar.** *Napravio sam* skida sirove sastojke × množitelj i dodaje `make × množitelj` jedinica. Recept (`REC_USE_PREP`) i dnevni dodaci (`DAILY_PREP`) prvo troše pripremljeno. Sirovi sastojci umanjuju se za `PREP_INV.per × iskorištene jedinice`. **Ništa se ne smije oduzeti dvaput.**
+3. **Pripremljeno je zaseban inventar.** _Napravio sam_ skida sirove sastojke × množitelj i dodaje `make × množitelj` jedinica. Recept (`REC_USE_PREP`) i dnevni dodaci (`DAILY_PREP`) prvo troše pripremljeno. Sirovi sastojci umanjuju se za `PREP_INV.per × iskorištene jedinice`. **Ništa se ne smije oduzeti dvaput.**
 4. **Kupovina:** potreba = zbroj stvarne potrošnje za neskuhane planirane dane (uz dnevne dodatke i prep) + svi nepojedeni omleti iz tjednog plana omleta + minimum zalihe. Od toga se oduzme trenutna zaliha i zaokruži na cijela pakiranja.
 5. **Stanje namirnice:** „nema” (0, a minimum je veći od 0), „nisko” (ispod minimuma), „ok”.
 6. **Cijena** = cijena pakiranja / veličina pakiranja × količina. Cijena po obroku = (recept + dnevni dodaci) / 2. Dan = recept + dodaci + prosječna cijena omleta iz tjednog plana.
@@ -100,13 +101,17 @@ Local-first. Sučelje, da se kasnije može dodati sinkronizacija:
 ```ts
 interface Storage {
   load(): Promise<AppData | null>;
-  save(data: AppData): Promise<void>;   // debounce 400–600 ms
+  save(data: AppData): Promise<void>; // debounce 400–600 ms
 }
 type AppData = {
   version: 1;
   stock: Record<string, { qty: number; price: number | null }>;
   prepStock: Record<string, number>;
-  plan: { start: number; days: { r: string; done: boolean }[]; om: { sel: { base: string; fill: string[]; carb: string }; done: boolean }[] };
+  plan: {
+    start: number;
+    days: { r: string; done: boolean }[];
+    om: { sel: { base: string; fill: string[]; carb: string }; done: boolean }[];
+  };
   hist: { r: string; t: number }[];
   costs: Record<string, { id: string; t: number; shop: string; amount: number; note: string; est: boolean }[]>; // ključ "YYYY-MM"
   settings: { dostava: number };
@@ -125,6 +130,7 @@ type AppData = {
 Postoji otvoreni API s cijenama hrvatskih trgovačkih lanaca, uključujući Kaufland: **https://cijene.dev** (kod: https://github.com/senko/cijene-api). Treba mu besplatni API ključ.
 
 **[PITAJ]** Pitaj korisnika ima li ključ. Ako ima:
+
 - Prvo pročitaj dokumentaciju na `https://cijene.dev/docs`. Endpointe nemoj pogađati.
 - Napravi skriptu `scripts/cijene.ts` koja za namirnice iz kataloga traži proizvode u Kauflandu i predlaže cijenu pakiranja. Korisnik predložene cijene potvrđuje u aplikaciji, a ne upisuju se automatski.
 - Ključ ide u `.env.local` kao `CIJENE_API_KEY`. Dodaj `.env.example`.
@@ -143,9 +149,10 @@ Bio&Bio i azijski dućani nisu u tom API-ju, za njih se cijene i dalje upisuju r
 ## README.md
 
 Napiši na hrvatskom:
+
 - što aplikacija radi (kratko)
 - kako je pokrenuti: `npm install`, `npm run dev`
-- kako je instalirati na mobitel (otvori u pregledniku → *Dodaj na početni zaslon*)
+- kako je instalirati na mobitel (otvori u pregledniku → _Dodaj na početni zaslon_)
 - kako se vodi inventar: prvi popis, što se bilježi samo, što ručno, tjedna provjera
 - kako dodati novi recept (koje datoteke u `src/data/` i koja polja)
 - kako napraviti backup (izvoz JSON-a)

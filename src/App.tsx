@@ -3,6 +3,7 @@ import type { KeyboardEvent } from "react";
 import { useApp } from "./state/AppContext";
 import { clone } from "./state/model";
 import { shopping } from "./logic/inventory";
+import { syncText } from "./components/SyncPanel";
 import { PlanTab } from "./tabs/PlanTab";
 import { OmletTab } from "./tabs/OmletTab";
 import { ZalihaTab } from "./tabs/ZalihaTab";
@@ -23,17 +24,19 @@ const TABS = [
 type TabId = (typeof TABS)[number][0];
 
 export function App() {
-  const { data, loaded, saveError, update, toast, undo, closeToast } = useApp();
+  const { data, loaded, saveError, update, toast, undo, closeToast, sync } = useApp();
   const tab: TabId = TABS.some(([k]) => k === data.ui.tab) ? (data.ui.tab as TabId) : "plan";
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const shopCount = shopping(data).length;
 
-  const setTab = (t: TabId) =>
+  const setTab = (t: TabId, anchor?: string) => {
     update((d) => {
       const n = clone(d);
       n.ui.tab = t;
       return n;
     });
+    if (anchor) setTimeout(() => document.getElementById(anchor)?.scrollIntoView({ block: "start" }), 50);
+  };
 
   // Strelice lijevo/desno između kartica
   const onKey = (e: KeyboardEvent) => {
@@ -59,11 +62,22 @@ export function App() {
             tjestenina → riža → krumpir.
           </p>
           <p className="status">
-            {!loaded
-              ? "Učitavam zalihu…"
-              : saveError
-                ? "Spremanje nije uspjelo. Provjeri da preglednik dopušta spremanje podataka za ovu stranicu."
-                : "Podaci se spremaju na ovom uređaju. Za backup koristi izvoz u kartici Troškovi."}
+            {!loaded ? (
+              "Učitavam zalihu…"
+            ) : saveError ? (
+              "Spremanje nije uspjelo. Provjeri da preglednik dopušta spremanje podataka za ovu stranicu."
+            ) : sync.state === "off" ? (
+              <>
+                Podaci su samo na ovom uređaju.{" "}
+                <button type="button" className="linkbtn" onClick={() => setTab("troskovi", "sinkronizacija")}>
+                  Poveži laptop i mobitel
+                </button>
+              </>
+            ) : (
+              <span className={sync.state === "error" ? "miss" : undefined}>
+                {syncText(sync.state, sync.at, sync.msg)}
+              </span>
+            )}
           </p>
         </header>
 

@@ -38,6 +38,8 @@ export interface UiState {
 }
 export interface AppData {
   version: 1;
+  /** vrijeme zadnje promjene podataka (ms); za sinkronizaciju, zadnja promjena pobjeđuje */
+  updatedAt: number;
   stock: Record<string, StockEntry>;
   prepStock: Record<string, number>;
   plan: Plan;
@@ -57,6 +59,7 @@ export const emptyPlanDays = (): PlanDay[] => DAYS.map(() => ({ r: "", done: fal
 export function defaultData(): AppData {
   return {
     version: 1,
+    updatedAt: 0,
     stock: {},
     prepStock: {},
     plan: { start: 0, days: emptyPlanDays(), om: defaultOmWeek() },

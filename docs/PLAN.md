@@ -14,8 +14,11 @@ Prijenos prototipa (`reference/kuharica-prototip.html`) u Vite + React + TypeScr
 - U prototipu se spremalo u bazu Claude artefakta. Ovdje se sprema lokalno, uz izvoz i uvoz za backup i prijenos.
 - Brojač porcija i množitelj prepa spremaju se uz ostale podatke (u prototipu su bili samo u pregledniku).
 
+## Sinkronizacija
+
+Uređaji se sinkroniziraju preko tajnog GitHub Gista (`src/storage/gistSync.ts`). Svaka promjena podataka dobiva `updatedAt`, a pri spajanju pobjeđuje novija verzija. Lokalno spremanje u IndexedDB ostaje, pa aplikacija radi i bez interneta.
+
 ## Faza 2 (čeka odluku)
 
-- Sinkronizacija između uređaja (npr. Supabase) kao druga implementacija `Storage`.
 - Cijene iz cijene.dev API-ja za Kaufland.
 - Objava na GitHub Pages.

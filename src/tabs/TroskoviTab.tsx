@@ -10,6 +10,7 @@ import { dayCost } from "../logic/inventory";
 import { addReceipt, removeCost } from "../logic/actions";
 import { eur, monthKey, round } from "../logic/format";
 import { exportJson, importJson } from "../storage/storage";
+import { SyncPanel } from "../components/SyncPanel";
 
 const shopName = (s: string) => SHOPS[s as ShopId] || s;
 const todayInput = () => {
@@ -349,6 +350,7 @@ export function TroskoviTab() {
         </div>
       </div>
 
+      <SyncPanel />
       <Backup />
     </section>
   );

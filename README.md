@@ -70,9 +70,22 @@ Podaci su u `src/data/`:
 
 Nakon promjene pokreni `npm test`.
 
+## Laptop i mobitel (sinkronizacija)
+
+Podaci (zaliha, plan, omleti, troškovi) mogu biti isti na svim uređajima. Čuvaju se u tajnoj datoteci `kuharica.json` u tvom GitHub Gistu.
+
+1. U aplikaciji otvori **Troškovi → Laptop i mobitel** (ili dodirni „Poveži laptop i mobitel” na vrhu).
+2. Otvori link **GitHub → novi token**. Dozvola `gist` je već odabrana, a ti odaberi trajanje i stisni _Generate token_.
+3. Zalijepi token i stisni **Poveži**. Prvi uređaj napravi gist s trenutnim podacima.
+4. Na drugom uređaju zalijepi isti token. Aplikacija sama pronađe gist i preuzme podatke.
+
+Promjene se šalju 2 sekunde nakon zadnje izmjene, a s GitHuba se povlače pri svakom otvaranju aplikacije. Ako mijenjaš na oba uređaja u isto vrijeme, vrijedi zadnja promjena. Bez interneta sve radi na uređaju i šalje se kad se veza vrati. Postavke prikaza (otvorena kartica, brojač porcija) ostaju po uređaju.
+
+Token ima samo dozvolu za gistove i sprema se samo u preglednik tog uređaja. Kad istekne, aplikacija to javi, a ti napravi novi i ponovno poveži.
+
 ## Backup
 
-Podaci se spremaju u preglednik na uređaju (IndexedDB). U kartici _Troškovi_, na dnu, su **Izvezi podatke** (JSON datoteka) i **Uvezi podatke**. Izvezi povremeno, a uvozom prenosiš podatke na drugi uređaj.
+U kartici _Troškovi_, na dnu, su **Izvezi podatke** (JSON datoteka) i **Uvezi podatke**.
 
 ## Struktura
 
