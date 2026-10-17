@@ -122,6 +122,13 @@ export function PrepBody({ p }: { p: PrepRecipe }) {
 }
 
 type PTab = "list" | "order";
+type Keep = "fri" | "frz";
+const KEEP_LABEL: Record<Keep, string> = { fri: "Hladnjak", frz: "Zamrzivač" };
+/** Gdje se prep čuva, iz teksta "Hladnjak 4 dana · zamrzivač 1 mjesec" */
+export const keepOf = (p: PrepRecipe): Keep[] => {
+  const t = p.keep.toLowerCase();
+  return [...(t.includes("hladnjak") ? (["fri"] as Keep[]) : []), ...(t.includes("zamrziva") ? (["frz"] as Keep[]) : [])];
+};
 
 export function PrepTab() {
   const { data } = useApp();
@@ -129,18 +136,21 @@ export function PrepTab() {
   const [tab, setTab] = useState<PTab>("list");
   const [q, setQ] = useState("");
   const [fK, setFK] = useState<PrepCat[]>([]);
+  const [fKeep, setFKeep] = useState<Keep[]>([]);
   const [fAvail, setFAvail] = useState(false);
   const [fHave, setFHave] = useState(false);
   const term = q.trim().toLowerCase();
-  const pass = (p: PrepRecipe, skip?: "k") =>
+  const pass = (p: PrepRecipe, skip?: "k" | "keep") =>
     (!term || p.n.toLowerCase().includes(term)) &&
     (skip === "k" || !fK.length || fK.includes(p.k)) &&
+    (skip === "keep" || !fKeep.length || keepOf(p).some((k) => fKeep.includes(k))) &&
     (!fAvail || !prepMeta(data, p).miss.length) &&
     (!fHave || pc(data, p.id) > 0);
   const list = PREP.filter((p) => pass(p));
   const cats = Object.keys(PREP_K) as PrepCat[];
   const chips: Chip[] = [
     ...fK.map((k): Chip => [PREP_K[k], () => setFK(toggle(fK, k))]),
+    ...fKeep.map((k): Chip => [KEEP_LABEL[k], () => setFKeep(toggle(fKeep, k))]),
     ...(fAvail ? [["Imam sastojke", () => setFAvail(false)] as Chip] : []),
     ...(fHave ? [["Već pripremljeno", () => setFHave(false)] as Chip] : []),
   ];
@@ -151,6 +161,18 @@ export function PrepTab() {
       <FGroup title="Vrsta" count={fK.length}>
         {cats.map((k) => (
           <FCheck key={k} on={fK.includes(k)} label={PREP_K[k]} count={PREP.filter((p) => pass(p, "k") && p.k === k).length} onChange={() => setFK(toggle(fK, k))} />
+        ))}
+      </FGroup>
+      <FGroup title="Spremanje" count={fKeep.length}>
+        {(Object.keys(KEEP_LABEL) as Keep[]).map((k) => (
+          <FCheck
+            key={k}
+            on={fKeep.includes(k)}
+            label={KEEP_LABEL[k]}
+            dot={`l-${k}`}
+            count={PREP.filter((p) => pass(p, "keep") && keepOf(p).includes(k)).length}
+            onChange={() => setFKeep(toggle(fKeep, k))}
+          />
         ))}
       </FGroup>
       <FGroup title="Dostupnost" count={(fAvail ? 1 : 0) + (fHave ? 1 : 0)}>
@@ -177,6 +199,7 @@ export function PrepTab() {
       active={chips.length}
       onClear={() => {
         setFK([]);
+        setFKeep([]);
         setFAvail(false);
         setFHave(false);
       }}
@@ -256,8 +279,15 @@ export function PrepTab() {
                     <td data-l="Količina" className="muted">
                       {p.yieldTxt.replace(/<[^>]+>/g, "")}
                     </td>
-                    <td data-l="Čuvanje" className="muted">
-                      {p.keep}
+                    <td data-l="Čuvanje">
+                      <span className="keepcell">
+                        {keepOf(p).map((k) => (
+                          <span key={k} className={`label l-${k}`}>
+                            {KEEP_LABEL[k]}
+                          </span>
+                        ))}
+                        <span className="muted">{p.keep.replace(/hladnjak|zamrzivač/gi, "").replace(/^\s*·?\s*/, "").replace(/\s*·\s*/g, " / ")}</span>
+                      </span>
                     </td>
                     <td data-l="Imaš" className="num strong">
                       {have > 0 ? pfmt(have, inv.unit) : "–"}

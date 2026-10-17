@@ -134,10 +134,10 @@ export function TroskoviTab() {
   };
 
   const meals = allRecipes(data)
-    .filter((r) => !fCarb.length || fCarb.includes(r.c))
+    .filter((r) => !r.side && (!fCarb.length || fCarb.includes(r.c)))
     .map((r) => ({ r, c: dayCost(data, r.id) }))
     .sort((a, b) => a.c.perMeal - b.c.perMeal);
-  const carbs = [...new Set(allRecipes(data).map((r) => r.c))];
+  const carbs = [...new Set(allRecipes(data).filter((r) => !r.side).map((r) => r.c))];
 
   const chips: Chip[] =
     tab === "log"
@@ -191,7 +191,7 @@ export function TroskoviTab() {
             on={fCarb.includes(c)}
             label={c}
             dot={`cc-${c}`}
-            count={allRecipes(data).filter((r) => r.c === c).length}
+            count={allRecipes(data).filter((r) => !r.side && r.c === c).length}
             onChange={() => setFCarb(toggle(fCarb, c))}
           />
         ))}

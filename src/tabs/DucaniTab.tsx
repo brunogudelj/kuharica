@@ -5,6 +5,7 @@ import { visibleItems } from "../logic/items";
 import { shopping } from "../logic/inventory";
 import { addShop, editShop, removeShop } from "../logic/shops";
 import { eur, monthKey } from "../logic/format";
+import { shopSpend } from "../logic/costs";
 import { TextCell } from "../components/Cells";
 import { Icon } from "../components/icons";
 import { FCheck, FGroup, FSearch, Page, toggle } from "../components/Page";
@@ -73,6 +74,7 @@ export function DucaniTab() {
     (m, e) => ((m[e.shop] = (m[e.shop] || 0) + e.amount), m),
     {},
   );
+  const sp = shopSpend(data);
   const [q, setQ] = useState("");
   const [fType, setFType] = useState<string[]>([]);
   const [fBuy, setFBuy] = useState(false);
@@ -140,6 +142,8 @@ export function DucaniTab() {
               <th className="num">Namirnica</th>
               <th className="num">Za kupiti</th>
               <th className="num">Ovaj mjesec</th>
+              <th className="num">Dosad ukupno</th>
+              <th className="num" title="Klizni prosjek zadnjih 26 tjedana">Tjedno (6 mj.)</th>
               <th className="c">
                 <span className="sr-only">Više</span>
               </th>
@@ -196,6 +200,8 @@ export function DucaniTab() {
                       )}
                     </td>
                     <td className="num">{spent[s.id] ? eur(spent[s.id]) : "–"}</td>
+                    <td className="num">{sp.byShop[s.id]?.total ? eur(sp.byShop[s.id].total) : "–"}</td>
+                    <td className="num strong">{sp.byShop[s.id]?.weekly ? eur(sp.byShop[s.id].weekly) : "–"}</td>
                     <td className="c">
                       <button
                         type="button"
@@ -210,7 +216,7 @@ export function DucaniTab() {
                   </tr>
                   {isOpen && (
                     <tr className="detailrow">
-                      <td colSpan={8}>
+                      <td colSpan={10}>
                         <div className="shopdetail">
                           <label className="wide">
                             Bilješka
@@ -294,6 +300,12 @@ export function DucaniTab() {
             })}
           </tbody>
         </table>
+        <div className="tblfoot">
+          <span>Tjedni prosjek je klizni prosjek zadnjih 6 mjeseci{sp.weeks < 26 ? ` (zapisi postoje ${Math.round(sp.weeks)} tjedana)` : ""}.</span>
+          <span className="tblsum">
+            Ukupno tjedno: <b>{eur(Object.values(sp.byShop).reduce((t, x) => t + x.weekly, 0))}</b>
+          </span>
+        </div>
       </div>
     </Page>
   );

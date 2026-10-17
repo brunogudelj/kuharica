@@ -15,11 +15,17 @@ describe("feed recepata", () => {
     expect(new Set(all.map((e) => e.key)).size).toBe(all.length);
   });
 
+  it("omlet je oznaka, a juha i salata su recepti s oznakom", () => {
+    expect(all.filter((e) => e.tags.includes("Omlet")).every((e) => e.kind === "om")).toBe(true);
+    expect(all.some((e) => e.tags.includes("Juha"))).toBe(true);
+    expect(all.some((e) => e.tags.includes("Salata"))).toBe(true);
+  });
+
   it("filteri se kombiniraju: unutar skupine ili, između skupina i", () => {
-    const f = { ...emptyFilter(), kind: ["meal" as const], carb: ["Riža", "Krumpir"] };
+    const f = { ...emptyFilter(), tags: ["Wok", "Air fryer"], carb: ["Riža", "Krumpir"] };
     const out = filterFeed(all, f, d);
     expect(out.length).toBeGreaterThan(0);
-    expect(out.every((e) => e.kind === "meal" && ["Riža", "Krumpir"].includes(e.carb))).toBe(true);
+    expect(out.every((e) => e.tags.some((t) => ["Wok", "Air fryer"].includes(t)) && ["Riža", "Krumpir"].includes(e.carb))).toBe(true);
     const narrower = filterFeed(all, { ...f, prot: ["Piletina"] }, d);
     expect(narrower.length).toBeLessThanOrEqual(out.length);
     expect(narrower.every((e) => e.prot.includes("Piletina"))).toBe(true);
@@ -48,5 +54,23 @@ describe("dućani", () => {
     const r = removeShop(d2, id);
     expect(r.data.shops.some((s) => s.id === id)).toBe(false);
     expect(allItems(r.data).find((i) => i.id === item.id)!.src).toBe("O");
+  });
+});
+
+describe("potrošnja po dućanu", () => {
+  it("ukupno dosad i tjedni prosjek zadnjih 6 mjeseci", async () => {
+    const { shopSpend } = await import("./costs");
+    const now = Date.UTC(2026, 9, 17);
+    const day = 86400000;
+    const d = defaultData();
+    d.costs["2026-01"] = [{ id: "a", t: now - 300 * day, shop: "K", amount: 100, note: "", est: false }];
+    d.costs["2026-10"] = [
+      { id: "b", t: now - 14 * day, shop: "K", amount: 52, note: "", est: false },
+      { id: "c", t: now - 1 * day, shop: "K", amount: 26, note: "", est: false },
+    ];
+    const s = shopSpend(d, now);
+    expect(s.byShop.K.total).toBe(178);
+    expect(s.byShop.K.last6).toBe(78);
+    expect(s.byShop.K.weekly).toBeCloseTo(3, 5);
   });
 });

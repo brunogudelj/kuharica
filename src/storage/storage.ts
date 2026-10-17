@@ -1,8 +1,8 @@
 import { del, get, set } from "idb-keyval";
-import { CATS, DAYS } from "../data";
-import type { Carb, CatId, Shop, Unit } from "../data";
-import type { AppData } from "../state/model";
-import { defaultData, defaultOmWeek } from "../state/model";
+import { CATS, DAYS, GROUPS, ITEMS, NEW_ITEMS } from "../data";
+import type { Carb, CatId, GrpId, Shop, Unit } from "../data";
+import type { AppData, Slot } from "../state/model";
+import { SLOT_KEYS, defaultData, defaultOmWeek } from "../state/model";
 import { validOm } from "../logic/omlet";
 
 /** Sučelje spremanja. Kasnije se može dodati sinkronizacija (npr. Supabase) kao druga implementacija. */
@@ -84,8 +84,25 @@ export function migrate(raw: unknown): AppData {
     }));
   d.plan.om =
     Array.isArray(p.om) && p.om.length === 7
-      ? p.om.map((x) => ({ sel: obj(x).sel === null ? null : validOm(obj(x).sel), done: !!obj(x).done }))
+      ? p.om.map((x) => {
+          const o = obj(x);
+          if (typeof o.r === "string" && o.r) return { sel: null, r: o.r, done: !!o.done };
+          return { sel: o.sel === null || o.sel === undefined ? null : validOm(o.sel), done: !!o.done };
+        })
       : defaultOmWeek();
+  const ex = obj(p.extra);
+  for (const k of SLOT_KEYS) {
+    const list = ex[k];
+    if (!Array.isArray(list) || list.length !== 7) continue;
+    d.plan.extra[k] = list.map((x): Slot => {
+      const o = obj(x);
+      return {
+        ...(typeof o.r === "string" && o.r ? { r: o.r } : {}),
+        ...(typeof o.item === "string" && o.item ? { item: o.item, qty: Math.max(0, num(o.qty, 1)) } : {}),
+        done: !!o.done,
+      };
+    });
+  }
 
   if (Array.isArray(r.hist))
     d.hist = r.hist
@@ -128,6 +145,7 @@ export function migrate(raw: unknown): AppData {
         id: x.id as string,
         n: x.n as string,
         cat: x.cat as CatId,
+        ...((x.grp as string) in GROUPS ? { grp: x.grp as GrpId } : {}),
         src: x.src as string,
         u: x.u as Unit,
         pack: Math.max(0.01, num(x.pack, 1)),
@@ -163,7 +181,13 @@ export function migrate(raw: unknown): AppData {
         extra: Array.isArray(x.extra) ? x.extra.filter((s): s is string => typeof s === "string") : [],
         st: Array.isArray(x.st) ? x.st.filter((s): s is string => typeof s === "string") : [],
       }));
-  if (Array.isArray(it.hidden)) d.items.hidden = it.hidden.filter((x): x is string => typeof x === "string");
+  if (Array.isArray(it.hidden)) {
+    d.items.hidden = it.hidden.filter((x): x is string => typeof x === "string");
+    // tko je ispraznio zalihu ("kreni od nule"), ne treba vidjeti ni naknadno dodane ugrađene namirnice
+    const old = ITEMS.filter((i) => !NEW_ITEMS.includes(i.id));
+    if (it.v !== 2 && old.every((i) => d.items.hidden.includes(i.id)))
+      d.items.hidden = [...new Set([...d.items.hidden, ...NEW_ITEMS])];
+  }
   for (const [id, v] of Object.entries(obj(it.over))) {
     const o = obj(v);
     d.items.over[id] = {
@@ -171,6 +195,7 @@ export function migrate(raw: unknown): AppData {
       ...(typeof o.pack === "number" && o.pack > 0 ? { pack: o.pack } : {}),
       ...(typeof o.n === "string" && o.n.trim() ? { n: o.n } : {}),
       ...((o.cat as string) in CATS ? { cat: o.cat as CatId } : {}),
+      ...((o.grp as string) in GROUPS ? { grp: o.grp as GrpId } : {}),
       ...(typeof o.src === "string" && o.src ? { src: o.src } : {}),
       ...(typeof o.kcal === "number" ? { kcal: o.kcal } : {}),
       ...(typeof o.prot === "number" ? { prot: o.prot } : {}),

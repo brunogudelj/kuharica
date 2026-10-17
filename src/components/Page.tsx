@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Icon } from "./icons";
 
 export type Chip = [label: string, remove: () => void];
+
+/** Naredba svim skupinama filtera: otvori ili zatvori (n raste pri svakom kliku) */
+const FoldCtx = createContext<{ open: boolean; n: number }>({ open: true, n: 0 });
 
 /**
  * Raspored svakog ekrana: filteri lijevo, rezultati desno (na mobitelu filteri izlaze s lijeva).
@@ -34,6 +37,7 @@ export function Page({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [fold, setFold] = useState({ open: true, n: 0 });
   useEffect(() => {
     if (!open) return;
     const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
@@ -57,11 +61,21 @@ export function Page({
                   Očisti
                 </button>
               )}
+              <button
+                type="button"
+                className="linkbtn quiet"
+                onClick={() => setFold((f) => ({ open: !f.open, n: f.n + 1 }))}
+                title={fold.open ? "Zatvori sve skupine filtera (odabir ostaje)" : "Otvori sve skupine filtera"}
+              >
+                {fold.open ? "Zatvori sve" : "Otvori sve"}
+              </button>
               <button type="button" className="iconbtn fclose" aria-label="Zatvori filtere" onClick={() => setOpen(false)}>
                 <Icon name="close" />
               </button>
             </div>
-            <div className="fbody">{filters}</div>
+            <div className="fbody">
+              <FoldCtx.Provider value={fold}>{filters}</FoldCtx.Provider>
+            </div>
             <div className="ffoot">
               <button type="button" className="btn wide" onClick={() => setOpen(false)}>
                 Prikaži rezultate
@@ -112,8 +126,22 @@ export function Page({
 
 /** Skupina filtera (sklopiva) */
 export function FGroup({ title, children, open = true, count }: { title: string; children: ReactNode; open?: boolean; count?: number }) {
+  const fold = useContext(FoldCtx);
+  const [isOpen, setOpen] = useState(open);
+  const [seen, setSeen] = useState(fold.n);
+  if (seen !== fold.n) {
+    setSeen(fold.n);
+    setOpen(fold.open);
+  }
   return (
-    <details className="fgroup" open={open}>
+    <details
+      className="fgroup"
+      open={isOpen}
+      onToggle={(e) => {
+        const o = (e.currentTarget as HTMLDetailsElement).open;
+        if (o !== isOpen) setOpen(o);
+      }}
+    >
       <summary>
         <span>{title}</span>
         {count ? <span className="badge">{count}</span> : null}

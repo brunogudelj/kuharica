@@ -766,6 +766,8 @@ export const PREP_INV: Record<string, PrepInv> = {
 
 /** Što recept troši iz pripremljenog: [prep, broj jedinica] */
 export const REC_USE_PREP: Record<string, [string, number][]> = {
+  "dod-miso": [["miso-paketi", 1]],
+  "dod-salata": [["dresing", 2]],
   teriyaki: [
     ["teriyaki-umak", 1],
     ["riza", 1],

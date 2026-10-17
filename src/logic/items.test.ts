@@ -84,6 +84,7 @@ describe("kreni od nule", () => {
     // bez minimuma; na popisu je samo ono što traže isplanirani omleti
     expect(shopping(d).every((r) => r.forPlan)).toBe(true);
     d.plan.om = d.plan.om.map((o) => ({ ...o, done: true }));
+    for (const k of ["juha", "salata", "voce1", "voce2"] as const) d.plan.extra[k] = d.plan.extra[k].map((x) => ({ ...x, done: true }));
     expect(shopping(d)).toEqual([]);
     d = restoreItem(d, "jaja", 10).data;
     expect(visibleItems(d).map((i) => i.id)).toEqual(["jaja"]);

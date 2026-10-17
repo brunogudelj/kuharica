@@ -1,5 +1,8 @@
 /* Sadržaj panela: recept, omlet, prep, odabir recepta ili omleta za dan */
 import { useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import { fetchPage, parseRecipeHtml, parseRecipeText, toDraft } from "../logic/importRecipe";
+import type { ParsedRecipe } from "../logic/importRecipe";
 import { CYCLE, DAYS, DEFAULT_OM, OM_BASE, OM_CARB, OM_PRESETS, PBY, PREP, PREP_INV, REC_PREP } from "../data";
 import type { OmSel } from "../data";
 import { useApp } from "../state/AppContext";
@@ -354,7 +357,7 @@ export function OmView({ sel: initSel, day, n }: { sel?: OmSel; day?: number; n?
           onPick={(ix) => apply(setOmDay(data, ix, sel), `${e.n} je doručak za ${DAYS[ix].toLowerCase()}.`)}
         />
       </section>
-      <details className="psec builder">
+      <details className="psec builder" open={day != null && !planDay?.sel}>
         <summary>
           <h3>Prilagodi sastojke</h3>
           <Icon name="chev" size={18} />
@@ -651,7 +654,125 @@ export function renderView(v: View) {
       return <NewRecipe day={v.day} />;
     case "editRecipe":
       return <EditRecipe id={v.id} />;
+    case "importRecipe":
+      return <ImportRecipe />;
   }
+}
+
+/** Recept iz linka (ili zalijepljenog teksta): povuci podatke pa ih provjeri u obrascu */
+function ImportRecipe() {
+  const { data } = useApp();
+  const { close } = usePanel();
+  const [url, setUrl] = useState("");
+  const [text, setText] = useState("");
+  const [showText, setShowText] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [res, setRes] = useState<ReturnType<typeof toDraft> | null>(null);
+
+  const fromParsed = (p: ParsedRecipe | null) => {
+    if (!p || !p.ingredients.length) {
+      setErr("Na stranici nisam našao recept. Kopiraj tekst recepta i zalijepi ga ispod.");
+      setShowText(true);
+      return;
+    }
+    setErr("");
+    setRes(toDraft(data, p));
+  };
+
+  const pull = async (e: FormEvent) => {
+    e.preventDefault();
+    const u = url.trim();
+    if (!/^https?:\/\//i.test(u)) return setErr("Upiši cijeli link, npr. https://www.coolinarika.com/recept/…");
+    setBusy(true);
+    setErr("");
+    try {
+      const html = await fetchPage(u);
+      fromParsed(parseRecipeHtml(html, u));
+    } catch {
+      setErr("Stranicu nije bilo moguće dohvatiti. Kopiraj tekst recepta i zalijepi ga ispod.");
+      setShowText(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="pbody">
+      <header className="phead">
+        <p className="kicker">Recepti</p>
+        <h2 className="pname">Recept iz linka</h2>
+        <p className="sub">
+          Zalijepi link na recept. Povući će se naziv, sastojci, koraci, vrijeme i broj porcija, a sastojci se spoje s
+          namirnicama iz zalihe. Sve provjeriš prije spremanja.
+        </p>
+      </header>
+      {!res && (
+        <>
+          <form className="importform" onSubmit={pull}>
+            <input
+              type="url"
+              inputMode="url"
+              placeholder="https://…"
+              aria-label="Link na recept"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              autoFocus
+            />
+            <button type="submit" className="btn" disabled={busy}>
+              {busy ? "Povlačim…" : "Povuci recept"}
+            </button>
+          </form>
+          {err && <p className="miss">{err}</p>}
+          {showText ? (
+            <div className="edit one">
+              <label htmlFor="impText">
+                Tekst recepta (naziv u prvom retku, sastojci s količinom na početku)
+                <textarea id="impText" rows={8} value={text} onChange={(e) => setText(e.target.value)} />
+              </label>
+              <div className="btnrow">
+                <button type="button" className="btn" disabled={!text.trim()} onClick={() => fromParsed(parseRecipeText(text))}>
+                  Pročitaj tekst
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" className="linkbtn" onClick={() => setShowText(true)}>
+              ili zalijepi tekst recepta
+            </button>
+          )}
+          <p className="fhint">
+            Stranica se dohvaća preko javnog posrednika (corsproxy.io ili allorigins.win), jer preglednik ne smije izravno
+            čitati tuđe stranice. Posrednik vidi samo link recepta.
+          </p>
+        </>
+      )}
+      {res && (
+        <>
+          <div className="importsum">
+            <b>
+              Prepoznato {res.matched} od {res.lines.length} sastojaka
+            </b>
+            <span className="sub">Neprepoznate su u polju „Ostalo”. Za njih odaberi namirnicu ili ih ostavi kao bilješku.</span>
+            <table className="grid compact">
+              <tbody>
+                {res.lines.map((l, k) => (
+                  <tr key={k} className={l.item ? "" : "st-out"}>
+                    <td className="namecell">
+                      <span className={"dot " + (l.item ? "ok" : "out")} aria-hidden="true" />
+                      {l.raw}
+                    </td>
+                    <td className="muted">{l.item ? `→ ${l.item.n}` : "nije prepoznato"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <RecipeForm draft={res.draft} onDone={close} />
+        </>
+      )}
+    </div>
+  );
 }
 
 function NewRecipe({ day }: { day?: number }) {

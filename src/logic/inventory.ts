@@ -1,7 +1,8 @@
-import { DAILY, DAILY_PREP, PREP_INV, REC_USE_PREP } from "../data";
+import { DAILY, DAILY_COOK, PREP_INV, REC_USE_PREP } from "../data";
 import type { Item, Recipe, Use } from "../data";
 import { recipeOf } from "./recipes";
-import type { AppData } from "../state/model";
+import type { AppData, Slot } from "../state/model";
+import { SLOT_KEYS } from "../state/model";
 import { omEff, omUse } from "./omlet";
 import { allItems, itemName, itemOf } from "./items";
 
@@ -31,11 +32,9 @@ export function effUse(r: Recipe, pcopy: Record<string, number>, withDaily: bool
   const rid = r.id;
   const use: Use = {};
   for (const [id, a] of Object.entries(r.use)) use[id] = a * f;
-  if (withDaily) for (const [id, a] of Object.entries(DAILY)) use[id] = (use[id] || 0) + a;
+  if (withDaily) for (const [id, a] of Object.entries(DAILY_COOK)) use[id] = (use[id] || 0) + a;
   const consumed: [string, number][] = [];
-  const list: [string, number][] = (REC_USE_PREP[rid] || [])
-    .map(([p, n]): [string, number] => [p, n * f])
-    .concat(withDaily ? DAILY_PREP : []);
+  const list: [string, number][] = (REC_USE_PREP[rid] || []).map(([p, n]): [string, number] => [p, n * f]);
   for (const [pid, n] of list) {
     const k = Math.min(n, pcopy[pid] || 0);
     if (k <= 0) continue;
@@ -48,18 +47,33 @@ export function effUse(r: Recipe, pcopy: Record<string, number>, withDaily: bool
   return { use, consumed };
 }
 
-/** Potreba za tjedan: neskuhani dani (s dodacima i prepom) + nepojedeni omleti */
+/** Recept kao jedna porcija u slotu (doručak, juha, salata): dodaci (juha, salata) su već za cijeli dan */
+export const slotFactor = (r: Recipe) => (r.side ? 1 : 1 / BASE_SERVINGS);
+
+/** Što troši slot (recept ili namirnica), s pripremljenim iz `pcopy` */
+export function slotUse(d: AppData, s: Slot, pcopy: Record<string, number>): EffUse {
+  if (s.item) return { use: { [s.item]: s.qty ?? 1 }, consumed: [] };
+  const r = s.r ? recipeOf(d, s.r) : undefined;
+  return r ? effUse(r, pcopy, false, slotFactor(r)) : { use: {}, consumed: [] };
+}
+
+/** Potreba za tjedan: neskuhani dani (s posnim sirom i prepom), nepojedeni doručci i dodatni slotovi */
 export function planNeeds(d: AppData): Use {
   const need: Use = {};
+  const add = (u: Use) => {
+    for (const [id, a] of Object.entries(u)) need[id] = (need[id] || 0) + a;
+  };
   const pcopy = { ...d.prepStock };
   d.plan.days.forEach((day) => {
     const r = day.r && !day.done ? recipeOf(d, day.r) : undefined;
-    if (!r) return;
-    for (const [id, a] of Object.entries(effUse(r, pcopy, true).use)) need[id] = (need[id] || 0) + a;
+    if (r) add(effUse(r, pcopy, true).use);
   });
   (d.plan.om || []).forEach((o) => {
-    if (!o.done && o.sel) for (const [id, a] of Object.entries(omEff(d, o.sel, 1, pcopy).use)) need[id] = (need[id] || 0) + a;
+    if (o.done) return;
+    if (o.r) add(slotUse(d, { r: o.r, done: false }, pcopy).use);
+    else if (o.sel) add(omEff(d, o.sel, 1, pcopy).use);
   });
+  for (const k of SLOT_KEYS) for (const s of d.plan.extra?.[k] || []) if (!s.done) add(slotUse(d, s, pcopy).use);
   return need;
 }
 
@@ -159,7 +173,7 @@ export function costOf(d: AppData, use: Use) {
 export function dayCost(d: AppData, rid: string) {
   const r = costOf(d, recipeOf(d, rid)?.use ?? {});
   const dl = costOf(d, DAILY);
-  const oms = (d.plan.om || []).filter((o) => o.sel);
+  const oms = (d.plan.om || []).filter((o) => o.sel && !o.r);
   const om = oms.length ? oms.reduce((s, o) => s + costOf(d, omUse(d, o.sel!, 1)).c, 0) / oms.length : 0;
   return {
     meals: r.c + dl.c,

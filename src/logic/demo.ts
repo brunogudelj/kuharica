@@ -2,7 +2,7 @@
  * Spremaju se odvojeno od pravih podataka i ne sinkroniziraju se. */
 import { DAYS, ITEMS, MAC } from "../data";
 import type { AppData } from "../state/model";
-import { clone, defaultData } from "../state/model";
+import { SLOT_KEYS, clone, defaultData } from "../state/model";
 import { autoFillPlan } from "./actions";
 import { monthKey, round, todayIx } from "./format";
 
@@ -19,6 +19,12 @@ function rng(seed: number) {
 
 /** Izmišljena cijena pakiranja (€) */
 const PRICE: Record<string, number> = {
+  banana: 1.49,
+  naranca: 1.99,
+  kivi: 1.79,
+  kruska: 1.99,
+  mandarina: 1.69,
+  borovnice: 3.49,
   piletina: 8.99, "pur-prsa": 6.49, "pur-mlj": 4.99, junetina: 7.99, svinjetina: 6.49, losos: 9.99, kozice: 6.99,
   plodovi: 5.49, gyoze: 6.9, edamame: 3.99, grasak: 1.69, mahune: 1.79, brokula: 1.99, dumbir: 0.89, miso: 6.49,
   kimchi: 4.5, tofu: 2.79, "tofu-dim": 3.19, posni: 1.29, jogurt: 1.19, mlijeko: 1.09, jaja: 2.99, mrkva: 1.29,
@@ -92,6 +98,10 @@ export function makeDemo(now = Date.now()): AppData {
   // dovoljno za piletinu i rižu, da barem nekoliko recepata može odmah
   for (const id of ["piletina", "basmati", "jaja", "spinat", "zrnati", "luk", "cesnjak", "soja", "brokula", "paprike"])
     d.stock[id].qty = Math.max(d.stock[id].qty, ITEMS.find((i) => i.id === id)!.pack * 2);
+  for (const [id, q] of [["banana", 4], ["jabuka", 3], ["kivi", 5], ["borovnice", 400], ["mandarina", 0]] as [string, number][]) {
+    d.stock[id] = { qty: q, price: d.stock[id]?.price ?? null };
+    d.items.over[id] = { ...(d.items.over[id] || {}), src: id === "borovnice" ? "K" : "s-dolac" };
+  }
   d.prepStock = { riza: 2, krumpir: 1, "teriyaki-umak": 3, "miso-paketi": 4, "egg-muffini": 6, "dumbir-kocke": 10 };
 
   // plan: popunjen tjedan, prvi dani skuhani, po jedan prazan dan
@@ -100,6 +110,7 @@ export function makeDemo(now = Date.now()): AppData {
   const t = todayIx(now);
   d.plan.days.forEach((x, ix) => (x.done = ix < t && !!x.r));
   d.plan.om.forEach((x, ix) => (x.done = ix < t));
+  for (const k of SLOT_KEYS) d.plan.extra[k].forEach((x, ix) => (x.done = ix < t && !!(x.r || x.item)));
   d.plan.days[Math.min(6, t + 2)] = { r: "", done: false };
   d.plan.om[Math.min(6, t + 3)] = { sel: null, done: false };
 
@@ -113,7 +124,7 @@ export function makeDemo(now = Date.now()): AppData {
     BIO: "Miso i tofu",
     AZ: "Rezanci i umaci",
   };
-  for (let k = 0; k < 14; k++) {
+  for (let k = 0; k < 46; k++) {
     const tt = now - (k * 4 + 1) * day;
     const shop = shops[k % shops.length];
     const mk = monthKey(tt);

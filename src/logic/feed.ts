@@ -55,7 +55,22 @@ export interface FeedEntry {
   method: string;
   custom: boolean;
   two: boolean;
+  /** oznake: Omlet, Wok, Air fryer, Lonac, Varivo, Juha, Salata, Prep… */
+  tags: string[];
   sel?: OmSel;
+}
+
+/** Redoslijed oznaka u filteru */
+export const TAG_ORDER = ["Omlet", "Wok", "Air fryer", "Lonac", "Varivo", "Juha", "Salata", "Bez kuhanja", "2 u 1", "Prep"];
+
+function methodTags(text: string): string[] {
+  const t = text.toLowerCase();
+  const out: string[] = [];
+  if (t.includes("wok")) out.push("Wok");
+  if (t.includes("air fryer")) out.push("Air fryer");
+  if (t.includes("lonac")) out.push("Lonac");
+  if (t.includes("bez kuhanja")) out.push("Bez kuhanja");
+  return out;
 }
 
 export function proteinsOf(d: AppData, use: Use): string[] {
@@ -122,6 +137,12 @@ export function mealEntry(d: AppData, id: string): FeedEntry | null {
     method: r.d.split(" · ")[0] || "",
     custom: !!r.custom,
     two: !!r.two,
+    tags: [
+      ...methodTags(r.d),
+      ...(/gula|varivo|curry|čorb|corb/i.test(r.n) ? ["Varivo"] : []),
+      ...(r.side === "juha" ? ["Juha"] : r.side === "salata" ? ["Salata"] : []),
+      ...(r.two ? ["2 u 1"] : []),
+    ],
   };
 }
 
@@ -150,6 +171,7 @@ export function omEntry(d: AppData, sel: OmSel, key: string, n: string, desc: st
     method: "Wok ili air fryer",
     custom: false,
     two: false,
+    tags: ["Omlet", "Wok", "Air fryer"],
     sel,
   };
 }
@@ -178,6 +200,7 @@ export function prepEntry(d: AppData, id: string): FeedEntry | null {
     method: PREP_K[p.k],
     custom: false,
     two: false,
+    tags: ["Prep"],
   };
 }
 
@@ -193,7 +216,7 @@ export function feed(d: AppData): FeedEntry[] {
 
 export interface FeedFilter {
   q: string;
-  kind: Kind[];
+  tags: string[];
   prot: string[];
   carb: string[];
   /** svi odabrani sastojci moraju biti u receptu */
@@ -206,7 +229,7 @@ export interface FeedFilter {
 }
 export const emptyFilter = (): FeedFilter => ({
   q: "",
-  kind: [],
+  tags: [],
   prot: [],
   carb: [],
   items: [],
@@ -215,7 +238,7 @@ export const emptyFilter = (): FeedFilter => ({
   time: 0,
 });
 
-export type FacetKey = "kind" | "prot" | "carb" | "avail" | "time";
+export type FacetKey = "tags" | "prot" | "carb" | "avail" | "time";
 
 const norm = (s: string) =>
   s
@@ -231,7 +254,7 @@ export function matches(e: FeedEntry, f: FeedFilter, d: AppData, skip?: FacetKey
     const names = e.items.map((id) => allItems(d).find((x) => x.id === id)?.n ?? "").join(" ");
     if (!norm(`${e.n} ${e.d} ${names}`).includes(q)) return false;
   }
-  if (skip !== "kind" && f.kind.length && !f.kind.includes(e.kind)) return false;
+  if (skip !== "tags" && f.tags.length && !e.tags.some((t) => f.tags.includes(t))) return false;
   if (skip !== "prot" && f.prot.length && !e.prot.some((p) => f.prot.includes(p))) return false;
   if (skip !== "carb" && f.carb.length && !f.carb.includes(e.carb)) return false;
   if (f.items.length && !f.items.every((id) => e.items.includes(id))) return false;
@@ -249,11 +272,11 @@ export function filterFeed(list: FeedEntry[], f: FeedFilter, d: AppData) {
 }
 
 /** Broj recepata po vrijednosti, uz sve ostale aktivne filtere */
-export function facetCounts(list: FeedEntry[], f: FeedFilter, d: AppData, key: "kind" | "prot" | "carb") {
+export function facetCounts(list: FeedEntry[], f: FeedFilter, d: AppData, key: "tags" | "prot" | "carb") {
   const out: Record<string, number> = {};
   for (const e of list) {
     if (!matches(e, f, d, key)) continue;
-    const vals = key === "prot" ? e.prot : key === "kind" ? [e.kind] : [e.carb];
+    const vals = key === "prot" ? e.prot : key === "tags" ? e.tags : [e.carb];
     for (const v of vals) if (v) out[v] = (out[v] || 0) + 1;
   }
   return out;

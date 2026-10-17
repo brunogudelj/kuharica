@@ -1,8 +1,8 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { CATS } from "../data";
+import { CATS, GROUPS } from "../data";
 import { shopOpts } from "../logic/shops";
-import type { CatId, Item, ShopId, Unit } from "../data";
+import type { CatId, GrpId, Item, ShopId, Unit } from "../data";
 import { useApp } from "../state/AppContext";
 import { newCustomItem, visibleItems } from "../logic/items";
 import { addItem } from "../logic/actions";
@@ -139,6 +139,7 @@ export function ItemForm({ onDone, initialName = "" }: { onDone: (item?: Item) =
   const { data, apply } = useApp();
   const [n, setN] = useState(initialName);
   const [cat, setCat] = useState<CatId>("fri");
+  const [grp, setGrp] = useState<GrpId>("ostalo");
   const [u, setU] = useState<Unit>("g");
   const [pack, setPack] = useState("");
   const [min, setMin] = useState("0");
@@ -163,7 +164,7 @@ export function ItemForm({ onDone, initialName = "" }: { onDone: (item?: Item) =
     if (isNaN(p) || p <= 0) return setErr(`Upiši koliko je u jednom pakiranju (${u}).`);
     if (isNaN(m) || m < 0) return setErr("Minimum mora biti 0 ili više.");
     if (role && !(parse(amt) > 0)) return setErr(`Upiši koliko ide u jedan omlet (${u}).`);
-    const base = newCustomItem({ n, cat, src, u, pack: p, min: m });
+    const base = newCustomItem({ n, cat, grp, src, u, pack: p, min: m });
     const extra = omPatch(role, amt, pre, kcal, prot);
     const item: Item = { ...base };
     if (extra.om) item.om = extra.om;
@@ -192,6 +193,16 @@ export function ItemForm({ onDone, initialName = "" }: { onDone: (item?: Item) =
           Gdje stoji
           <select id="niCat" value={cat} onChange={(e) => setCat(e.target.value as CatId)}>
             {(Object.entries(CATS) as [CatId, string][]).map(([k, t]) => (
+              <option key={k} value={k}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label htmlFor="niGrp">
+          Skupina
+          <select id="niGrp" value={grp} onChange={(e) => setGrp(e.target.value as GrpId)}>
+            {(Object.entries(GROUPS) as [GrpId, string][]).map(([k, t]) => (
               <option key={k} value={k}>
                 {t}
               </option>

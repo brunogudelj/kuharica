@@ -1,6 +1,6 @@
 /* Katalog namirnica za korisnika: ugrađene (s njegovim promjenama) + vlastite */
-import { ITEMS } from "../data";
-import type { CatId, Item, ShopId, Unit } from "../data";
+import { GRP_OF, ITEMS } from "../data";
+import type { CatId, GrpId, Item, ShopId, Unit } from "../data";
 import type { AppData, ItemsState } from "../state/model";
 
 const cache = new WeakMap<ItemsState, { all: Item[]; map: Map<string, Item> }>();
@@ -10,11 +10,12 @@ function build(s: ItemsState) {
   if (!c) {
     const all = ITEMS.map((i) => {
       const o = s.over[i.id];
-      if (!o) return i;
-      const n: Item = { ...i, ...o };
+      const base: Item = i.grp ? i : { ...i, grp: GRP_OF[i.id] ?? "ostalo" };
+      if (!o) return base;
+      const n: Item = { ...base, ...o };
       if (o.pack != null && o.pack !== i.pack) n.step = defaultStep(i.u, o.pack);
       return n;
-    }).concat(s.custom);
+    }).concat(s.custom.map((i) => (i.grp ? i : { ...i, grp: "ostalo" as GrpId })));
     c = { all, map: new Map(all.map((i) => [i.id, i])) };
     cache.set(s, c);
   }
@@ -41,6 +42,7 @@ export function defaultStep(u: Unit, pack: number): number {
 export function newCustomItem(f: {
   n: string;
   cat: CatId;
+  grp?: GrpId;
   src: ShopId;
   u: Unit;
   pack: number;
@@ -59,6 +61,7 @@ export function newCustomItem(f: {
     id: `c-${slug || "namirnica"}-${Math.random().toString(36).slice(2, 6)}`,
     n: f.n.trim(),
     cat: f.cat,
+    grp: f.grp ?? "ostalo",
     src: f.src,
     u: f.u,
     pack: f.pack,

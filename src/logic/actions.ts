@@ -2,11 +2,11 @@
 import { CYCLE, ITEMS, PBY, PREP_INV } from "../data";
 import type { CustomRecipe, Item, OmSel } from "../data";
 import { allRecipes, recipeOf } from "./recipes";
-import type { AppData, CostEntry } from "../state/model";
-import { clone, emptyPlanDays } from "../state/model";
-import { effUse, missingFor, pc, price, qty } from "./inventory";
+import type { AppData, CostEntry, Slot, SlotKey } from "../state/model";
+import { SLOT_KEYS, clone, defaultExtra, emptyPlanDays } from "../state/model";
+import { effUse, missingFor, pc, price, qty, slotUse } from "./inventory";
 import { autoOmWeek, omEff, omName } from "./omlet";
-import { defaultStep, isCustom, itemOf } from "./items";
+import { allItems, defaultStep, isCustom, itemOf } from "./items";
 import { eur, fmt, monthKey, newId, pfmt, round, sameDay } from "./format";
 
 export interface Result {
@@ -48,10 +48,19 @@ export function makePrep(src: AppData, pid: string, t = 1): Result {
   return { data: d, msg: `${p.n}: +${pfmt(inv.make * t, inv.unit)} u pripremljenom.` };
 }
 
+/** Pojedi doručak: omlet ili recept (1 porcija) */
 export function eatOmlet(src: AppData, ix: number, f = 1): Result {
   const d = clone(src);
   const day = d.plan.om[ix];
-  if (!day.sel) return { data: src, msg: "Za taj dan nema omleta." };
+  if (day.r) {
+    const r = recipeOf(src, day.r);
+    if (!r) return { data: src, msg: "Recept ne postoji." };
+    const eff = slotUse(src, { r: day.r, done: false }, { ...d.prepStock });
+    consume(d, eff.use, eff.consumed);
+    d.plan.om[ix] = { sel: null, r: day.r, done: true };
+    return { data: d, msg: `${r.n}: sastojci skinuti sa zalihe.` };
+  }
+  if (!day.sel) return { data: src, msg: "Za taj dan nema doručka." };
   const eff = omEff(src, day.sel, f, { ...d.prepStock });
   consume(d, eff.use, eff.consumed);
   d.plan.om[ix] = { sel: day.sel, done: true };
@@ -120,9 +129,22 @@ export function autoFillPlan(src: AppData): AppData {
     used[pick.id] = (used[pick.id] || 0) + 1;
     return { r: pick.id, done: false };
   });
-  if (d.plan.om.some((o) => !o.sel)) {
+  if (d.plan.om.some((o) => !o.sel && !o.r)) {
     const fresh = autoOmWeek(d, true);
-    d.plan.om = d.plan.om.map((o, i) => (o.sel ? o : fresh[i]));
+    d.plan.om = d.plan.om.map((o, i) => (o.sel || o.r ? o : fresh[i]));
+  }
+  const empty = (s: Slot) => !s.r && !s.item && !s.done;
+  d.plan.extra.juha = d.plan.extra.juha.map((s) => (empty(s) ? { r: "dod-miso", done: false } : s));
+  d.plan.extra.salata = d.plan.extra.salata.map((s) => (empty(s) ? { r: "dod-salata", done: false } : s));
+  const fruits = fruitPool(d);
+  if (fruits.length) {
+    let n = 0;
+    for (const k of ["voce1", "voce2"] as SlotKey[])
+      d.plan.extra[k] = d.plan.extra[k].map((s) => {
+        if (!empty(s)) return s;
+        const i = fruits[n++ % fruits.length];
+        return { item: i.id, qty: defaultFruitQty(i), done: false };
+      });
   }
   return d;
 }
@@ -141,6 +163,50 @@ export function setOmDay(src: AppData, ix: number, sel: OmSel | null): AppData {
   return d;
 }
 
+/** Doručak je recept (1 porcija) */
+export function setBreakfastRecipe(src: AppData, ix: number, r: string): AppData {
+  const d = clone(src);
+  d.plan.om[ix] = r ? { sel: null, r, done: false } : { sel: null, done: false };
+  return d;
+}
+
+const SLOT_NAME: Record<SlotKey, string> = { juha: "Juha", salata: "Salata", voce1: "Voće", voce2: "Voće" };
+
+/** Postavi slot (juha, salata, voće) ili ga isprazni */
+export function setSlot(src: AppData, k: SlotKey, ix: number, slot: Omit<Slot, "done"> | null): AppData {
+  const d = clone(src);
+  d.plan.extra[k][ix] = slot ? { ...slot, done: false } : { done: false };
+  return d;
+}
+
+/** Naziv sadržaja slota */
+export function slotLabel(d: AppData, s: Slot): string {
+  if (s.item) return itemOf(d, s.item)?.n ?? "Obrisana namirnica";
+  if (s.r) return recipeOf(d, s.r)?.n ?? "Obrisani recept";
+  return "";
+}
+
+/** Pojedi slot: skida sastojke ili namirnicu sa zalihe. Ponovni klik samo vraća kvačicu. */
+export function toggleSlot(src: AppData, k: SlotKey, ix: number): Result {
+  const d = clone(src);
+  const s = d.plan.extra[k][ix];
+  if (!s.r && !s.item) return { data: src, msg: "" };
+  if (s.done) {
+    d.plan.extra[k][ix] = { ...s, done: false };
+    return { data: d, msg: `${SLOT_NAME[k]}: kvačica maknuta, sastojci se ne vraćaju.` };
+  }
+  const eff = slotUse(src, s, { ...d.prepStock });
+  consume(d, eff.use, eff.consumed);
+  d.plan.extra[k][ix] = { ...s, done: true };
+  return { data: d, msg: `${slotLabel(src, s)}: skinuto sa zalihe.` };
+}
+
+/** Voće koje imaš na zalihi, za popunjavanje slotova */
+function fruitPool(d: AppData): Item[] {
+  return allItems(d).filter((i) => i.grp === "voce" && !d.items.hidden.includes(i.id) && qty(d, i.id) > 0);
+}
+export const defaultFruitQty = (i: Item) => (i.u === "kom" ? 1 : i.u === "g" ? 150 : 150);
+
 /** Novi tjedan: ciklus se pomiče za 7 dana, plan se prazni, slažu se novi omleti */
 export function newWeek(src: AppData, rng: () => number = Math.random): AppData {
   const d = clone(src);
@@ -148,6 +214,7 @@ export function newWeek(src: AppData, rng: () => number = Math.random): AppData 
     start: ((d.plan.start || 0) + 7) % 5,
     days: emptyPlanDays(),
     om: d.plan.om.map((o) => ({ ...o, done: false })),
+    extra: defaultExtra(),
   };
   d.plan.om = autoOmWeek(d, false, rng);
   return d;
@@ -165,7 +232,7 @@ export function addItem(src: AppData, item: Item, startQty = 0): Result {
 export function editItem(
   src: AppData,
   id: string,
-  patch: Partial<Pick<Item, "n" | "cat" | "src" | "pack" | "min" | "om" | "kcal" | "prot">>,
+  patch: Partial<Pick<Item, "n" | "cat" | "grp" | "src" | "pack" | "min" | "om" | "kcal" | "prot">>,
 ): AppData {
   const d = clone(src);
   if (isCustom(id)) {
@@ -177,7 +244,7 @@ export function editItem(
     });
   } else {
     const o = { ...(d.items.over[id] || {}) };
-    for (const k of ["n", "cat", "src", "min", "pack", "kcal", "prot"] as const) {
+    for (const k of ["n", "cat", "grp", "src", "min", "pack", "kcal", "prot"] as const) {
       if (!(k in patch)) continue;
       const v = patch[k];
       if (v === undefined) delete o[k];
@@ -219,6 +286,8 @@ export function removeRecipe(src: AppData, id: string): Result {
   const r = d.recipes.find((x) => x.id === id);
   d.recipes = d.recipes.filter((x) => x.id !== id);
   d.plan.days = d.plan.days.map((x) => (x.r === id && !x.done ? { r: "", done: false } : x));
+  d.plan.om = d.plan.om.map((x) => (x.r === id && !x.done ? { sel: null, done: false } : x));
+  for (const k of SLOT_KEYS) d.plan.extra[k] = d.plan.extra[k].map((x) => (x.r === id && !x.done ? { done: false } : x));
   return { data: d, msg: `${r?.n ?? "Recept"} je obrisan.` };
 }
 
@@ -226,7 +295,7 @@ export function removeRecipe(src: AppData, id: string): Result {
  * Recepti, plan, omleti i troškovi ostaju. */
 export function resetItems(src: AppData): Result {
   const d = clone(src);
-  d.items = { custom: [], hidden: ITEMS.map((i) => i.id), over: {} };
+  d.items = { v: 2, custom: [], hidden: ITEMS.map((i) => i.id), over: {} };
   d.stock = {};
   d.prepStock = {};
   return { data: d, msg: "Zaliha je prazna. Kreni s dodavanjem." };

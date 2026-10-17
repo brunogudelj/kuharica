@@ -1,4 +1,6 @@
 export type CatId = "frz" | "fri" | "dry" | "fre";
+/** skupina namirnice (vrsta hrane), neovisno o mjestu čuvanja */
+export type GrpId = "voce" | "povrce" | "meso" | "riba" | "jaja" | "mlijecno" | "soja" | "prilog" | "mast" | "umaci" | "ostalo";
 /** id dućana: ugrađeni (K, BIO, AZ, O) ili vlastiti (s-…) */
 export type ShopId = string;
 export type Unit = "g" | "ml" | "kom";
@@ -12,6 +14,8 @@ export interface Item {
   /** naziv */
   n: string;
   cat: CatId;
+  /** skupina: voće, povrće, meso… (ugrađene je dobivaju iz GRP_OF) */
+  grp?: GrpId;
   src: ShopId;
   u: Unit;
   /** minimalna zaliha */
@@ -47,6 +51,8 @@ export interface Recipe {
   split?: string[];
   /** vlastiti recept */
   custom?: boolean;
+  /** dodatak uz ručak: juha (prije) ili salata (poslije); količine su za cijeli dan */
+  side?: "juha" | "salata";
 }
 
 /** Vlastiti recept kako se sprema: količine su za 1,5 porcija (kao ugrađeni) */

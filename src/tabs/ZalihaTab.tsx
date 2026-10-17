@@ -1,6 +1,6 @@
 import { Fragment, useState } from "react";
-import { CATS, OM_FILL, PREP, PREP_INV } from "../data";
-import type { CatId, Item } from "../data";
+import { CATS, GROUPS, OM_FILL, PREP, PREP_INV } from "../data";
+import type { CatId, GrpId, Item } from "../data";
 import { shopIndex, shopName, shopOpts } from "../logic/shops";
 import { useApp } from "../state/AppContext";
 import { clone } from "../state/model";
@@ -18,9 +18,10 @@ import { ItemForm } from "../components/ItemForm";
 import { NumCell, SelectCell, SortTh, TextCell } from "../components/Cells";
 import { Icon } from "../components/icons";
 
-type SortK = "mjesto" | "n" | "src" | "qty" | "stanje" | "min" | "pack" | "price" | "kcal" | "prot";
+type SortK = "mjesto" | "grp" | "n" | "src" | "qty" | "stanje" | "min" | "pack" | "price" | "kcal" | "prot";
 
 const CAT_OPTS = Object.entries(CATS) as [CatId, string][];
+const GRP_OPTS = Object.entries(GROUPS) as [GrpId, string][];
 const OM_OPTS: ["" | "prot" | "veg", string][] = [
   ["", "—"],
   ["prot", "protein"],
@@ -96,6 +97,9 @@ function Row({ i, open, onToggle }: { i: Item; open: boolean; onToggle: () => vo
         </td>
         <td style={{ minWidth: 112 }}>
           <SelectCell<CatId> label={`Mjesto: ${i.n}`} value={i.cat} options={CAT_OPTS} onChange={(v) => change((n) => editItem(n, i.id, { cat: v }))} />
+        </td>
+        <td style={{ minWidth: 150 }}>
+          <SelectCell<GrpId> label={`Skupina: ${i.n}`} value={i.grp ?? "ostalo"} options={GRP_OPTS} onChange={(v) => change((n) => editItem(n, i.id, { grp: v }))} />
         </td>
         <td style={{ minWidth: 118 }}>
           <SelectCell<string> label={`Dućan: ${i.n}`} value={i.src} options={shopOpts(data)} onChange={(v) => change((n) => editItem(n, i.id, { src: v }))} />
@@ -178,7 +182,7 @@ function Row({ i, open, onToggle }: { i: Item; open: boolean; onToggle: () => vo
       </tr>
       {open && (
         <tr className="detailrow">
-          <td colSpan={15}>
+          <td colSpan={16}>
             <div className="btnrow">
               <button
                 type="button"
@@ -252,6 +256,7 @@ export function ZalihaTab() {
   const [q, setQ] = useState("");
   const [fSt, setFSt] = useState<Status[]>([]);
   const [fCat, setFCat] = useState<CatId[]>([]);
+  const [fGrp, setFGrp] = useState<GrpId[]>([]);
   const [fShop, setFShop] = useState<string[]>([]);
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -262,12 +267,13 @@ export function ZalihaTab() {
   const term = q.trim().toLowerCase();
   const prepHave = PREP.filter((p) => pc(data, p.id) > 0);
 
-  const pass = (i: Item, skip?: "st" | "cat" | "shop") =>
+  const pass = (i: Item, skip?: "st" | "cat" | "shop" | "grp") =>
     (!term || i.n.toLowerCase().includes(term)) &&
+    (skip === "grp" || !fGrp.length || fGrp.includes(i.grp ?? "ostalo")) &&
     (skip === "st" || !fSt.length || fSt.includes(status(data, i))) &&
     (skip === "cat" || !fCat.length || fCat.includes(i.cat)) &&
     (skip === "shop" || !fShop.length || fShop.includes(i.src));
-  const cnt = (skip: "st" | "cat" | "shop", ok: (i: Item) => boolean) => items.filter((i) => pass(i, skip) && ok(i)).length;
+  const cnt = (skip: "st" | "cat" | "shop" | "grp", ok: (i: Item) => boolean) => items.filter((i) => pass(i, skip) && ok(i)).length;
 
   let rows = items.filter((i) => pass(i));
   const val = (i: Item): number | string => {
@@ -286,6 +292,8 @@ export function ZalihaTab() {
         return i.pack;
       case "price":
         return price(data, i.id) ?? -1;
+      case "grp":
+        return GRP_OPTS.findIndex(([k]) => k === i.grp);
       case "kcal":
         return macDisplay(data, i.id)[0] ?? -1;
       case "prot":
@@ -300,7 +308,9 @@ export function ZalihaTab() {
     const c = x < y ? -1 : x > y ? 1 : a.n.localeCompare(b.n, "hr");
     return c * sort.dir;
   });
-  const grouped = sort.k === "mjesto";
+  const grouped = sort.k === "mjesto" || sort.k === "grp";
+  const gkey = (i: Item) => (sort.k === "grp" ? (i.grp ?? "ostalo") : i.cat);
+  const gname = (i: Item) => (sort.k === "grp" ? GROUPS[i.grp ?? "ostalo"] : CATS[i.cat]);
   const hiddenMatches = term ? hidden.filter((i) => i.n.toLowerCase().includes(term)) : [];
   const nOut = items.filter((i) => status(data, i) === "out").length;
   const nLow = items.filter((i) => status(data, i) === "low").length;
@@ -308,11 +318,13 @@ export function ZalihaTab() {
   const chips: Chip[] = [
     ...fSt.map((x): Chip => [ST_LABEL.find(([k]) => k === x)![1], () => setFSt(toggle(fSt, x))]),
     ...fCat.map((x): Chip => [CATS[x], () => setFCat(toggle(fCat, x))]),
+    ...fGrp.map((x): Chip => [GROUPS[x], () => setFGrp(toggle(fGrp, x))]),
     ...fShop.map((x): Chip => [shopName(data, x), () => setFShop(toggle(fShop, x))]),
   ];
   const clear = () => {
     setFSt([]);
     setFCat([]);
+    setFGrp([]);
     setFShop([]);
   };
 
@@ -327,6 +339,11 @@ export function ZalihaTab() {
       <FGroup title="Mjesto" count={fCat.length}>
         {CAT_OPTS.map(([k, l]) => (
           <FCheck key={k} on={fCat.includes(k)} label={l} dot={`l-${k}`} count={cnt("cat", (i) => i.cat === k)} onChange={() => setFCat(toggle(fCat, k))} />
+        ))}
+      </FGroup>
+      <FGroup title="Skupina" count={fGrp.length}>
+        {GRP_OPTS.map(([k, l]) => (
+          <FCheck key={k} on={fGrp.includes(k)} label={l} count={cnt("grp", (i) => (i.grp ?? "ostalo") === k)} onChange={() => setFGrp(toggle(fGrp, k))} />
         ))}
       </FGroup>
       <FGroup title="Dućan" count={fShop.length}>
@@ -438,6 +455,9 @@ export function ZalihaTab() {
                     <SortTh k="mjesto" sort={sort} setSort={setSort}>
                       Mjesto
                     </SortTh>
+                    <SortTh k="grp" sort={sort} setSort={setSort}>
+                      Skupina
+                    </SortTh>
                     <SortTh k="src" sort={sort} setSort={setSort}>
                       Dućan
                     </SortTh>
@@ -474,10 +494,10 @@ export function ZalihaTab() {
                 <tbody>
                   {rows.map((i, k) => (
                     <Fragment key={i.id}>
-                      {grouped && (k === 0 || rows[k - 1].cat !== i.cat) && (
+                      {grouped && (k === 0 || gkey(rows[k - 1]) !== gkey(i)) && (
                         <tr className="grouprow">
-                          <td className="sticky">{CATS[i.cat]}</td>
-                          <td colSpan={14} />
+                          <td className="sticky">{gname(i)}</td>
+                          <td colSpan={15} />
                         </tr>
                       )}
                       <Row i={i} open={open === i.id} onToggle={() => setOpen(open === i.id ? null : i.id)} />

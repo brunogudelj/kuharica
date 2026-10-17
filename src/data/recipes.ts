@@ -362,6 +362,35 @@ export const RECIPES: Recipe[] = [
     ],
     split: ["<b>Ručak:</b> poke bowl s miso juhom", "<b>Večera:</b> pržena riža s kimchijem, najbolja svježe (8 min)"],
   },
+  {
+    id: "dod-miso",
+    n: "Miso juha",
+    c: "Ostalo",
+    side: "juha",
+    d: "Lonac · 5 min",
+    use: { miso: 15, wakame: 2, tofu: 50 },
+    ing: ["<span class=g>15 g</span> miso paste", "<span class=g>2 g</span> wakame", "<span class=g>50 g</span> tofua", "mladi luk po želji"],
+    st: [
+      "Zagrij 300 ml vode, ne do vrenja.",
+      "Dodaj wakame i tofu na kockice, 2 min.",
+      "Makni s vatre i umiješaj miso razmućen u malo vode.",
+    ],
+  },
+  {
+    id: "dod-salata",
+    n: "Velika salata",
+    c: "Ostalo",
+    side: "salata",
+    d: "Bez kuhanja · 5 min",
+    use: { salata: 0.5, krastavci: 1, rajcice: 200, ulje: 10 },
+    ing: [
+      "<span class=g>½</span> zelene salate",
+      "<span class=g>1</span> krastavac",
+      "<span class=g>200 g</span> rajčica",
+      "<span class=g>10 ml</span> maslinovog ulja ili dresing iz prepa",
+    ],
+    st: ["Operi i nareži povrće.", "Podijeli na dvije zdjele: uz ručak i uz večeru.", "Začini dresingom tek prije jela."],
+  },
 ];
 
 export const CYCLE = ["Riža", "Krumpir", "Tjestenina", "Riža", "Krumpir"] as const;

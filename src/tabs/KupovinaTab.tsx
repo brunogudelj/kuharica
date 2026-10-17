@@ -1,7 +1,7 @@
 import { Fragment, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { CATS } from "../data";
-import type { CatId, Item } from "../data";
+import { CATS, GROUPS } from "../data";
+import type { CatId, GrpId, Item } from "../data";
 import { useApp } from "../state/AppContext";
 import { price, shopping } from "../logic/inventory";
 import type { ShopRow } from "../logic/inventory";
@@ -357,6 +357,7 @@ export function KupovinaTab() {
   const [fShop, setFShop] = useState<string[]>([]);
   const [fCat, setFCat] = useState<CatId[]>([]);
   const [fWhy, setFWhy] = useState<("plan" | "min")[]>([]);
+  const [fGrp, setFGrp] = useState<GrpId[]>([]);
   const ta = useRef<HTMLTextAreaElement>(null);
   const group: Group = data.ui.kupGroup ?? "shop";
   const setGroup = (g: Group) =>
@@ -368,12 +369,13 @@ export function KupovinaTab() {
   const full = shopping(data);
   const term = q.trim().toLowerCase();
   const why = (x: ShopRow) => (x.forPlan ? "plan" : "min");
-  const pass = (x: ShopRow, skip?: "shop" | "cat" | "why") =>
+  const pass = (x: ShopRow, skip?: "shop" | "cat" | "why" | "grp") =>
     (!term || x.i.n.toLowerCase().includes(term)) &&
+    (skip === "grp" || !fGrp.length || fGrp.includes(x.i.grp ?? "ostalo")) &&
     (skip === "shop" || !fShop.length || fShop.includes(x.i.src)) &&
     (skip === "cat" || !fCat.length || fCat.includes(x.i.cat)) &&
     (skip === "why" || !fWhy.length || fWhy.includes(why(x)));
-  const cnt = (skip: "shop" | "cat" | "why", ok: (x: ShopRow) => boolean) => full.filter((x) => pass(x, skip) && ok(x)).length;
+  const cnt = (skip: "shop" | "cat" | "why" | "grp", ok: (x: ShopRow) => boolean) => full.filter((x) => pass(x, skip) && ok(x)).length;
   const list = full.filter((x) => pass(x));
 
   const val: Record<SK, (x: ShopRow) => number | string> = {
@@ -439,6 +441,7 @@ export function KupovinaTab() {
     ...fShop.map((x): Chip => [shopName(data, x), () => setFShop(toggle(fShop, x))]),
     ...fCat.map((x): Chip => [CATS[x], () => setFCat(toggle(fCat, x))]),
     ...fWhy.map((x): Chip => [x === "plan" ? "Za plan" : "Dopuna zalihe", () => setFWhy(toggle(fWhy, x))]),
+    ...fGrp.map((x): Chip => [GROUPS[x], () => setFGrp(toggle(fGrp, x))]),
   ];
   const shopsInList = data.shops.filter((sh) => full.some((x) => x.i.src === sh.id));
 
@@ -464,6 +467,13 @@ export function KupovinaTab() {
         ) : (
           <p className="fhint">Popis je prazan.</p>
         )}
+      </FGroup>
+      <FGroup title="Skupina" count={fGrp.length}>
+        {(Object.keys(GROUPS) as GrpId[])
+          .filter((k) => full.some((x) => (x.i.grp ?? "ostalo") === k))
+          .map((k) => (
+            <FCheck key={k} on={fGrp.includes(k)} label={GROUPS[k]} count={cnt("grp", (x) => (x.i.grp ?? "ostalo") === k)} onChange={() => setFGrp(toggle(fGrp, k))} />
+          ))}
       </FGroup>
       <FGroup title="Spremanje" count={fCat.length}>
         {CAT_ORDER.map((k) => (
@@ -494,6 +504,7 @@ export function KupovinaTab() {
         setFShop([]);
         setFCat([]);
         setFWhy([]);
+        setFGrp([]);
       }}
       chips={chips}
       tabs={

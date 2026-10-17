@@ -57,10 +57,11 @@
   --shadow: 0 16px 48px rgba(17, 20, 28, 0.14);
   --shadow-s: 0 1px 2px rgba(17, 20, 28, 0.05);
 
-  --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* kao Google Sheets: Arial */
+  --font: Arial, "Helvetica Neue", Helvetica, "Liberation Sans", sans-serif;
   --display: var(--font);
-  --r: 12px;
-  --r-s: 8px;
+  --r: 4px;
+  --r-s: 4px;
   --rail: 84px;
   --fpanel: 300px;
   color-scheme: light;
@@ -2809,4 +2810,355 @@ table.grid {
   .weekstats > .statlink:last-child:nth-child(odd) {
     grid-column: 1 / -1;
   }
+}
+
+
+/* =====================================================================
+   Tablični izgled (kao Google Sheets): Arial, gotovo bez bolda,
+   linije između ćelija, mali radijusi. Hijerarhija ide veličinom, ne debljinom.
+   ===================================================================== */
+body {
+  font-size: 14px;
+  line-height: 1.45;
+}
+*,
+*::before,
+*::after {
+  font-weight: 400 !important;
+}
+/* bold samo gdje stvarno pomaže: zbrojevi, grupe u tablici, brojke na vrhu */
+.grouprow td,
+.kpis b,
+.tblsum b,
+.rcount b,
+.badge,
+.weekstats b,
+.kv dd b {
+  font-weight: 700 !important;
+}
+h1,
+.rtitle h1 {
+  font-size: 22px;
+  letter-spacing: 0;
+}
+h2 {
+  font-size: 17px;
+}
+h3 {
+  font-size: 15px;
+}
+.ent-name,
+.namecell .iname,
+.grid td.sticky,
+.grid .namecell,
+.grid .namecell .cellin,
+.grid td.sticky .cellin {
+  font-size: 15px;
+  letter-spacing: 0;
+}
+.ent-meta,
+.cmeta,
+.fhint,
+.rcount,
+.kv dt,
+.flabel {
+  font-size: 12px;
+}
+.btn {
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+.btn.small {
+  min-height: 28px;
+  font-size: 13px;
+}
+input,
+select,
+textarea,
+.searchbox {
+  border-radius: 4px;
+  min-height: 34px;
+}
+.searchbox input {
+  min-height: 32px;
+}
+
+/* tablice: mreža kao u proračunskoj tablici */
+.tablewrap {
+  border-radius: 2px;
+  border-color: var(--line-2);
+}
+.grid th,
+.grid td {
+  padding: 6px 8px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.grid th:last-child,
+.grid td:last-child {
+  border-right: 0;
+}
+.grid thead th {
+  background: var(--sunk);
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: none;
+  border-bottom: 1px solid var(--line-2);
+}
+.grid thead .sticky {
+  background: var(--sunk);
+}
+.grid.rows td {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+.grouprow td {
+  font-size: 13px;
+  background: color-mix(in srgb, var(--sunk) 70%, var(--line)) !important;
+}
+.cellin,
+.cellsel {
+  border-radius: 2px;
+  min-height: 28px;
+}
+.thumb {
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+}
+.thumb svg {
+  width: 15px;
+  height: 15px;
+}
+.thumb.shop {
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+}
+.ent {
+  gap: 10px;
+}
+.chip,
+.label,
+.pill {
+  border-radius: 3px;
+  font-size: 12px;
+  padding: 1px 6px;
+}
+.tick-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+}
+.tick-btn.small {
+  width: 24px;
+  height: 24px;
+}
+.kpis {
+  border-radius: 2px;
+}
+.kpis b {
+  font-size: 20px;
+}
+.rtabs .seg button {
+  font-size: 14px;
+}
+.fgroup summary {
+  font-size: 13px;
+  color: var(--ink);
+}
+.checkrow {
+  padding: 4px 6px;
+  font-size: 14px;
+}
+.railitem {
+  border-radius: 6px;
+}
+.railicon {
+  border-radius: 4px;
+}
+.raillabel {
+  font-size: 11px;
+}
+
+/* kalendar: ravnije ćelije */
+.cal > div {
+  padding: 4px;
+}
+.cell {
+  border-radius: 3px;
+  min-height: 0;
+  padding: 6px 6px 6px 9px;
+}
+.cname {
+  font-size: 14px;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+.cal .ch b {
+  font-size: 14px;
+}
+.cal .rh {
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+.cal .rh.small {
+  color: var(--muted);
+}
+.ctag {
+  margin-right: auto;
+  font-size: 11px;
+  color: var(--c-om);
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  padding: 0 4px;
+  line-height: 16px;
+  align-self: center;
+}
+/* dodatni slotovi: juha, salata, voće (manji) */
+.cell.slot {
+  gap: 2px;
+  padding: 5px 5px 5px 8px;
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+.cell.slot::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 3px 0 0 3px;
+}
+.cell.s-juha::before {
+  background: var(--c-krumpir);
+}
+.cell.s-salata::before {
+  background: var(--ok);
+}
+.cell.s-voce::before {
+  background: var(--c-riza);
+}
+.cell.slot .cname {
+  font-size: 13px;
+  flex: 1;
+  min-width: 0;
+}
+.cell.slot .crow {
+  padding-top: 0;
+  margin-top: 0;
+}
+.cell.slot .crow.top {
+  align-items: flex-start;
+}
+.cell.slot.done {
+  opacity: 0.6;
+}
+/* prazan slot s padajućim izbornikom */
+.cell.selcell {
+  position: relative;
+  min-height: 44px;
+  cursor: pointer;
+}
+.cell.selcell select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  min-height: 0;
+  font-size: 16px;
+}
+.addtxt {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+.swapsel {
+  position: relative;
+  overflow: hidden;
+}
+.swapsel select {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  min-height: 0;
+  padding: 0;
+  font-size: 16px;
+}
+.keepcell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.linkbtn.quiet {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 12px;
+}
+.linkbtn.quiet:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.importform {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.importform input {
+  flex: 1 1 260px;
+}
+.importsum {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0;
+}
+.importsum .grid td {
+  white-space: normal;
+  font-size: 13px;
+}
+
+.cname.linkname {
+  all: unset;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.25;
+  color: var(--ink);
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+.cname.linkname:hover {
+  text-decoration: underline;
+}
+.cname.linkname:focus-visible {
+  outline: 2px solid var(--orange);
+}
+.cell.slot .mini {
+  width: 24px;
+  height: 24px;
+}
+.dot.ok {
+  background: var(--ok);
+}
+.cell.slot .flag {
+  white-space: nowrap;
+  font-size: 12px;
+  overflow: visible;
+}
+.shops-table td.sticky {
+  min-width: 190px;
+}
+.keepcell {
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }

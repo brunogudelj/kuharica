@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
-import { DEFAULT_OM } from "../data";
 import { useApp } from "../state/AppContext";
 import { allItems } from "../logic/items";
-import { CARB_ORDER, KIND_LABEL, PROT_GROUPS, SORTS, emptyFilter, facetCounts, feed, filterFeed, matches, sortFeed } from "../logic/feed";
+import { CARB_ORDER, PROT_GROUPS, SORTS, TAG_ORDER, emptyFilter, facetCounts, feed, filterFeed, matches, sortFeed } from "../logic/feed";
 import type { FeedEntry, FeedFilter, Kind, SortKey } from "../logic/feed";
 import { eur } from "../logic/format";
 import { usePanel } from "../components/Panel";
@@ -49,8 +48,8 @@ function Row({ e, onOpen }: { e: FeedEntry; onOpen: () => void }) {
           </div>
         </div>
       </td>
-      <td data-l="Vrsta" className="muted">
-        {KIND_LABEL[e.kind]}
+      <td data-l="Oznake" className="muted">
+        {e.tags.filter((t) => t !== "2 u 1").join(", ")}
       </td>
       <td data-l="Prilog">{e.carb && <span className={`chip carb-chip ${carbCls(e.carb)}`}>{e.carb}</span>}</td>
       <td data-l="Protein">
@@ -97,7 +96,8 @@ export function ReceptiTab() {
   const [itemQ, setItemQ] = useState("");
   const all = useMemo(() => feed(data), [data]);
   const list = sortFeed(filterFeed(all, f, data), sort);
-  const kinds = facetCounts(all, f, data, "kind");
+  const tagCounts = facetCounts(all, f, data, "tags");
+  const tagList = [...TAG_ORDER.filter((t) => all.some((e) => e.tags.includes(t))), ...[...new Set(all.flatMap((e) => e.tags))].filter((t) => !TAG_ORDER.includes(t))];
   const prots = facetCounts(all, f, data, "prot");
   const carbs = facetCounts(all, f, data, "carb");
   const set = (p: Partial<FeedFilter>) => setF({ ...f, ...p });
@@ -114,7 +114,7 @@ export function ReceptiTab() {
   const itemCount = (id: string) => all.filter((e) => matches(e, { ...f, items: [...f.items.filter((x) => x !== id), id] }, data)).length;
 
   const chips: Chip[] = [
-    ...f.kind.map((k): Chip => [KIND_LABEL[k], () => set({ kind: toggle(f.kind, k) })]),
+    ...f.tags.map((k): Chip => [k, () => set({ tags: toggle(f.tags, k) })]),
     ...f.prot.map((p): Chip => [p, () => set({ prot: toggle(f.prot, p) })]),
     ...f.carb.map((c): Chip => [c, () => set({ carb: toggle(f.carb, c) })]),
     ...f.items.map((id): Chip => ["s: " + (allItems(data).find((i) => i.id === id)?.n ?? id), () => set({ items: toggle(f.items, id) })]),
@@ -132,9 +132,9 @@ export function ReceptiTab() {
   const filters = (
     <>
       <FSearch id="recipeSearch" value={f.q} onChange={(q) => set({ q })} placeholder="Traži recept ili sastojak" />
-      <FGroup title="Vrsta" count={f.kind.length}>
-        {(["meal", "om", "prep"] as Kind[]).map((k) => (
-          <FCheck key={k} on={f.kind.includes(k)} label={KIND_LABEL[k]} count={kinds[k] || 0} onChange={() => set({ kind: toggle(f.kind, k) })} />
+      <FGroup title="Oznake" count={f.tags.length}>
+        {tagList.map((k) => (
+          <FCheck key={k} on={f.tags.includes(k)} label={k} count={tagCounts[k] || 0} onChange={() => set({ tags: toggle(f.tags, k) })} />
         ))}
       </FGroup>
       <FGroup title="Protein" count={f.prot.length}>
@@ -226,8 +226,8 @@ export function ReceptiTab() {
               ))}
             </select>
           </label>
-          <button type="button" className="btn ghost" onClick={() => open({ t: "om", sel: DEFAULT_OM })}>
-            <Icon name="omlet" size={18} /> Složi omlet
+          <button type="button" className="btn ghost" onClick={() => open({ t: "importRecipe" })}>
+            <Icon name="link" size={18} /> Recept iz linka
           </button>
           <button type="button" className="btn" onClick={() => open({ t: "newRecipe" })}>
             <Icon name="plus" size={18} /> Novi recept
@@ -241,7 +241,7 @@ export function ReceptiTab() {
             <thead>
               <tr>
                 <th className="sticky">Recept</th>
-                <th>Vrsta</th>
+                <th>Oznake</th>
                 <th>Prilog</th>
                 <th>Protein</th>
                 <th className="num">kcal</th>

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { DAILY, ITEMS, OM_PRESETS, PREP_INV, RBY, RECIPES, REC_USE_PREP } from "../data";
+import { DAILY, DAILY_COOK, ITEMS, OM_PRESETS, PREP_INV, RBY, RECIPES, REC_USE_PREP } from "../data";
 import { defaultData } from "../state/model";
 import type { AppData } from "../state/model";
-import { addReceipt, buy, cook, eatOmlet, makePrep, newWeek } from "./actions";
+import { addReceipt, buy, cook, eatOmlet, makePrep, newWeek, setBreakfastRecipe, setSlot, toggleSlot } from "./actions";
 import { effUse, planNeeds, qty, shopping, status } from "./inventory";
 import { autoOmWeek, omMacros, omNorm, validOm } from "./omlet";
 import { niceNum, plural, scaleText } from "./format";
@@ -34,13 +34,30 @@ describe("pravilo 1: osnova je 1,5 porcija", () => {
 });
 
 describe("pravilo 2: dnevni dodaci se ne skaliraju", () => {
-  it("miso i posni sir skidaju se jednom bez obzira na porcije", () => {
+  it("posni sir se skida jednom bez obzira na porcije; miso ide preko slota za juhu", () => {
     const d = full();
     const a = cook(d, "teriyaki", null, 1).data;
     const b = cook(d, "teriyaki", null, 3).data;
-    close(qty(d, "posni") - qty(a, "posni"), DAILY.posni);
-    close(qty(d, "posni") - qty(b, "posni"), DAILY.posni);
-    close(qty(d, "miso") - qty(b, "miso"), DAILY.miso);
+    close(qty(d, "posni") - qty(a, "posni"), DAILY_COOK.posni);
+    close(qty(d, "posni") - qty(b, "posni"), DAILY_COOK.posni);
+    close(qty(d, "miso") - qty(b, "miso"), 0);
+    const j = toggleSlot(d, "juha", 0).data;
+    close(qty(d, "miso") - qty(j, "miso"), DAILY.miso);
+    expect(j.plan.extra.juha[0].done).toBe(true);
+  });
+
+  it("voće u slotu skida komad sa zalihe, doručak može biti recept", () => {
+    let d = full();
+    d.stock.banana = { qty: 3, price: null };
+    d = setSlot(d, "voce1", 2, { item: "banana", qty: 1 });
+    expect(planNeeds(d).banana).toBe(1);
+    const r = toggleSlot(d, "voce1", 2).data;
+    expect(qty(r, "banana")).toBe(2);
+    d = setBreakfastRecipe(d, 0, "teriyaki");
+    const e = eatOmlet(d, 0).data;
+    // 1 porcija od recepta za 1,5 porcija
+    close(qty(d, "piletina") - qty(e, "piletina"), 250 / 1.5);
+    expect(e.plan.om[0].done).toBe(true);
   });
 });
 

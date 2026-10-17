@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import { CATS, DAYS } from "../data";
 import type { Carb, CatId, CustomRecipe } from "../data";
 import { useApp } from "../state/AppContext";
-import { itemOf, visibleItems } from "../logic/items";
+import { allItems, itemOf } from "../logic/items";
 import { newRecipeId } from "../logic/recipes";
 import { saveRecipe, setPlanDay } from "../logic/actions";
 import { BASE_SERVINGS } from "../logic/inventory";
@@ -26,34 +26,39 @@ interface Row {
 /** Obrazac za vlastiti recept. Količine se upisuju za 1 porciju. */
 export function RecipeForm({
   existing,
+  draft,
   onDone,
   planDay,
 }: {
   existing?: CustomRecipe;
+  /** nacrt (npr. iz linka): popunjava obrazac, ali se sprema kao novi recept */
+  draft?: CustomRecipe;
   onDone: () => void;
   /** novi recept odmah ide na taj dan u planu */
   planDay?: number;
 }) {
   const { data, apply } = useApp();
-  const [n, setN] = useState(existing?.n ?? "");
-  const [c, setC] = useState<Carb>(existing?.c ?? "Riža");
-  const [dtext, setD] = useState(existing?.d ?? "");
+  const init = existing ?? draft;
+  const [n, setN] = useState(init?.n ?? "");
+  const [c, setC] = useState<Carb>(init?.c ?? "Riža");
+  const [dtext, setD] = useState(init?.d ?? "");
   const [rows, setRows] = useState<Row[]>(() =>
-    existing
-      ? Object.entries(existing.use).map(([id, a], k) => ({
+    init && Object.keys(init.use).length
+      ? Object.entries(init.use).map(([id, a], k) => ({
           key: k,
           id,
           amt: String(Math.round((a / BASE_SERVINGS) * 10) / 10).replace(".", ","),
         }))
       : [{ key: 0, id: "", amt: "" }],
   );
-  const [extra, setExtra] = useState(existing?.extra.join("\n") ?? "");
-  const [steps, setSteps] = useState(existing?.st.join("\n") ?? "");
+  const [extra, setExtra] = useState(init?.extra.join("\n") ?? "");
+  const [steps, setSteps] = useState(init?.st.join("\n") ?? "");
   const [err, setErr] = useState("");
   const [newItemFor, setNewItemFor] = useState<number | null>(null);
 
-  const items = visibleItems(data)
-    .slice()
+  // vidljive namirnice + skrivene koje su već u receptu (npr. prepoznate iz linka)
+  const items = allItems(data)
+    .filter((i) => !data.items.hidden.includes(i.id) || rows.some((r) => r.id === i.id))
     .sort((a, b) => a.n.localeCompare(b.n, "hr"));
   const setRow = (key: number, patch: Partial<Row>) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -76,7 +81,7 @@ export function RecipeForm({
         .map((x) => x.trim())
         .filter(Boolean);
     const r: CustomRecipe = {
-      id: existing?.id ?? newRecipeId(n),
+      id: existing?.id ?? draft?.id ?? newRecipeId(n),
       n: n.trim(),
       c,
       d: dtext.trim() || "Vlastiti recept",

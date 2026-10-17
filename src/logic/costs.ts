@@ -14,7 +14,7 @@ export function costSummary(d: AppData, now = Date.now()) {
 
   // Procjena iz plana: prosjek planiranih dana (ili svih recepata ako plan nije složen)
   const planned = d.plan.days.filter((x) => x.r && recipeOf(d, x.r)).map((x) => x.r);
-  const pool = planned.length ? planned : allRecipes(d).map((r) => r.id);
+  const pool = planned.length ? planned : allRecipes(d).filter((r) => !r.side).map((r) => r.id);
   const dcs = pool.map((r) => dayCost(d, r));
   const avgFull = dcs.reduce((s, x) => s + x.full, 0) / dcs.length;
   const avgMeal = dcs.reduce((s, x) => s + x.perMeal, 0) / dcs.length;
@@ -49,4 +49,25 @@ export function costSummary(d: AppData, now = Date.now()) {
     byShop,
     priced: cover > 0,
   };
+}
+
+const DAY = 86400000;
+
+/**
+ * Potrošnja po dućanu: ukupno dosad i tjedni prosjek zadnjih 6 mjeseci (26 tjedana, klizno).
+ * Ako zapisi postoje kraće od 6 mjeseci, prosjek se dijeli s brojem tjedana od prvog zapisa.
+ */
+export function shopSpend(d: AppData, now = Date.now()) {
+  const all = Object.values(d.costs).flat();
+  const from = now - 182 * DAY;
+  const first = all.length ? Math.min(...all.map((e) => e.t)) : now;
+  const weeks = Math.max(1, (now - Math.max(from, first)) / (7 * DAY));
+  const out: Record<string, { total: number; last6: number; weekly: number }> = {};
+  for (const e of all) {
+    const o = (out[e.shop] ||= { total: 0, last6: 0, weekly: 0 });
+    o.total += e.amount || 0;
+    if (e.t >= from && e.t <= now) o.last6 += e.amount || 0;
+  }
+  for (const o of Object.values(out)) o.weekly = o.last6 / weeks;
+  return { byShop: out, weeks };
 }

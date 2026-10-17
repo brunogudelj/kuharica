@@ -10,8 +10,21 @@ export interface PlanDay {
   done: boolean;
 }
 export interface OmDay {
-  /** null = prazan dan (omlet maknut iz kalendara) */
+  /** omlet; null = nema omleta (prazan doručak ili doručak je recept `r`) */
   sel: OmSel | null;
+  done: boolean;
+  /** doručak je recept (1 porcija) umjesto omleta */
+  r?: string;
+}
+/** Dodatni slotovi u danu: juha prije ručka, salata poslije, dva voća */
+export type SlotKey = "juha" | "salata" | "voce1" | "voce2";
+export const SLOT_KEYS: SlotKey[] = ["juha", "salata", "voce1", "voce2"];
+export interface Slot {
+  /** recept (juha, salata ili bilo koji recept kao 1 porcija) */
+  r?: string;
+  /** namirnica (voće) i količina */
+  item?: string;
+  qty?: number;
   done: boolean;
 }
 export interface Plan {
@@ -19,6 +32,7 @@ export interface Plan {
   start: number;
   days: PlanDay[];
   om: OmDay[];
+  extra: Record<SlotKey, Slot[]>;
 }
 export interface CostEntry {
   id: string;
@@ -34,10 +48,12 @@ export interface CostEntry {
 }
 /** Vlastite namirnice, skrivene namirnice i promjene pakiranja ili minimuma */
 export interface ItemsState {
+  /** verzija kataloga (2 = s voćem); stariji podaci dobivaju nove namirnice skrivene ako je zaliha ispražnjena */
+  v?: number;
   custom: Item[];
   hidden: string[];
   /** promjene ugrađenih namirnica (sve osim jedinice) */
-  over: Record<string, Partial<Pick<Item, "n" | "cat" | "src" | "min" | "pack" | "kcal" | "prot">>>;
+  over: Record<string, Partial<Pick<Item, "n" | "cat" | "grp" | "src" | "min" | "pack" | "kcal" | "prot">>>;
 }
 export interface Settings {
   dostava: number;
@@ -81,17 +97,25 @@ export const defaultOmWeek = (): OmDay[] => OM_PRESETS.slice(0, 7).map((p) => ({
 
 export const emptyPlanDays = (): PlanDay[] => DAYS.map(() => ({ r: "", done: false }));
 
+/** Juha i salata su po defaultu miso i velika salata, voće je prazno */
+export const defaultExtra = (): Record<SlotKey, Slot[]> => ({
+  juha: DAYS.map(() => ({ r: "dod-miso", done: false })),
+  salata: DAYS.map(() => ({ r: "dod-salata", done: false })),
+  voce1: DAYS.map(() => ({ done: false })),
+  voce2: DAYS.map(() => ({ done: false })),
+});
+
 export function defaultData(): AppData {
   return {
     version: 1,
     updatedAt: 0,
     stock: {},
     prepStock: {},
-    plan: { start: 0, days: emptyPlanDays(), om: defaultOmWeek() },
+    plan: { start: 0, days: emptyPlanDays(), om: defaultOmWeek(), extra: defaultExtra() },
     hist: [],
     costs: {},
     settings: { dostava: 12 },
-    items: { custom: [], hidden: [], over: {} },
+    items: { v: 2, custom: [], hidden: [], over: {} },
     recipes: [],
     shops: clone(DEFAULT_SHOPS),
     ui: { servings: {}, ture: {}, tab: "plan" },

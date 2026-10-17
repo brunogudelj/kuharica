@@ -1,5 +1,5 @@
 // Generirano iz reference/kuharica-prototip.html skriptom scripts/izvuci-podatke.mjs. Podaci su preneseni doslovno.
-import type { Item, CatId, ShopId } from "./types";
+import type { Item, CatId, GrpId, ShopId } from "./types";
 
 export const ITEMS: Item[] = [
   {
@@ -827,7 +827,53 @@ export const ITEMS: Item[] = [
     step: 60,
     hint: "ocijeđeno",
   },
+  // voće (dodano za slotove voća u planu)
+  { id: "banana", n: "Banana", cat: "fre", grp: "voce", src: "K", u: "kom", min: 0, pack: 6, step: 1, hint: "1 komad oko 120 g", kcal: 105, prot: 1.3 },
+  { id: "naranca", n: "Naranča", cat: "fre", grp: "voce", src: "K", u: "kom", min: 0, pack: 6, step: 1, hint: "", kcal: 62, prot: 1.2 },
+  { id: "kivi", n: "Kivi", cat: "fre", grp: "voce", src: "K", u: "kom", min: 0, pack: 6, step: 1, hint: "", kcal: 42, prot: 0.8 },
+  { id: "kruska", n: "Kruška", cat: "fre", grp: "voce", src: "K", u: "kom", min: 0, pack: 4, step: 1, hint: "", kcal: 100, prot: 0.6 },
+  { id: "mandarina", n: "Mandarine", cat: "fre", grp: "voce", src: "K", u: "kom", min: 0, pack: 10, step: 1, hint: "", kcal: 35, prot: 0.5 },
+  { id: "borovnice", n: "Borovnice (smrznute)", cat: "frz", grp: "voce", src: "K", u: "g", min: 0, pack: 500, step: 50, hint: "porcija 150 g", kcal: 57, prot: 0.7 },
 ];
+
+/** Ugrađene namirnice dodane nakon prvog izdanja (sakrivaju se ako je korisnik ispraznio zalihu) */
+export const NEW_ITEMS = ["banana", "naranca", "kivi", "kruska", "mandarina", "borovnice"];
+
+/** Skupine namirnica */
+export const GROUPS: Record<GrpId, string> = {
+  voce: "Voće",
+  povrce: "Povrće",
+  meso: "Meso",
+  riba: "Riba i plodovi mora",
+  jaja: "Jaja",
+  mlijecno: "Mliječno",
+  soja: "Tofu, soja i mahunarke",
+  prilog: "Prilozi i žitarice",
+  mast: "Masti, ulja i orašasto",
+  umaci: "Umaci i začini",
+  ostalo: "Ostalo",
+};
+
+/** Skupina za ugrađene namirnice */
+export const GRP_OF: Record<string, GrpId> = {
+  ...Object.fromEntries(
+    (
+      [
+        ["meso", "piletina pur-prsa pur-mlj junetina svinjetina sunka spek kobasice"],
+        ["riba", "losos kozice plodovi tuna dim-losos"],
+        ["povrce", "grasak mahune brokula dumbir kimchi mrkva kupus luk cesnjak salata krastavci rajcice paprike tikvice gljive klice mladi-luk karfiol patlidzan spinat meksicko rikola wakame"],
+        ["voce", "limun limeta avokado jabuka"],
+        ["mlijecno", "posni jogurt mlijeko zrnati feta mozzarella"],
+        ["jaja", "jaja bjelanjci"],
+        ["soja", "tofu tofu-dim edamame crni-grah"],
+        ["prilog", "basmati jasmin tjestenina rizini ramen krumpir wrap"],
+        ["mast", "ulje sezamovo kikiriki sezam kokos"],
+        ["umaci", "miso oyster curry soja rizin-ocat sriracha med temeljac koncentrat gustin"],
+        ["ostalo", "gyoze"],
+      ] as [GrpId, string][]
+    ).flatMap(([g, ids]) => ids.split(" ").map((id) => [id, g])),
+  ),
+};
 
 export const CATS: Record<CatId, string> = {
   frz: "Zamrzivač",
@@ -843,6 +889,9 @@ export const SRC: Record<ShopId, string> = {
 };
 
 /** Što se troši svaki dan uz recept: miso juha, posni sir, dvije salate */
+/** Dnevni dodaci za izračun cijene obroka (miso juha, salata, posni sir). Miso i salata su sada
+ * zasebni slotovi u planu, a uz kuhanje ručka skida se samo posni sir (DAILY_COOK). */
+export const DAILY_COOK: Record<string, number> = { posni: 1 };
 export const DAILY: Record<string, number> = {
   miso: 15,
   wakame: 2,
