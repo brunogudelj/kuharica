@@ -1,0 +1,250 @@
+import { Fragment, useState } from "react";
+import type { FormEvent } from "react";
+import { useApp } from "../state/AppContext";
+import { visibleItems } from "../logic/items";
+import { shopping } from "../logic/inventory";
+import { addShop, editShop, removeShop } from "../logic/shops";
+import { eur, monthKey } from "../logic/format";
+import { TextCell } from "../components/Cells";
+import { Icon } from "../components/icons";
+
+const TYPES = ["Supermarket", "Zdrava hrana", "Azijski dućan", "Tržnica", "Mesnica", "Pekara", "Online", "Ostalo"];
+
+function AddShop({ onDone }: { onDone: () => void }) {
+  const { data, apply } = useApp();
+  const [n, setN] = useState("");
+  const [type, setType] = useState("Supermarket");
+  const [addr, setAddr] = useState("");
+  const [url, setUrl] = useState("");
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!n.trim()) return;
+    const r = addShop(data, { n, type, addr: addr.trim(), url: url.trim(), note: "" });
+    apply(r.data, r.msg);
+    onDone();
+  };
+  return (
+    <form className="formcard" onSubmit={submit} aria-label="Novi dućan">
+      <h3>Novi dućan</h3>
+      <div className="formgrid">
+        <label>
+          Naziv
+          <input value={n} onChange={(e) => setN(e.target.value)} placeholder="npr. Konzum Savska" autoFocus />
+        </label>
+        <label>
+          Vrsta
+          <select value={type} onChange={(e) => setType(e.target.value)}>
+            {TYPES.map((t) => (
+              <option key={t}>{t}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Adresa
+          <input value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="ulica ili webshop" />
+        </label>
+        <label>
+          Web
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" inputMode="url" />
+        </label>
+      </div>
+      <div className="btnrow">
+        <button type="submit" className="btn" disabled={!n.trim()}>
+          Dodaj
+        </button>
+        <button type="button" className="btn ghost" onClick={onDone}>
+          Odustani
+        </button>
+      </div>
+    </form>
+  );
+}
+
+export function DucaniTab() {
+  const { data, apply, update } = useApp();
+  const [adding, setAdding] = useState(false);
+  const [openRow, setOpenRow] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<string | null>(null);
+  const items = visibleItems(data);
+  const toBuy = shopping(data);
+  const spent = (data.costs[monthKey()] || []).reduce<Record<string, number>>(
+    (m, e) => ((m[e.shop] = (m[e.shop] || 0) + e.amount), m),
+    {},
+  );
+
+  return (
+    <section id="ducani" aria-labelledby="tab-ducani">
+      <div className="toolbar">
+        <p className="sub grow">
+          Gdje kupuješ. Svaka namirnica ima svoj dućan (mijenjaš ga u Zalihi), pa se po njemu slaže popis za kupovinu.
+        </p>
+        {!adding && (
+          <button type="button" className="btn" onClick={() => setAdding(true)}>
+            <Icon name="plus" size={18} /> Dodaj dućan
+          </button>
+        )}
+      </div>
+      {adding && <AddShop onDone={() => setAdding(false)} />}
+
+      <div className="tablewrap">
+        <table className="grid shops-table">
+          <thead>
+            <tr>
+              <th className="sticky">Dućan</th>
+              <th>Vrsta</th>
+              <th>Adresa</th>
+              <th>Web</th>
+              <th className="num">Namirnica</th>
+              <th className="num">Za kupiti</th>
+              <th className="num">Ovaj mjesec</th>
+              <th className="c">
+                <span className="sr-only">Više</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.shops.map((s) => {
+              const its = items.filter((i) => i.src === s.id);
+              const buy = toBuy.filter((x) => x.i.src === s.id);
+              const buyCost = buy.reduce((t, x) => t + (x.cost ?? 0), 0);
+              const isOpen = openRow === s.id;
+              const ed = (p: Parameters<typeof editShop>[2]) => update((d) => editShop(d, s.id, p));
+              return (
+                <Fragment key={s.id}>
+                  <tr>
+                    <td className="sticky namecell">
+                      <TextCell label={`Naziv: ${s.n}`} value={s.n} onCommit={(v) => ed({ n: v })} />
+                    </td>
+                    <td>
+                      <select className="cellsel" aria-label={`Vrsta: ${s.n}`} value={s.type} onChange={(e) => ed({ type: e.target.value })}>
+                        {[...new Set([...TYPES, s.type])].filter(Boolean).map((t) => (
+                          <option key={t}>{t}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td style={{ minWidth: 180 }}>
+                      <TextCell label={`Adresa: ${s.n}`} value={s.addr} onCommit={(v) => ed({ addr: v })} />
+                    </td>
+                    <td className="c">
+                      {s.url ? (
+                        <a className="mini" href={s.url} target="_blank" rel="noopener" aria-label={`Web: ${s.n}`}>
+                          <Icon name="link" size={16} />
+                        </a>
+                      ) : (
+                        <span className="muted">–</span>
+                      )}
+                    </td>
+                    <td className="num">{its.length || "–"}</td>
+                    <td className="num">
+                      {buy.length ? (
+                        <>
+                          <b>{buy.length}</b>
+                          {buyCost > 0 && <span className="muted"> · ≈ {eur(buyCost)}</span>}
+                        </>
+                      ) : (
+                        "–"
+                      )}
+                    </td>
+                    <td className="num">{spent[s.id] ? eur(spent[s.id]) : "–"}</td>
+                    <td className="c">
+                      <button
+                        type="button"
+                        className="mini"
+                        aria-expanded={isOpen}
+                        aria-label={`Više o dućanu ${s.n}`}
+                        onClick={() => setOpenRow(isOpen ? null : s.id)}
+                      >
+                        <Icon name="more" size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                  {isOpen && (
+                    <tr className="detailrow">
+                      <td colSpan={8}>
+                        <div className="shopdetail">
+                          <label className="wide">
+                            Bilješka
+                            <input
+                              defaultValue={s.note}
+                              onBlur={(e) => e.target.value !== s.note && ed({ note: e.target.value })}
+                              placeholder="radno vrijeme, akcije, što tamo kupuješ…"
+                            />
+                          </label>
+                          <label className="wide">
+                            Web adresa
+                            <input
+                              defaultValue={s.url}
+                              inputMode="url"
+                              onBlur={(e) => e.target.value !== s.url && ed({ url: e.target.value.trim() })}
+                              placeholder="https://…"
+                            />
+                          </label>
+                          {s.links && s.links.length > 0 && (
+                            <div className="wide">
+                              <h4>Korisni linkovi</h4>
+                              <div className="chips">
+                                {s.links.map((l) => (
+                                  <a key={l.url} className="chip linkchip" href={l.url} target="_blank" rel="noopener">
+                                    {l.n} <Icon name="link" size={12} />
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div className="wide">
+                            <h4>Namirnice iz ovog dućana</h4>
+                            {its.length ? (
+                              <div className="chips">
+                                {its.map((i) => (
+                                  <span key={i.id} className={"chip" + (buy.some((x) => x.i.id === i.id) ? " warn" : "")}>
+                                    {i.n}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="sub">Još nijedna. Dućan namirnici biraš u Zalihi.</p>
+                            )}
+                          </div>
+                          {s.id !== "O" && (
+                            <div className="btnrow wide">
+                              {confirm === s.id ? (
+                                <>
+                                  <span className="count">
+                                    {its.length ? `${its.length} namirnica prelazi na Ostalo.` : "Sigurno?"}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="btn danger"
+                                    onClick={() => {
+                                      const r = removeShop(data, s.id);
+                                      apply(r.data, r.msg);
+                                      setConfirm(null);
+                                      setOpenRow(null);
+                                    }}
+                                  >
+                                    Da, obriši
+                                  </button>
+                                  <button type="button" className="btn ghost" onClick={() => setConfirm(null)}>
+                                    Odustani
+                                  </button>
+                                </>
+                              ) : (
+                                <button type="button" className="btn ghost" onClick={() => setConfirm(s.id)}>
+                                  <Icon name="trash" size={16} /> Obriši dućan
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}

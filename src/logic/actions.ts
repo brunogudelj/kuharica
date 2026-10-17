@@ -1,6 +1,6 @@
 /* Čiste funkcije koje iz stanja rade novo stanje. Poništavanje = povratak prethodnog stanja. */
 import { CYCLE, ITEMS, PBY, PREP_INV } from "../data";
-import type { CustomRecipe, Item } from "../data";
+import type { CustomRecipe, Item, OmSel } from "../data";
 import { allRecipes, recipeOf } from "./recipes";
 import type { AppData, CostEntry } from "../state/model";
 import { clone, emptyPlanDays } from "../state/model";
@@ -51,6 +51,7 @@ export function makePrep(src: AppData, pid: string, t = 1): Result {
 export function eatOmlet(src: AppData, ix: number, f = 1): Result {
   const d = clone(src);
   const day = d.plan.om[ix];
+  if (!day.sel) return { data: src, msg: "Za taj dan nema omleta." };
   const eff = omEff(src, day.sel, f, { ...d.prepStock });
   consume(d, eff.use, eff.consumed);
   d.plan.om[ix] = { sel: day.sel, done: true };
@@ -101,21 +102,42 @@ export function removeCost(src: AppData, mk: string, id: string): AppData {
   return d;
 }
 
-/** Popuni tjedan prema ciklusu, ravnomjerno, prednost imaju recepti za koje ima sastojaka */
+/** Popuni prazne dane prema ciklusu, ravnomjerno, prednost imaju recepti za koje ima sastojaka.
+ * Ručno odabrani recepti ostaju. Prazni omleti dobivaju novu kombinaciju. */
 export function autoFillPlan(src: AppData): AppData {
   const d = clone(src);
   const used: Record<string, number> = {};
+  d.plan.days.forEach((day) => day.r && (used[day.r] = (used[day.r] || 0) + 1));
   d.plan.days = d.plan.days.map((day, ix) => {
-    if (day.done) return day;
+    if (day.done || day.r) return day;
     const c = CYCLE[((d.plan.start || 0) + ix) % 5];
     const pool = allRecipes(d).filter((r) => r.c === c);
     pool.sort(
       (a, b) => (used[a.id] || 0) - (used[b.id] || 0) || missingFor(d, a.id).length - missingFor(d, b.id).length,
     );
     const pick = pool[0];
+    if (!pick) return day;
     used[pick.id] = (used[pick.id] || 0) + 1;
     return { r: pick.id, done: false };
   });
+  if (d.plan.om.some((o) => !o.sel)) {
+    const fresh = autoOmWeek(d, true);
+    d.plan.om = d.plan.om.map((o, i) => (o.sel ? o : fresh[i]));
+  }
+  return d;
+}
+
+/** Stavi recept na dan (ili makni s r = "") */
+export function setPlanDay(src: AppData, ix: number, r: string): AppData {
+  const d = clone(src);
+  d.plan.days[ix] = { r, done: false };
+  return d;
+}
+
+/** Stavi omlet na dan (ili makni sa sel = null) */
+export function setOmDay(src: AppData, ix: number, sel: OmSel | null): AppData {
+  const d = clone(src);
+  d.plan.om[ix] = { sel: sel ? clone(sel) : null, done: false };
   return d;
 }
 

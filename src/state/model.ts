@@ -1,5 +1,5 @@
-import { DAYS, OM_PRESETS } from "../data";
-import type { CustomRecipe, Item, OmSel } from "../data";
+import { DAYS, DEFAULT_SHOPS, OM_PRESETS } from "../data";
+import type { CustomRecipe, Item, OmSel, Shop } from "../data";
 
 export interface StockEntry {
   qty: number;
@@ -10,7 +10,8 @@ export interface PlanDay {
   done: boolean;
 }
 export interface OmDay {
-  sel: OmSel;
+  /** null = prazan dan (omlet maknut iz kalendara) */
+  sel: OmSel | null;
   done: boolean;
 }
 export interface Plan {
@@ -47,6 +48,10 @@ export interface UiState {
   tab: string;
   /** odabrani dan u kartici Omlet (0 = ponedjeljak) */
   omDay?: number;
+  /** tablica namirnica za tjedan u Planu je otvorena */
+  needsOpen?: boolean;
+  /** grupiranje popisa za kupovinu */
+  kupGroup?: "shop" | "cat" | "none";
 }
 export interface AppData {
   version: 1;
@@ -61,6 +66,8 @@ export interface AppData {
   settings: Settings;
   items: ItemsState;
   recipes: CustomRecipe[];
+  /** popis dućana */
+  shops: Shop[];
   ui: UiState;
 }
 
@@ -82,6 +89,7 @@ export function defaultData(): AppData {
     settings: { dostava: 12 },
     items: { custom: [], hidden: [], over: {} },
     recipes: [],
+    shops: clone(DEFAULT_SHOPS),
     ui: { servings: {}, ture: {}, tab: "plan" },
   };
 }

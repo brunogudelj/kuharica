@@ -35,6 +35,8 @@ interface Ctx {
   connectSync: (token: string) => Promise<void>;
   disconnectSync: () => void;
   syncNow: () => void;
+  /** demo način s izmišljenim podacima */
+  demo: boolean;
 }
 
 const AppCtx = createContext<Ctx | null>(null);
@@ -46,12 +48,20 @@ function stamp(prev: AppData, next: AppData): AppData {
   return toRemote(next) === toRemote(prev) ? next : { ...next, updatedAt: Math.max(Date.now(), prev.updatedAt + 1) };
 }
 
-export function AppProvider({ storage, children }: { storage: Storage; children: ReactNode }) {
+export function AppProvider({
+  storage,
+  children,
+  demo = false,
+}: {
+  storage: Storage;
+  children: ReactNode;
+  demo?: boolean;
+}) {
   const [data, setData] = useState<AppData>(defaultData);
   const [loaded, setLoaded] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
-  const [cfg, setCfg] = useState<SyncConfig | null>(loadSyncConfig);
+  const [cfg, setCfg] = useState<SyncConfig | null>(() => (demo ? null : loadSyncConfig()));
   const [sync, setSync] = useState<SyncStatus>({ state: cfg ? "syncing" : "off" });
   const timer = useRef<number | undefined>(undefined);
   const dataRef = useRef(data);
@@ -220,6 +230,7 @@ export function AppProvider({ storage, children }: { storage: Storage; children:
 
   const connectSync = useCallback(
     async (token: string) => {
+      if (demo) throw new SyncError("U demo načinu sinkronizacija je isključena.");
       setSync({ state: "syncing" });
       try {
         const { gistId, remote } = await connect(token.trim(), dataRef.current);
@@ -245,7 +256,7 @@ export function AppProvider({ storage, children }: { storage: Storage; children:
         throw e;
       }
     },
-    [fail],
+    [fail, demo],
   );
   const disconnectSync = useCallback(() => {
     saveSyncConfig(null);
@@ -273,6 +284,7 @@ export function AppProvider({ storage, children }: { storage: Storage; children:
         connectSync,
         disconnectSync,
         syncNow,
+        demo,
       }}
     >
       {children}

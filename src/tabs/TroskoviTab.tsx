@@ -1,25 +1,18 @@
 import { useState } from "react";
-import type { FormEvent } from "react";
-import { SHOPS } from "../data";
 import { allRecipes } from "../logic/recipes";
-import type { ShopId } from "../data";
 import { useApp } from "../state/AppContext";
+import { shopName, shopOpts } from "../logic/shops";
 import { clone } from "../state/model";
 import type { AppData } from "../state/model";
 import { costSummary } from "../logic/costs";
 import { dayCost } from "../logic/inventory";
-import { addReceipt, editCost, removeCost } from "../logic/actions";
+import { editCost, removeCost } from "../logic/actions";
 import { itemOf } from "../logic/items";
 import { NumCell, SelectCell, TextCell } from "../components/Cells";
 import { eur, fmt, monthKey, round } from "../logic/format";
 import { exportJson, importJson } from "../storage/storage";
 import { SyncPanel } from "../components/SyncPanel";
 
-const shopName = (s: string) => SHOPS[s as ShopId] || s;
-const todayInput = () => {
-  const now = Date.now();
-  return new Date(now - new Date(now).getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-};
 
 function Backup() {
   const { data, apply, notify } = useApp();
@@ -102,34 +95,11 @@ function Backup() {
 }
 
 export function TroskoviTab() {
-  const { data, apply, update, notify } = useApp();
+  const { data, apply, update } = useApp();
   const s = costSummary(data);
   const d = new Date();
-  const [shop, setShop] = useState<ShopId>("K");
-  const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(todayInput);
-  const [note, setNote] = useState("");
   const [month, setMonth] = useState(s.mk);
   const [dostDraft, setDostDraft] = useState<string | null>(null);
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    const amt = parseFloat(amount.replace(",", "."));
-    if (isNaN(amt) || amt <= 0) {
-      notify("Upiši iznos računa veći od 0.");
-      return;
-    }
-    const now = new Date();
-    const t = date
-      ? new Date(
-          `${date}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
-        ).getTime()
-      : Date.now();
-    const r = addReceipt(data, { shop, amount: amt, t, note: note.trim() || "Račun " + SHOPS[shop] });
-    apply(r.data, `Račun ${eur(round(amt))} spremljen${r.replaced ? `, zamijenjeno ${r.replaced} procjena` : ""}.`);
-    setAmount("");
-    setNote("");
-  };
 
   const months = Array.from(new Set([s.mk, ...Object.keys(data.costs)]))
     .sort()
@@ -144,7 +114,7 @@ export function TroskoviTab() {
       <div className="summary four">
         <div>
           <b>{eur(s.spent)}</b>
-          <span>potrošeno u {d.toLocaleDateString("hr-HR", { month: "long" })}</span>
+          <span>potrošeno ovaj mjesec ({d.toLocaleDateString("hr-HR", { month: "long" })})</span>
           <small>{s.entries.length} zapisa</small>
         </div>
         <div>
@@ -170,7 +140,7 @@ export function TroskoviTab() {
         {!s.priced ? (
           <>
             <strong>Još nema cijena.</strong> U Zalihi dodirni naziv namirnice i upiši cijenu pakiranja. Kreni od mesa,
-            riže i krumpira, jer one najviše utječu na trošak. Potrošnja se bilježi već sada, kad upišeš račun.
+            riže i krumpira, jer one najviše utječu na trošak. Potrošnja se bilježi kad u Kupovini označiš kupljeno.
           </>
         ) : (
           <>
@@ -183,56 +153,6 @@ export function TroskoviTab() {
       </div>
 
       <div className="group">
-        <h2>Upiši račun</h2>
-        <form className="edit" onSubmit={submit}>
-          <label htmlFor="rcShop">
-            Dućan
-            <select id="rcShop" value={shop} onChange={(e) => setShop(e.target.value as ShopId)}>
-              {(Object.entries(SHOPS) as [ShopId, string][]).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label htmlFor="rcAmount">
-            Iznos (€)
-            <input
-              id="rcAmount"
-              type="text"
-              inputMode="decimal"
-              min="0"
-              step="0.01"
-              placeholder="npr. 47,30"
-              required
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          </label>
-          <label htmlFor="rcDate">
-            Datum
-            <input id="rcDate" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </label>
-          <label htmlFor="rcNote">
-            Napomena
-            <input
-              id="rcNote"
-              type="text"
-              placeholder="tjedna kupovina"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-          </label>
-          <button type="submit" className="btn">
-            Spremi račun
-          </button>
-        </form>
-        <p className="sub">
-          Ukupni iznos s računa zamjenjuje zapise s popisa za kupovinu za taj dućan i dan, pa se ništa ne broji dvaput.
-        </p>
-      </div>
-
-      <div className="group">
         <div className="ghead">
           <h2>Po dućanu ovaj mjesec</h2>
         </div>
@@ -242,7 +162,7 @@ export function TroskoviTab() {
               .sort((a, b) => b[1] - a[1])
               .map(([k, v]) => (
                 <div key={k} className="bar">
-                  <span>{shopName(k)}</span>
+                  <span>{shopName(data, k)}</span>
                   <div className="track">
                     <div className="fill" style={{ width: `${Math.max(3, (v / max) * 100)}%` }} />
                   </div>
@@ -250,7 +170,7 @@ export function TroskoviTab() {
                 </div>
               ))
           ) : (
-            <div className="empty">Ovaj mjesec još nema zapisa. Upiši račun ili otkvači kupljeno u Kupovini.</div>
+            <div className="empty">Ovaj mjesec još nema zapisa. Kvačicom u Kupovini zapisuješ kupljeno i cijenu.</div>
           )}
         </div>
       </div>
@@ -370,13 +290,13 @@ export function TroskoviTab() {
                         {new Date(e.t).toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" })}
                       </td>
                       <td className="sticky" style={{ minWidth: 160 }}>
-                        <TextCell label="Opis" value={e.note || shopName(e.shop)} onCommit={(v) => update((x) => editCost(x, mk, e.id, { note: v }))} />
+                        <TextCell label="Opis" value={e.note || shopName(data, e.shop)} onCommit={(v) => update((x) => editCost(x, mk, e.id, { note: v }))} />
                       </td>
                       <td style={{ minWidth: 120 }}>
-                        <SelectCell<ShopId>
+                        <SelectCell<string>
                           label="Dućan"
-                          value={(e.shop as ShopId) in SHOPS ? (e.shop as ShopId) : "O"}
-                          options={Object.entries(SHOPS) as [ShopId, string][]}
+                          value={data.shops.some((x) => x.id === e.shop) ? e.shop : "O"}
+                          options={shopOpts(data)}
                           onChange={(v) => update((x) => editCost(x, mk, e.id, { shop: v }))}
                         />
                       </td>

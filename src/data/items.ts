@@ -836,7 +836,7 @@ export const CATS: Record<CatId, string> = {
   fre: "Svježe",
 };
 
-export const SRC: Record<Exclude<ShopId, "O">, string> = {
+export const SRC: Record<ShopId, string> = {
   K: "Kaufland",
   BIO: "Bio&Bio",
   AZ: "Azijski dućan",

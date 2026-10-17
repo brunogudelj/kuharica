@@ -2,7 +2,7 @@ import { ITEMS } from "./items";
 import { RECIPES } from "./recipes";
 import { PREP } from "./prep";
 import { OM_FILL } from "./omlet";
-import type { ShopId } from "./types";
+import type { Shop } from "./types";
 
 export * from "./items";
 export * from "./recipes";
@@ -15,50 +15,59 @@ export const RBY = Object.fromEntries(RECIPES.map((r) => [r.id, r]));
 export const PBY = Object.fromEntries(PREP.map((p) => [p.id, p]));
 export const OFBY = Object.fromEntries(OM_FILL.map((x) => [x.id, x]));
 
-export const SHOPS: Record<ShopId, string> = { K: "Kaufland", BIO: "Bio&Bio", AZ: "Azijski dućan", O: "Ostalo" };
+/** Dućani na početku. Sve se može mijenjati na stranici Dućani. */
+export const DEFAULT_SHOPS: Shop[] = [
+  {
+    id: "K",
+    n: "Kaufland",
+    type: "Supermarket",
+    addr: "Zagreb, više lokacija",
+    url: "https://www.kaufland.hr",
+    note: "Većina namirnica: meso, povrće, mliječno, riža i tjestenina.",
+  },
+  {
+    id: "BIO",
+    n: "Bio&Bio",
+    type: "Zdrava hrana",
+    addr: "Zagreb, više lokacija i webshop",
+    url: "https://www.biobio.hr",
+    note: "Miso, tofu, alge, tamari. Besplatna dostava od 50 €.",
+    links: [
+      { n: "Miso paste", url: "https://www.biobio.hr/proizvodi/ulja-i-zacini/miso-i-instant-juhe/" },
+      { n: "Morske alge", url: "https://www.biobio.hr/proizvodi/voce-i-povrce/morske-alge/" },
+      { n: "Tofu i seitan", url: "https://www.biobio.hr/proizvodi/svjeze-iz-hladnjaka/tofu-i-seitan/" },
+      { n: "Soja i tamari", url: "https://www.biobio.hr/proizvodi/ulja-i-zacini/umaci-od-soje/" },
+    ],
+  },
+  {
+    id: "AZ",
+    n: "Asia Store",
+    type: "Azijski dućan",
+    addr: "Vlaška 52, Zagreb",
+    url: "https://wolt.com/hr/hrv/zagreb/venue/asia-store",
+    note: "Riža za sushi, sriracha, rezanci, umaci, paste, smrznuta hrana. Dostava preko Wolta.",
+  },
+  {
+    id: "s-pekinska",
+    n: "Pekinška patka",
+    type: "Azijski dućan",
+    addr: "Vlaška 78, Zagreb",
+    url: "https://www.google.com/search?q=Pekin%C5%A1ka+patka+Vla%C5%A1ka+78+webshop",
+    note: "Vlastiti webshop s dostavom.",
+  },
+  {
+    id: "s-ricekakis",
+    n: "Rice Kakis",
+    type: "Online",
+    addr: "samo webshop",
+    url: "https://www.google.com/search?q=Rice+Kakis+webshop+Hrvatska",
+    note: "Kimchi, rezanci, panko i ostale azijske namirnice.",
+  },
+  { id: "O", n: "Ostalo", type: "Ostalo", addr: "", url: "", note: "Za sve što ne kupuješ na stalnom mjestu." },
+];
 
-/** Linkovi na dućane u Zagrebu (iz prototipa) */
-export const SHOP_LINKS = {
-  zdravi: [
-    {
-      n: "Bio&Bio: miso paste",
-      url: "https://www.biobio.hr/proizvodi/ulja-i-zacini/miso-i-instant-juhe/",
-      d: "Velik izbor miso pasta od soje, ječma i riže. Besplatna dostava od 50 €, u Zagrebu i brza dostava.",
-    },
-    {
-      n: "Bio&Bio: morske alge",
-      url: "https://www.biobio.hr/proizvodi/voce-i-povrce/morske-alge/",
-      d: "Wakame i nori za miso juhu i poke.",
-    },
-    {
-      n: "Bio&Bio: tofu",
-      url: "https://www.biobio.hr/proizvodi/svjeze-iz-hladnjaka/tofu-i-seitan/",
-      d: "Običan i dimljeni tofu.",
-    },
-    {
-      n: "Bio&Bio: soja i tamari",
-      url: "https://www.biobio.hr/proizvodi/ulja-i-zacini/umaci-od-soje/",
-      d: "Za rižin ocat i sezamovo ulje pogledaj i kategorije octeva i ulja.",
-    },
-  ],
-  azijski: [
-    {
-      n: "Asia Store (Wolt)",
-      url: "https://wolt.com/hr/hrv/zagreb/venue/asia-store",
-      d: "Vlaška 52. Riža za sushi, sriracha, rezanci, umaci, paste, smrznuta hrana.",
-    },
-    {
-      n: "Pekinška patka",
-      url: "https://www.google.com/search?q=Pekin%C5%A1ka+patka+Vla%C5%A1ka+78+webshop",
-      d: "Vlaška 78. Vlastiti webshop s dostavom.",
-    },
-    {
-      n: "Rice Kakis (samo online)",
-      url: "https://www.google.com/search?q=Rice+Kakis+webshop+Hrvatska",
-      d: "Kimchi, rezanci, panko i ostale azijske namirnice.",
-    },
-  ],
-};
+/** Nazivi ugrađenih dućana (za stare zapise i kad dućan nije pronađen) */
+export const SHOPS: Record<string, string> = Object.fromEntries(DEFAULT_SHOPS.map((s) => [s.id, s.n]));
 
 /** Nedjeljni prep redoslijed */
 export const PREP_TIMELINE: [string, string][] = [

@@ -1,6 +1,7 @@
 import { Fragment, useState } from "react";
-import { CATS, OM_FILL, PREP, PREP_INV, SHOPS } from "../data";
-import type { CatId, Item, ShopId } from "../data";
+import { CATS, OM_FILL, PREP, PREP_INV } from "../data";
+import type { CatId, Item } from "../data";
+import { shopIndex, shopOpts } from "../logic/shops";
 import { useApp } from "../state/AppContext";
 import { clone } from "../state/model";
 import type { AppData } from "../state/model";
@@ -19,7 +20,6 @@ type F = "sve" | "nisko" | CatId;
 type SortK = "mjesto" | "n" | "src" | "qty" | "stanje" | "min" | "pack" | "price" | "kcal" | "prot";
 
 const CAT_OPTS = Object.entries(CATS) as [CatId, string][];
-const SHOP_OPTS = Object.entries(SHOPS) as [ShopId, string][];
 const OM_OPTS: ["" | "prot" | "veg", string][] = [
   ["", "—"],
   ["prot", "protein"],
@@ -98,7 +98,7 @@ function Row({ i, open, onToggle }: { i: Item; open: boolean; onToggle: () => vo
           <SelectCell<CatId> label={`Mjesto: ${i.n}`} value={i.cat} options={CAT_OPTS} onChange={(v) => change((n) => editItem(n, i.id, { cat: v }))} />
         </td>
         <td style={{ minWidth: 118 }}>
-          <SelectCell<ShopId> label={`Dućan: ${i.n}`} value={i.src} options={SHOP_OPTS} onChange={(v) => change((n) => editItem(n, i.id, { src: v }))} />
+          <SelectCell<string> label={`Dućan: ${i.n}`} value={i.src} options={shopOpts(data)} onChange={(v) => change((n) => editItem(n, i.id, { src: v }))} />
         </td>
         <td style={{ minWidth: 96 }}>
           <NumCell label={`Imam (${i.u}): ${i.n}`} value={q} onCommit={(v) => change((n) => setQty(n, i.id, v ?? 0))} />
@@ -268,7 +268,7 @@ export function ZalihaTab() {
       case "n":
         return i.n.toLowerCase();
       case "src":
-        return SHOPS[i.src];
+        return shopIndex(data, i.src);
       case "qty":
         return qty(data, i.id);
       case "stanje":

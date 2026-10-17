@@ -1,5 +1,6 @@
 export type CatId = "frz" | "fri" | "dry" | "fre";
-export type ShopId = "K" | "BIO" | "AZ" | "O";
+/** id dućana: ugrađeni (K, BIO, AZ, O) ili vlastiti (s-…) */
+export type ShopId = string;
 export type Unit = "g" | "ml" | "kom";
 export type UnitId = "vrecica" | "kutija" | "porcija" | "kockica" | "cufta" | "muffin" | "obrok";
 export type Carb = "Riža" | "Krumpir" | "Tjestenina" | "Ostalo";
@@ -116,4 +117,17 @@ export interface OmPreset {
   n: string;
   d: string;
   sel: OmSel;
+}
+
+/** Dućan s popisa dućana */
+export interface Shop {
+  id: ShopId;
+  n: string;
+  /** vrsta: supermarket, zdrava hrana, azijski, tržnica, online… */
+  type: string;
+  addr: string;
+  url: string;
+  note: string;
+  /** korisni linkovi (kategorije u webshopu) */
+  links?: { n: string; url: string }[];
 }

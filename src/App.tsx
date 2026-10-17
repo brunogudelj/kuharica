@@ -6,26 +6,29 @@ import { syncText } from "./components/SyncPanel";
 import { Icon } from "./components/icons";
 import type { IconName } from "./components/icons";
 import { PlanTab } from "./tabs/PlanTab";
-import { OmletTab } from "./tabs/OmletTab";
 import { ZalihaTab } from "./tabs/ZalihaTab";
 import { KupovinaTab } from "./tabs/KupovinaTab";
 import { TroskoviTab } from "./tabs/TroskoviTab";
 import { ReceptiTab } from "./tabs/ReceptiTab";
 import { PrepTab } from "./tabs/PrepTab";
+import { DucaniTab } from "./tabs/DucaniTab";
+import { PanelProvider } from "./components/Panel";
+import { renderView } from "./components/RecipeViews";
+import { setDemo } from "./storage/storage";
 
 const TABS: [string, string, IconName, string][] = [
   ["plan", "Plan", "plan", "Tjedni kalendar obroka"],
-  ["omlet", "Omlet", "omlet", "Doručak, svaki dan drugi"],
+  ["recepti", "Recepti", "recepti", "Obroci, omleti i prep"],
   ["zaliha", "Zaliha", "zaliha", "Što imaš doma"],
   ["kupovina", "Kupovina", "kupovina", "Popis za dućan"],
-  ["troskovi", "Troškovi", "troskovi", "Računi i usporedba"],
-  ["recepti", "Recepti", "recepti", "Ručak i večera"],
+  ["ducani", "Dućani", "ducani", "Gdje kupuješ"],
+  ["troskovi", "Troškovi", "troskovi", "Potrošnja i usporedba"],
   ["prep", "Prep", "prep", "Priprema unaprijed"],
 ];
 
 export function App() {
-  const { data, loaded, saveError, update, toast, undo, closeToast, sync } = useApp();
-  const tab = TABS.some(([k]) => k === data.ui.tab) ? data.ui.tab : "plan";
+  const { data, loaded, saveError, update, toast, undo, closeToast, sync, demo } = useApp();
+  const tab = data.ui.tab === "omlet" ? "recepti" : TABS.some(([k]) => k === data.ui.tab) ? data.ui.tab : "plan";
   const cur = TABS.find(([k]) => k === tab)!;
   const shopCount = shopping(data).length;
   const [drawer, setDrawer] = useState(false);
@@ -58,6 +61,7 @@ export function App() {
       : { cls: sync.state === "error" ? "err" : sync.state === "ok" ? "ok" : "", txt: syncText(sync.state, sync.at, sync.msg) };
 
   return (
+    <PanelProvider render={renderView}>
     <div className={"shell" + (drawer ? " drawer-open" : "")}>
       <header className="topbar">
         <button type="button" className="iconbtn" aria-label="Otvori izbornik" aria-expanded={drawer} onClick={() => setDrawer(true)}>
@@ -104,9 +108,14 @@ export function App() {
             <Icon name="sync" size={16} />
             <span>{status.txt}</span>
           </p>
-          {sync.state === "off" && loaded && (
+          {sync.state === "off" && loaded && !demo && (
             <button type="button" className="linkbtn" onClick={() => setTab("troskovi", "sinkronizacija")}>
               Poveži laptop i mobitel
+            </button>
+          )}
+          {!demo && (
+            <button type="button" className="linkbtn" onClick={() => setDemo(true)}>
+              Isprobaj s demo podacima
             </button>
           )}
         </div>
@@ -114,16 +123,29 @@ export function App() {
       <div className="scrim" onClick={() => setDrawer(false)} aria-hidden="true" />
 
       <main className="main">
+        {demo && (
+          <div className="demobar" role="status">
+            <span>
+              <b>Demo podaci.</b> Cijene, kalorije i zalihe su izmišljene, a tvoji pravi podaci su netaknuti.
+            </span>
+            <button type="button" className="btn small ghost" onClick={() => setDemo(true, true)}>
+              Kreni ispočetka
+            </button>
+            <button type="button" className="btn small" onClick={() => setDemo(false)}>
+              Izađi iz dema
+            </button>
+          </div>
+        )}
         <div className="pagehead">
           <h1>{cur[1]}</h1>
           <p className="sub">{cur[3]}</p>
         </div>
         {tab === "plan" && <PlanTab />}
-        {tab === "omlet" && <OmletTab />}
         {tab === "zaliha" && <ZalihaTab />}
         {tab === "kupovina" && <KupovinaTab />}
         {tab === "troskovi" && <TroskoviTab />}
         {tab === "recepti" && <ReceptiTab />}
+        {tab === "ducani" && <DucaniTab />}
         {tab === "prep" && <PrepTab />}
       </main>
 
@@ -144,5 +166,6 @@ export function App() {
         </div>
       )}
     </div>
+    </PanelProvider>
   );
 }

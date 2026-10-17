@@ -11,14 +11,18 @@ import { Card, Filters, Html, Note, Stepper } from "../components/ui";
 
 type F = "sve" | PrepCat;
 
-function PrepCard({ p }: { p: PrepRecipe }) {
-  const { data, apply, update } = useApp();
+export function prepMeta(data: ReturnType<typeof useApp>["data"], p: PrepRecipe) {
   const t = data.ui.ture[p.id] ?? 1;
-  const inv = PREP_INV[p.id];
   const miss = Object.entries(p.use)
     .filter(([id, a]) => qty(data, id) + 1e-9 < a * t)
     .map(([id]) => itemName(data, id));
-  const have = pc(data, p.id);
+  return { t, miss, have: pc(data, p.id), inv: PREP_INV[p.id] };
+}
+
+/** Sadržaj prep recepta: količina, zaliha, sastojci, koraci */
+export function PrepBody({ p }: { p: PrepRecipe }) {
+  const { data, apply, update } = useApp();
+  const { t, miss, have, inv } = prepMeta(data, p);
   const change = (fn: (n: typeof data) => void) =>
     update((d) => {
       const n = clone(d);
@@ -27,25 +31,11 @@ function PrepCard({ p }: { p: PrepRecipe }) {
     });
 
   return (
-    <Card
-      title={p.n}
-      meta={
-        <>
-          <span className="carb">{PREP_K[p.k]}</span>
-          <span>{p.time}</span>
-          {have > 0 && <span className="pill p-ok">{pfmt(have, inv.unit)}</span>}
-          {miss.length ? (
-            <span className="pill p-out">fali {miss.length}</span>
-          ) : (
-            <span className="pill p-low">imaš sastojke</span>
-          )}
-        </>
-      }
-    >
+    <>
       <div className="facts">
         <div>
           <b>Količina</b>
-          <span>{scaleText(p.yieldTxt, t)}</span>
+          <span>{scaleText(p.yieldTxt, t).replace(/<[^>]+>/g, "")}</span>
         </div>
         <div>
           <b>Vrijeme</b>
@@ -91,7 +81,7 @@ function PrepCard({ p }: { p: PrepRecipe }) {
       </div>
       <div>
         <h4>Priprema</h4>
-        <ol>
+        <ol className="steps">
           {p.st.map((x, k) => (
             <li key={k}>{x}</li>
           ))}
@@ -124,6 +114,30 @@ function PrepCard({ p }: { p: PrepRecipe }) {
         </button>
         <span className="count">skida sastojke sa zalihe</span>
       </div>
+    </>
+  );
+}
+
+function PrepCard({ p }: { p: PrepRecipe }) {
+  const { data } = useApp();
+  const { miss, have, inv } = prepMeta(data, p);
+  return (
+    <Card
+      title={p.n}
+      meta={
+        <>
+          <span className="chip">{PREP_K[p.k]}</span>
+          <span>{p.time}</span>
+          {have > 0 && <span className="pill p-ok">{pfmt(have, inv.unit)}</span>}
+          {miss.length ? (
+            <span className="pill p-out">fali {miss.length}</span>
+          ) : (
+            <span className="pill p-ok">imaš sastojke</span>
+          )}
+        </>
+      }
+    >
+      <PrepBody p={p} />
     </Card>
   );
 }
@@ -142,7 +156,7 @@ export function PrepTab() {
         title="Nedjeljni prep: redoslijed"
         meta={
           <>
-            <span className="carb">oko 75 min</span>
+            <span className="chip">oko 75 min</span>
             <span>lonac + wok + air fryer istovremeno</span>
           </>
         }

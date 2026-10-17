@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { CATS, SHOPS } from "../data";
+import { CATS } from "../data";
+import { shopOpts } from "../logic/shops";
 import type { CatId, Item, ShopId, Unit } from "../data";
 import { useApp } from "../state/AppContext";
 import { newCustomItem, visibleItems } from "../logic/items";
@@ -248,7 +249,7 @@ export function ItemForm({ onDone, initialName = "" }: { onDone: (item?: Item) =
         <label htmlFor="niSrc">
           Kupujem u
           <select id="niSrc" value={src} onChange={(e) => setSrc(e.target.value as ShopId)}>
-            {(Object.entries(SHOPS) as [ShopId, string][]).map(([k, t]) => (
+            {shopOpts(data).map(([k, t]) => (
               <option key={k} value={k}>
                 {t}
               </option>

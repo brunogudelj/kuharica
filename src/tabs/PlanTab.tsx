@@ -1,42 +1,142 @@
+import { Fragment, useState } from "react";
 import { CYCLE, DAYS } from "../data";
-import type { Carb } from "../data";
 import { useApp } from "../state/AppContext";
 import { clone } from "../state/model";
-import { missingFor, shopping } from "../logic/inventory";
-import { autoFillPlan, cook, eatOmlet, newWeek } from "../logic/actions";
-import { allRecipes, recipeName, recipeOf } from "../logic/recipes";
-import { omMacros, omMissing, omName } from "../logic/omlet";
-import { stavki, todayIx } from "../logic/format";
+import type { AppData } from "../state/model";
+import { costOf, dayCost, missingFor, shopping, weekNeeds } from "../logic/inventory";
+import type { NeedRow } from "../logic/inventory";
+import { autoFillPlan, cook, eatOmlet, newWeek, setOmDay, setPlanDay } from "../logic/actions";
+import { recipeName, recipeOf } from "../logic/recipes";
+import { omMacros, omMissing, omName, omUse } from "../logic/omlet";
+import { mealEntry } from "../logic/feed";
+import { eur, fmt, stavki, todayIx } from "../logic/format";
+import { shopIndex, shopName } from "../logic/shops";
 import { Icon } from "../components/icons";
+import { usePanel } from "../components/Panel";
+import { dateOf } from "../components/RecipeViews";
+import { SortTh } from "../components/Cells";
 
-const CARBS: Carb[] = ["Riža", "Krumpir", "Tjestenina", "Ostalo"];
-const LEGEND: [string, string][] = [
-  ["Riža", "var(--dry-ink)"],
-  ["Krumpir", "var(--fre-ink)"],
-  ["Tjestenina", "var(--frz-ink)"],
-  ["Omlet", "var(--accent)"],
-];
+type NK = "n" | "shop" | "need" | "have" | "short" | "cost";
 
-/** Datum za dan u tjednu (0 = ponedjeljak ovog tjedna) */
-function dateOf(ix: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - todayIx() + ix);
-  return d.toLocaleDateString("hr-HR", { day: "numeric", month: "numeric" });
+/** Namirnice koje traži plan za ovaj tjedan */
+function WeekNeeds({ data }: { data: AppData }) {
+  const { update } = useApp();
+  const open = data.ui.needsOpen ?? true;
+  const [sort, setSort] = useState<{ k: NK; dir: 1 | -1 }>({ k: "shop", dir: 1 });
+  const rows = weekNeeds(data);
+  const short = rows.filter((r) => r.short > 0.0001);
+  const total = short.reduce((s, r) => s + (r.cost ?? 0), 0);
+  const val: Record<NK, (r: NeedRow) => number | string> = {
+    n: (r) => r.i.n,
+    shop: (r) => shopIndex(data, r.i.src) * 1000 + (r.short > 0 ? 0 : 500),
+    need: (r) => r.need,
+    have: (r) => r.have,
+    short: (r) => r.short,
+    cost: (r) => r.cost ?? -1,
+  };
+  const sorted = rows.slice().sort((a, b) => {
+    const x = val[sort.k](a);
+    const y = val[sort.k](b);
+    const c = typeof x === "string" ? x.localeCompare(y as string, "hr") : x - (y as number);
+    return c * sort.dir || a.i.n.localeCompare(b.i.n, "hr");
+  });
+  const grouped = sort.k === "shop";
+  const toggle = () =>
+    update((d) => {
+      const n = clone(d);
+      n.ui.needsOpen = !open;
+      return n;
+    });
+
+  return (
+    <section className="panelbox">
+      <button type="button" className="panelbox-head" aria-expanded={open} onClick={toggle}>
+        <span className="panelbox-title">Namirnice za ovaj tjedan</span>
+        <span className="panelbox-sum">
+          {rows.length ? (
+            <>
+              <b>{rows.length}</b> namirnica · fali <b className={short.length ? "t-out" : "t-ok"}>{short.length}</b>
+              {total > 0 && (
+                <>
+                  {" "}
+                  · ≈ <b>{eur(total)}</b>
+                </>
+              )}
+            </>
+          ) : (
+            "plan je prazan"
+          )}
+        </span>
+        <Icon name="chev" size={18} />
+      </button>
+      {open && rows.length > 0 && (
+        <div className="tablewrap flat">
+          <table className="grid">
+            <thead>
+              <tr>
+                <SortTh k="n" sort={sort} setSort={setSort} className="sticky">
+                  Namirnica
+                </SortTh>
+                <SortTh k="shop" sort={sort} setSort={setSort}>
+                  Dućan
+                </SortTh>
+                <SortTh k="need" sort={sort} setSort={setSort} className="num">
+                  Treba
+                </SortTh>
+                <SortTh k="have" sort={sort} setSort={setSort} className="num">
+                  Imaš
+                </SortTh>
+                <SortTh k="short" sort={sort} setSort={setSort} className="num">
+                  Fali
+                </SortTh>
+                <th className="num">€/pak.</th>
+                <SortTh k="cost" sort={sort} setSort={setSort} className="num">
+                  Procjena
+                </SortTh>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((r, ix) => {
+                const head = grouped && (ix === 0 || sorted[ix - 1].i.src !== r.i.src);
+                return (
+                  <Fragment key={r.i.id}>
+                    {head && (
+                      <tr className="grouprow">
+                        <td className="sticky" colSpan={7}>
+                          {shopName(data, r.i.src)}
+                        </td>
+                      </tr>
+                    )}
+                    <tr className={r.short > 0.0001 ? "st-out" : "st-ok"}>
+                      <td className="sticky namecell">
+                        <span className={"dot " + (r.short > 0.0001 ? "out" : "ok")} aria-hidden="true" />
+                        {r.i.n}
+                      </td>
+                      <td className="muted">{shopName(data, r.i.src)}</td>
+                      <td className="num">{fmt(r.need, r.i.u)}</td>
+                      <td className="num">{fmt(r.have, r.i.u)}</td>
+                      <td className="num strong">{r.short > 0.0001 ? fmt(r.short, r.i.u) : "–"}</td>
+                      <td className="num muted">{r.price != null ? eur(r.price) : "–"}</td>
+                      <td className="num">{r.cost != null && r.packs ? eur(r.cost) : "–"}</td>
+                    </tr>
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
 }
 
 export function PlanTab() {
   const { data, apply, update } = useApp();
+  const { open } = usePanel();
   const { plan } = data;
   const tix = todayIx();
   const next = ((plan.start || 0) + 7) % 5;
-  const recipes = allRecipes(data);
 
-  const setDay = (ix: number, r: string) =>
-    update((d) => {
-      const n = clone(d);
-      n.plan.days[ix] = { r, done: false };
-      return n;
-    });
   const toggleCook = (ix: number) => {
     const day = plan.days[ix];
     if (day.done)
@@ -59,18 +159,17 @@ export function PlanTab() {
     const r = eatOmlet(data, ix);
     apply(r.data, r.msg);
   };
-  const openOmlet = (ix: number) =>
-    update((d) => {
-      const n = clone(d);
-      n.ui.omDay = ix;
-      n.ui.tab = "omlet";
-      return n;
-    });
 
-  const cooked = plan.days.filter((d) => d.done).length;
   const planned = plan.days.filter((d) => d.r).length;
-  const eaten = plan.om.filter((o) => o.done).length;
-  const avgProt = Math.round(plan.om.reduce((s, o) => s + omMacros(data, o.sel, 1).p, 0) / 7);
+  const cooked = plan.days.filter((d) => d.r && d.done).length;
+  const omPlanned = plan.om.filter((o) => o.sel);
+  const eaten = omPlanned.filter((o) => o.done).length;
+  const avgProt = omPlanned.length
+    ? Math.round(omPlanned.reduce((s, o) => s + omMacros(data, o.sel!, 1).p, 0) / omPlanned.length)
+    : 0;
+  const weekCost =
+    plan.days.reduce((s, d) => s + (d.r ? dayCost(data, d.r).meals : 0), 0) +
+    omPlanned.reduce((s, o) => s + costOf(data, omUse(data, o.sel!, 1)).c, 0);
   const shop = shopping(data).length;
 
   return (
@@ -96,50 +195,74 @@ export function PlanTab() {
             ))}
           </select>
         </label>
-        <button className="btn" type="button" onClick={() => apply(autoFillPlan(data), "Tjedan je popunjen.")}>
-          Popuni tjedan
+        <button className="btn" type="button" onClick={() => apply(autoFillPlan(data), "Prazni dani su popunjeni.")}>
+          Popuni prazne dane
         </button>
         <button className="btn ghost" type="button" onClick={() => apply(newWeek(data), "Novi tjedan, ciklus pomaknut.")}>
           Novi tjedan
+        </button>
+        <span className="grow" />
+        <button className="btn ghost" type="button" onClick={() => open({ t: "newRecipe" })}>
+          <Icon name="plus" size={18} /> Novi recept
         </button>
       </div>
 
       <div className="weekstats">
         <div>
+          <span className="lbl">Ručak i večera</span>
           <b>
-            {cooked}/{planned || 7}
+            {cooked}
+            <small>/{planned}</small>
           </b>
-          <span>skuhano ovaj tjedan</span>
+          <span>{planned ? `skuhano${planned < 7 ? `, ${7 - planned} prazno` : ""}` : "ništa nije planirano"}</span>
         </div>
         <div>
-          <b>{eaten}/7</b>
-          <span>omleta pojedeno</span>
+          <span className="lbl">Omleti</span>
+          <b>
+            {eaten}
+            <small>/{omPlanned.length}</small>
+          </b>
+          <span>{omPlanned.length ? `pojedeno${omPlanned.length < 7 ? `, ${7 - omPlanned.length} prazno` : ""}` : "nema omleta"}</span>
         </div>
         <div>
-          <b>{avgProt} g</b>
-          <span>proteina u omletu, prosjek</span>
+          <span className="lbl">Protein u omletu</span>
+          <b>
+            {omPlanned.length ? avgProt : "–"}
+            <small> g</small>
+          </b>
+          <span>prosjek planiranih</span>
         </div>
         <div>
+          <span className="lbl">Tjedan košta</span>
+          <b>{weekCost > 0 ? eur(weekCost) : "–"}</b>
+          <span>{weekCost > 0 ? "po cijenama iz zalihe" : "upiši cijene u Zalihi"}</span>
+        </div>
+        <button
+          type="button"
+          className="statlink"
+          onClick={() =>
+            update((d) => {
+              const n = clone(d);
+              n.ui.tab = "kupovina";
+              return n;
+            })
+          }
+        >
+          <span className="lbl">Za kupiti</span>
           <b>{shop}</b>
-          <span>{shop ? `${stavki(shop).replace(/^\d+ /, "")} za kupiti` : "ništa ne fali"}</span>
-        </div>
+          <span>{shop ? `${stavki(shop).replace(/^\d+ /, "")} na popisu →` : "ništa ne fali"}</span>
+        </button>
       </div>
 
-      <div className="legend" aria-label="Legenda">
-        {LEGEND.map(([l, c]) => (
-          <span key={l}>
-            <i style={{ background: c }} />
-            {l}
-          </span>
-        ))}
-      </div>
+      <WeekNeeds data={data} />
 
       <div className="calwrap">
         <div className="cal" role="grid" aria-label="Tjedni kalendar obroka">
           <div className="corner" />
           {DAYS.map((d, ix) => (
             <div key={d} className={"ch" + (ix === tix ? " today" : "")} role="columnheader">
-              {d} <small>{ix === tix ? "danas" : dateOf(ix)}</small>
+              <b>{d}</b>
+              <small>{ix === tix ? "danas" : dateOf(ix)}</small>
             </div>
           ))}
 
@@ -147,26 +270,52 @@ export function PlanTab() {
             Doručak<small>omlet</small>
           </div>
           {plan.om.map((o, ix) => {
+            if (!o.sel)
+              return (
+                <div key={"o" + ix} role="gridcell">
+                  <button type="button" className="cell addcell" onClick={() => open({ t: "pickOm", day: ix })}>
+                    <Icon name="plus" size={18} />
+                    <span>Dodaj omlet</span>
+                  </button>
+                </div>
+              );
             const m = omMacros(data, o.sel, 1);
             const miss = o.done ? [] : omMissing(data, o.sel);
+            const name = omName(data, o.sel);
             return (
               <div key={"o" + ix} role="gridcell">
-                <div className={"cell om" + (o.done ? " done" : "")}>
-                  <button type="button" className="cbtn" onClick={() => openOmlet(ix)} title="Otvori omlet">
-                    <span className="cname">{omName(data, o.sel)}</span>
-                    <span className="cmeta">
-                      {m.p} g prot · {m.k} kcal
-                    </span>
-                  </button>
+                <div className={"cell cc-Omlet" + (o.done ? " done" : "")}>
+                  <div className="ctop">
+                    <button type="button" className="mini" aria-label={`Recept: ${name}`} onClick={() => open({ t: "om", day: ix })}>
+                      <Icon name="info" size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      className="mini"
+                      aria-label={`Makni omlet: ${DAYS[ix]}`}
+                      onClick={() => apply(setOmDay(data, ix, null), `Omlet maknut s dana ${DAYS[ix].toLowerCase()}.`)}
+                    >
+                      <Icon name="close" size={16} />
+                    </button>
+                  </div>
+                  <span className="cname">{name}</span>
+                  <span className="cmeta">
+                    {m.p} g proteina · {m.k} kcal
+                  </span>
                   <div className="crow">
-                    <span className={"flag " + (o.done ? "ready" : miss.length ? "miss" : "ready")}>
+                    <span className={"flag " + (o.done ? "done" : miss.length ? "miss" : "ready")}>
                       {o.done ? "pojedeno" : miss.length ? `fali ${miss.length}` : "imaš sve"}
                     </span>
+                    {!o.done && (
+                      <button type="button" className="mini" aria-label={`Zamijeni omlet: ${DAYS[ix]}`} onClick={() => open({ t: "pickOm", day: ix })}>
+                        <Icon name="swap" size={16} />
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="tick-btn"
                       aria-pressed={o.done}
-                      aria-label={`${o.done ? "Pojedeno" : "Pojeo sam"}: ${DAYS[ix]}, ${omName(data, o.sel)}`}
+                      aria-label={`${o.done ? "Pojedeno" : "Pojeo sam"}: ${DAYS[ix]}, ${name}`}
                       onClick={() => toggleOm(ix)}
                     >
                       <Icon name="check" size={16} />
@@ -183,50 +332,61 @@ export function PlanTab() {
           {plan.days.map((d, ix) => {
             const cyc = CYCLE[((plan.start || 0) + ix) % 5];
             const r = d.r ? recipeOf(data, d.r) : undefined;
-            const m = r && !d.done ? missingFor(data, d.r) : [];
+            if (!r)
+              return (
+                <div key={"r" + ix} role="gridcell">
+                  <button type="button" className={`cell addcell cc-${cyc}`} onClick={() => open({ t: "pickMeal", day: ix })}>
+                    <Icon name="plus" size={18} />
+                    <span>Dodaj recept</span>
+                    <small>dan ciklusa: {cyc.toLowerCase()}</small>
+                  </button>
+                </div>
+              );
+            const m = !d.done ? missingFor(data, d.r) : [];
+            const e = mealEntry(data, d.r);
             return (
               <div key={"r" + ix} role="gridcell">
-                <div className={`cell c-${r ? r.c : cyc}` + (r ? "" : " empty") + (d.done ? " done" : "")}>
-                  <select
-                    id={`day-${ix}`}
-                    value={d.r}
-                    onChange={(e) => setDay(ix, e.target.value)}
-                    aria-label={`Recept za ${DAYS[ix]}`}
-                  >
-                    <option value="">+ {cyc}</option>
-                    {CARBS.filter((c) => recipes.some((x) => x.c === c)).map((c) => (
-                      <optgroup key={c} label={c}>
-                        {recipes
-                          .filter((x) => x.c === c)
-                          .map((x) => (
-                            <option key={x.id} value={x.id}>
-                              {x.n}
-                            </option>
-                          ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                  {r ? (
-                    <>
-                      <span className="cname">{r.n}</span>
-                      <div className="crow">
-                        <span className={"flag " + (d.done ? "ready" : m.length ? "miss" : "ready")}>
-                          {d.done ? "skuhano" : m.length ? `fali ${m.length}` : "imaš sve"}
-                        </span>
-                        <button
-                          type="button"
-                          className="tick-btn"
-                          aria-pressed={d.done}
-                          aria-label={`${d.done ? "Skuhano" : "Skuhaj"}: ${DAYS[ix]}, ${r.n}`}
-                          onClick={() => toggleCook(ix)}
-                        >
-                          <Icon name="check" size={16} />
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <span className="cmeta">dan ciklusa: {cyc.toLowerCase()}</span>
+                <div className={`cell cc-${r.c}` + (d.done ? " done" : "")}>
+                  <div className="ctop">
+                    <button type="button" className="mini" aria-label={`Recept: ${r.n}`} onClick={() => open({ t: "meal", id: r.id, day: ix })}>
+                      <Icon name="info" size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      className="mini"
+                      aria-label={`Makni recept: ${DAYS[ix]}`}
+                      onClick={() => apply(setPlanDay(data, ix, ""), `${r.n} maknut s dana ${DAYS[ix].toLowerCase()}.`)}
+                    >
+                      <Icon name="close" size={16} />
+                    </button>
+                  </div>
+                  <span className="cname">{r.n}</span>
+                  {e && (e.kcal != null || e.time != null) && (
+                    <span className="cmeta">
+                      {e.kcal != null ? `${e.kcal} kcal · ${e.p} g proteina` : ""}
+                      {e.kcal != null && e.time != null ? " · " : ""}
+                      {e.time != null ? `${e.time} min` : ""}
+                    </span>
                   )}
+                  <div className="crow">
+                    <span className={"flag " + (d.done ? "done" : m.length ? "miss" : "ready")}>
+                      {d.done ? "skuhano" : m.length ? `fali ${m.length}` : "imaš sve"}
+                    </span>
+                    {!d.done && (
+                      <button type="button" className="mini" aria-label={`Zamijeni recept: ${DAYS[ix]}`} onClick={() => open({ t: "pickMeal", day: ix })}>
+                        <Icon name="swap" size={16} />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="tick-btn"
+                      aria-pressed={d.done}
+                      aria-label={`${d.done ? "Skuhano" : "Skuhaj"}: ${DAYS[ix]}, ${r.n}`}
+                      onClick={() => toggleCook(ix)}
+                    >
+                      <Icon name="check" size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -234,25 +394,27 @@ export function PlanTab() {
         </div>
       </div>
       <p className="sub">
-        Kvačica u kalendaru znači skuhano ili pojedeno i skida sastojke sa zalihe. Dodir na omlet otvara njegov recept.
-        Uz ručak i večeru idu velika salata i miso juha, a posni sir je užina. Sljedeći tjedan kreće od {next + 1}. dana
-        ciklusa ({CYCLE[next].toLowerCase()}).
+        Kvačica znači skuhano ili pojedeno i skida sastojke sa zalihe. <Icon name="info" size={14} /> otvara recept,{" "}
+        <Icon name="swap" size={14} /> mijenja jelo, <Icon name="close" size={14} /> ga miče s dana. Sljedeći tjedan kreće
+        od {next + 1}. dana ciklusa ({CYCLE[next].toLowerCase()}).
       </p>
 
       <div className="group">
         <h2>Zadnje skuhano</h2>
-        <ul className="hist">
-          {data.hist.length ? (
-            data.hist.slice(0, 8).map((h, i) => (
+        {data.hist.length ? (
+          <ul className="hist">
+            {data.hist.slice(0, 8).map((h, i) => (
               <li key={i}>
-                {recipeName(data, h.r)} ·{" "}
-                {new Date(h.t).toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" })}
+                <b>{recipeName(data, h.r)}</b>
+                <span>
+                  {new Date(h.t).toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" })}
+                </span>
               </li>
-            ))
-          ) : (
-            <li>Još ništa. Kad skuhaš, pojavit će se ovdje.</li>
-          )}
-        </ul>
+            ))}
+          </ul>
+        ) : (
+          <p className="sub">Još ništa. Kad skuhaš, pojavit će se ovdje.</p>
+        )}
       </div>
     </section>
   );

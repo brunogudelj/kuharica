@@ -1,14 +1,18 @@
 import { Fragment, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { CATS, SHOP_LINKS, SHOPS } from "../data";
-import type { CatId, Item, ShopId } from "../data";
+import { CATS } from "../data";
+import type { CatId, Item } from "../data";
 import { useApp } from "../state/AppContext";
 import { price, shopping } from "../logic/inventory";
 import type { ShopRow } from "../logic/inventory";
 import { allItems } from "../logic/items";
-import { addReceipt, purchase, undoPurchase } from "../logic/actions";
+import { purchase, undoPurchase } from "../logic/actions";
+import { shopIndex, shopName } from "../logic/shops";
+import { clone } from "../state/model";
+import { SortTh } from "../components/Cells";
+
+const CAT_ORDER: CatId[] = ["fre", "fri", "frz", "dry"];
 import { eur, fmt, monthKey, round, sameDay, stavki } from "../logic/format";
-import { Note } from "../components/ui";
 import { ItemForm } from "../components/ItemForm";
 import { Icon } from "../components/icons";
 
@@ -124,10 +128,13 @@ function ShopTr({ x }: { x: ShopRow }) {
           <Icon name="check" size={16} />
         </button>
       </td>
-      <td className="sticky txt" style={{ minWidth: 160 }}>
-        <b>{x.i.n}</b>
-        <br />
-        <small className="count">{x.forPlan ? "za plan" : "dopuna zalihe"}</small>
+      <td className="sticky namecell stack" style={{ minWidth: 170 }}>
+        <span className="iname">{x.i.n}</span>
+        <small className={x.forPlan ? "tag-plan" : "muted"}>{x.forPlan ? "za plan" : "dopuna zalihe"}</small>
+      </td>
+      <td className="muted">{shopName(data, x.i.src)}</td>
+      <td>
+        <span className={`label l-${x.i.cat}`}>{CATS[x.i.cat]}</span>
       </td>
       <td className="txt num">{fmt(x.short, x.i.u)}</td>
       <td className="txt num">
@@ -270,16 +277,13 @@ function Extra() {
   );
 }
 
-/** Kupljeno danas: popis s poništavanjem i upisom ukupnog iznosa s računa */
+/** Kupljeno danas: popis s poništavanjem */
 function Basket() {
-  const { data, apply, notify } = useApp();
+  const { data, apply } = useApp();
   const now = Date.now();
   const mk = monthKey(now);
   const today = (data.costs[mk] || []).filter((e) => e.est && e.item && sameDay(e.t, now));
-  const [shop, setShop] = useState<ShopId>("K");
-  const [total, setTotal] = useState("");
   if (!today.length) return null;
-  const shops = Array.from(new Set(today.map((e) => e.shop))) as ShopId[];
   const sum = today.reduce((s, e) => s + e.amount, 0);
 
   return (
@@ -291,95 +295,88 @@ function Basket() {
           {sum ? ` · ${eur(sum)}` : ""}
         </span>
       </div>
-      <div className="list">
-        {today
-          .slice()
-          .reverse()
-          .map((e) => {
-            const i = allItems(data).find((x) => x.id === e.item);
-            return (
-              <div key={e.id} className="lrow">
-                <span className="tick" aria-hidden="true">
-                  ✓
-                </span>
-                <div className="ln">
-                  <b>{e.note}</b>
-                  <small>
-                    {i && e.qty ? fmt(e.qty, i.u) : ""} · {SHOPS[e.shop as ShopId] ?? e.shop}
-                    {e.amount ? ` · ${eur(e.amount)}` : " · bez cijene"}
-                  </small>
-                </div>
-                <button
-                  type="button"
-                  className="del"
-                  aria-label={`Vrati ${e.note} na popis`}
-                  onClick={() => {
-                    const r = undoPurchase(data, mk, e.id);
-                    apply(r.data, r.msg);
-                  }}
-                >
-                  ↺
-                </button>
-              </div>
-            );
-          })}
+      <div className="tablewrap">
+        <table className="grid">
+          <tbody>
+            {today
+              .slice()
+              .reverse()
+              .map((e) => {
+                const i = allItems(data).find((x) => x.id === e.item);
+                return (
+                  <tr key={e.id} className="st-ok">
+                    <td className="namecell">
+                      <span className="dot ok" aria-hidden="true" />
+                      {e.note}
+                    </td>
+                    <td className="num">{i && e.qty ? fmt(e.qty, i.u) : ""}</td>
+                    <td className="muted">{shopName(data, e.shop)}</td>
+                    <td className="num">{e.amount ? eur(e.amount) : "bez cijene"}</td>
+                    <td className="c" style={{ width: 48 }}>
+                      <button
+                        type="button"
+                        className="mini"
+                        aria-label={`Vrati ${e.note} na popis`}
+                        title="Vrati na popis"
+                        onClick={() => {
+                          const r = undoPurchase(data, mk, e.id);
+                          apply(r.data, r.msg);
+                        }}
+                      >
+                        ↺
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+          </tbody>
+        </table>
       </div>
-      <form
-        className="edit"
-        onSubmit={(ev) => {
-          ev.preventDefault();
-          const t = parse(total);
-          if (!(t > 0)) return notify("Upiši ukupni iznos s računa.");
-          const r = addReceipt(data, { shop, amount: t, t: Date.now(), note: "Račun " + SHOPS[shop] });
-          apply(r.data, `Račun ${eur(t)} spremljen${r.replaced ? `, zamijenio ${stavki(r.replaced)} s popisa` : ""}.`);
-          setTotal("");
-        }}
-      >
-        <label htmlFor="bkShop">
-          Završi kupovinu: dućan
-          <select
-            id="bkShop"
-            value={shops.includes(shop) ? shop : shops[0]}
-            onChange={(e) => setShop(e.target.value as ShopId)}
-          >
-            {(Object.entries(SHOPS) as [ShopId, string][]).map(([k, t]) => (
-              <option key={k} value={k}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label htmlFor="bkTotal">
-          Ukupno na računu (€)
-          <input
-            id="bkTotal"
-            type="text"
-            inputMode="decimal"
-            min="0"
-            step="0.01"
-            placeholder="npr. 47,30"
-            value={total}
-            onChange={(e) => setTotal(e.target.value)}
-          />
-        </label>
-        <button type="submit" className="btn ghost">
-          Spremi račun
-        </button>
-      </form>
-      <p className="sub">
-        Ukupni iznos s računa zamjenjuje pojedinačne cijene tog dućana za danas u Troškovima. Količine u zalihi ostaju.
-      </p>
     </div>
   );
 }
 
+type Group = "shop" | "cat" | "none";
+type SK = "n" | "shop" | "cat" | "short" | "cost";
+
 export function KupovinaTab() {
-  const { data } = useApp();
+  const { data, update } = useApp();
   const [copyMsg, setCopyMsg] = useState("");
+  const [sort, setSort] = useState<{ k: SK; dir: 1 | -1 }>({ k: "n", dir: 1 });
   const ta = useRef<HTMLTextAreaElement>(null);
+  const group: Group = data.ui.kupGroup ?? "shop";
+  const setGroup = (g: Group) =>
+    update((d) => {
+      const n = clone(d);
+      n.ui.kupGroup = g;
+      return n;
+    });
   const list = shopping(data);
-  const groups: Record<ShopId, ShopRow[]> = { K: [], BIO: [], AZ: [], O: [] };
-  list.forEach((x) => groups[x.i.src].push(x));
+  const val: Record<SK, (x: ShopRow) => number | string> = {
+    n: (x) => x.i.n,
+    shop: (x) => shopIndex(data, x.i.src),
+    cat: (x) => CAT_ORDER.indexOf(x.i.cat),
+    short: (x) => x.short / x.i.pack,
+    cost: (x) => x.cost ?? -1,
+  };
+  const cmp = (a: ShopRow, b: ShopRow) => {
+    const x = val[sort.k](a);
+    const y = val[sort.k](b);
+    const c = typeof x === "string" ? x.localeCompare(y as string, "hr") : x - (y as number);
+    return c * sort.dir || a.i.n.localeCompare(b.i.n, "hr");
+  };
+  const keyOf = (x: ShopRow) => (group === "shop" ? x.i.src : group === "cat" ? x.i.cat : "");
+  const groups: [string, ShopRow[]][] = [];
+  for (const x of list.slice().sort(cmp)) {
+    const k = keyOf(x);
+    const g = groups.find(([gk]) => gk === k);
+    if (g) g[1].push(x);
+    else groups.push([k, [x]]);
+  }
+  if (group === "shop") groups.sort((a, b) => shopIndex(data, a[0]) - shopIndex(data, b[0]));
+  if (group === "cat") groups.sort((a, b) => CAT_ORDER.indexOf(a[0] as CatId) - CAT_ORDER.indexOf(b[0] as CatId));
+  const groupName = (k: string) => (group === "shop" ? shopName(data, k) : group === "cat" ? CATS[k as CatId] : "");
+
   let total = 0;
   let priced = 0;
   list.forEach((x) => {
@@ -388,17 +385,26 @@ export function KupovinaTab() {
       priced++;
     }
   });
+  const byShop: [string, ShopRow[]][] = [];
+  for (const x of list) {
+    const g = byShop.find(([k]) => k === x.i.src);
+    if (g) g[1].push(x);
+    else byShop.push([x.i.src, [x]]);
+  }
   const txt =
-    (Object.entries(groups) as [ShopId, ShopRow[]][])
-      .filter(([, a]) => a.length)
+    byShop
+      .sort((a, b) => shopIndex(data, a[0]) - shopIndex(data, b[0]))
       .map(
         ([s, a]) =>
-          SHOPS[s].toUpperCase() + "\n" + a.map((x) => `- ${x.i.n}: ${x.packs} × ${fmt(x.i.pack, x.i.u)}`).join("\n"),
+          shopName(data, s).toUpperCase() +
+          "\n" +
+          a.map((x) => `- ${x.i.n}: ${x.packs} × ${fmt(x.i.pack, x.i.u)}`).join("\n"),
       )
       .join("\n\n") || "Ništa ne fali.";
 
   const copy = () => {
     const fallback = () => {
+      ta.current?.closest("details")?.setAttribute("open", "");
       ta.current?.focus();
       ta.current?.select();
       setCopyMsg("Označeno, kopiraj ručno");
@@ -412,11 +418,29 @@ export function KupovinaTab() {
 
   return (
     <section id="kupovina" aria-labelledby="tab-kupovina">
-      <Note>
-        <strong>U dućanu:</strong> kvačicom označiš kupljeno i predložena količina ide u zalihu. Za meso, voće i sve što
-        kupuješ na točnu mjeru dodirni naziv i upiši točno koliko je na etiketi (grami ili kg, komadi) i po želji koliko
-        je koštalo.
-      </Note>
+      <div className="toolbar">
+        <div className="seg" role="group" aria-label="Grupiraj popis">
+          <span className="seglbl">Grupiraj</span>
+          {(
+            [
+              ["shop", "Po dućanu"],
+              ["cat", "Po spremanju"],
+              ["none", "Bez grupa"],
+            ] as [Group, string][]
+          ).map(([k, l]) => (
+            <button key={k} type="button" aria-pressed={group === k} onClick={() => setGroup(k)}>
+              {l}
+            </button>
+          ))}
+        </div>
+        <span className="grow" />
+        <span className="count" aria-live="polite">
+          {copyMsg}
+        </span>
+        <button className="btn ghost" type="button" onClick={copy}>
+          Kopiraj popis
+        </button>
+      </div>
 
       {list.length ? (
         <div className="group">
@@ -424,104 +448,77 @@ export function KupovinaTab() {
             <table className="grid" aria-label="Popis za kupovinu">
               <thead>
                 <tr>
-                  <th className="c">✓</th>
-                  <th className="sticky">Namirnica</th>
-                  <th className="num">Fali</th>
+                  <th className="c" style={{ width: 52 }}>
+                    <span className="sr-only">Kupljeno</span>
+                  </th>
+                  <SortTh k="n" sort={sort} setSort={setSort} className="sticky">
+                    Namirnica
+                  </SortTh>
+                  <SortTh k="shop" sort={sort} setSort={setSort}>
+                    Dućan
+                  </SortTh>
+                  <SortTh k="cat" sort={sort} setSort={setSort}>
+                    Spremanje
+                  </SortTh>
+                  <SortTh k="short" sort={sort} setSort={setSort} className="num">
+                    Fali
+                  </SortTh>
                   <th className="num">Predloženo</th>
                   <th className="num">Kupio</th>
                   <th className="num">Platio</th>
-                  <th className="num">Procjena</th>
+                  <SortTh k="cost" sort={sort} setSort={setSort} className="num">
+                    Procjena
+                  </SortTh>
                 </tr>
               </thead>
               <tbody>
-                {(Object.entries(groups) as [ShopId, ShopRow[]][])
-                  .filter(([, a]) => a.length)
-                  .map(([s, arr]) => {
-                    const sub = arr.reduce((t, x) => t + (x.cost ?? 0), 0);
-                    return (
-                      <Fragment key={s}>
+                {groups.map(([k, arr]) => {
+                  const sub = arr.reduce((t, x) => t + (x.cost ?? 0), 0);
+                  return (
+                    <Fragment key={k || "sve"}>
+                      {group !== "none" && (
                         <tr className="grouprow">
                           <td />
-                          <td className="sticky">{SHOPS[s]}</td>
-                          <td colSpan={5}>
+                          <td className="sticky">{groupName(k)}</td>
+                          <td colSpan={7}>
                             {stavki(arr.length)}
                             {sub ? ` · ≈ ${eur(sub)}` : ""}
                           </td>
                         </tr>
-                        {arr.map((x) => (
-                          <ShopTr key={x.i.id + ":" + x.packs + ":" + (price(data, x.i.id) ?? "")} x={x} />
-                        ))}
-                      </Fragment>
-                    );
-                  })}
+                      )}
+                      {arr.map((x) => (
+                        <ShopTr key={x.i.id + ":" + x.packs + ":" + (price(data, x.i.id) ?? "")} x={x} />
+                      ))}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
             <div className="tblfoot">
               <span>Kvačica sprema predloženu količinu, ili ono što upišeš u Kupio.</span>
               <span>Za meso upiši točno s etikete, npr. „512” ili „0,512 kg”.</span>
+              {priced > 0 && (
+                <span className="tblsum">
+                  Procjena: <b>{eur(total)}</b> ({priced} od {list.length} ima cijenu)
+                </span>
+              )}
             </div>
           </div>
-          {priced ? (
-            <p className="total">
-              Procjena: {eur(total)}{" "}
-              <span className="count">
-                ({priced} od {list.length} stavki ima cijenu)
-              </span>
-            </p>
-          ) : (
-            <p className="sub">
-              Kad uz kupnju upišeš koliko je koštalo, aplikacija zapamti cijenu i ovdje računa procjenu.
-            </p>
-          )}
         </div>
       ) : (
-        <Note>
-          <strong>Ništa ne fali.</strong> Imaš sve za plan i minimalnu zalihu.
-        </Note>
+        <div className="empty">
+          <b>Ništa ne fali.</b>
+          <span>Imaš sve za plan i minimalnu zalihu.</span>
+        </div>
       )}
 
       <Extra />
       <Basket />
 
-      <div className="group">
-        <h2>Kopiraj popis</h2>
-        <div className="btnrow">
-          <button className="btn" type="button" onClick={copy}>
-            Kopiraj popis
-          </button>
-          <span className="count" aria-live="polite">
-            {copyMsg}
-          </span>
-        </div>
+      <details className="textlist">
+        <summary>Popis kao tekst</summary>
         <textarea ref={ta} readOnly value={txt} aria-label="Popis za kupovinu kao tekst" />
-      </div>
-
-      <div className="group">
-        <h2>Zdravi dućani</h2>
-        <div className="shops">
-          {SHOP_LINKS.zdravi.map((s) => (
-            <div key={s.url} className="shop">
-              <a href={s.url} target="_blank" rel="noopener">
-                {s.n}
-              </a>
-              <p>{s.d}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="group">
-        <h2>Azijski dućani u Zagrebu</h2>
-        <div className="shops">
-          {SHOP_LINKS.azijski.map((s) => (
-            <div key={s.url} className="shop">
-              <a href={s.url} target="_blank" rel="noopener">
-                {s.n}
-              </a>
-              <p>{s.d}</p>
-            </div>
-          ))}
-        </div>
-      </div>
+      </details>
     </section>
   );
 }

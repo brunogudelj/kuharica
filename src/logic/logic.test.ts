@@ -95,7 +95,7 @@ describe("pravilo 4: kupovina", () => {
     // jedan neskuhan teriyaki = 250 g piletine
     close(need.piletina, 250);
     // 7 nepojedenih omleta u planu traže jaja
-    const eggs = d.plan.om.reduce((s, o) => s + (o.sel.base === "klasik" ? 3 : o.sel.base === "protein" ? 2 : 1), 0);
+    const eggs = d.plan.om.reduce((s, o) => s + (o.sel!.base === "klasik" ? 3 : o.sel!.base === "protein" ? 2 : 1), 0);
     close(need.jaja, eggs);
     const row = shopping(d).find((x) => x.i.id === "piletina")!;
     // potreba 250 + minimum 500 = 750 → 1 pakiranje od 1000 g
@@ -193,7 +193,7 @@ describe("omleti", () => {
     let seed = 1;
     const rng = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
     const w = autoOmWeek(d, true, rng);
-    expect(new Set(w.map((o) => omNorm(o.sel))).size).toBe(7);
+    expect(new Set(w.map((o) => omNorm(o.sel!))).size).toBe(7);
     expect(w[0]).toEqual(d.plan.om[0]);
   });
   it("pojeo sam skida sastojke i označi dan", () => {

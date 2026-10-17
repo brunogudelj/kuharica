@@ -1,11 +1,11 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { CATS } from "../data";
+import { CATS, DAYS } from "../data";
 import type { Carb, CatId, CustomRecipe } from "../data";
 import { useApp } from "../state/AppContext";
 import { itemOf, visibleItems } from "../logic/items";
 import { newRecipeId } from "../logic/recipes";
-import { saveRecipe } from "../logic/actions";
+import { saveRecipe, setPlanDay } from "../logic/actions";
 import { BASE_SERVINGS } from "../logic/inventory";
 import { ItemForm } from "./ItemForm";
 
@@ -24,7 +24,16 @@ interface Row {
 }
 
 /** Obrazac za vlastiti recept. Količine se upisuju za 1 porciju. */
-export function RecipeForm({ existing, onDone }: { existing?: CustomRecipe; onDone: () => void }) {
+export function RecipeForm({
+  existing,
+  onDone,
+  planDay,
+}: {
+  existing?: CustomRecipe;
+  onDone: () => void;
+  /** novi recept odmah ide na taj dan u planu */
+  planDay?: number;
+}) {
   const { data, apply } = useApp();
   const [n, setN] = useState(existing?.n ?? "");
   const [c, setC] = useState<Carb>(existing?.c ?? "Riža");
@@ -76,7 +85,9 @@ export function RecipeForm({ existing, onDone }: { existing?: CustomRecipe; onDo
       st: lines(steps),
     };
     const res = saveRecipe(data, r);
-    apply(res.data, res.msg);
+    if (planDay != null && !existing)
+      apply(setPlanDay(res.data, planDay, r.id), `${r.n} je dodan i stavljen na ${DAYS[planDay].toLowerCase()}.`);
+    else apply(res.data, res.msg);
     onDone();
   };
 

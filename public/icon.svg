@@ -1,6 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#1f6b5c"/>
-  <path d="M86 250h340a170 150 0 0 1-340 0z" fill="#f3f5f2"/>
-  <rect x="408" y="236" width="74" height="28" rx="14" fill="#f3f5f2"/>
-  <path d="M206 196c-24-26 24-44 0-74M262 196c-24-26 24-44 0-74M318 196c-24-26 24-44 0-74" fill="none" stroke="#dcefdc" stroke-width="18" stroke-linecap="round"/>
+  <defs><clipPath id="r"><rect width="512" height="512" rx="112"/></clipPath></defs>
+  <g clip-path="url(#r)">
+    <rect width="512" height="512" fill="#0f9a74"/>
+    <path d="M0 330L512 170V512H0z" fill="#f26b1d"/>
+    <path d="M0 360L512 200V218L0 378z" fill="#ffffff"/>
+  </g>
+  <path d="M96 236h320a160 140 0 0 1-320 0z" fill="#ffffff"/>
+  <path d="M206 186c-22-24 22-40 0-68M262 186c-22-24 22-40 0-68M318 186c-22-24 22-40 0-68" fill="none" stroke="#ffffff" stroke-width="18" stroke-linecap="round"/>
 </svg>

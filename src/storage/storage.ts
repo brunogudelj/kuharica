@@ -1,6 +1,6 @@
-import { get, set } from "idb-keyval";
-import { CATS, DAYS, SHOPS } from "../data";
-import type { Carb, CatId, ShopId, Unit } from "../data";
+import { del, get, set } from "idb-keyval";
+import { CATS, DAYS } from "../data";
+import type { Carb, CatId, Shop, Unit } from "../data";
 import type { AppData } from "../state/model";
 import { defaultData, defaultOmWeek } from "../state/model";
 import { validOm } from "../logic/omlet";
@@ -22,6 +22,42 @@ export const indexedDbStorage: Storage = {
     await set(KEY, data);
   },
 };
+
+/** Demo način: izmišljeni podaci u zasebnom spremištu, bez sinkronizacije. Tvoji podaci ostaju netaknuti. */
+const DEMO_KEY = "kuharica-demo";
+const DEMO_FLAG = "kuharica-demo-nacin";
+
+export function isDemo(): boolean {
+  try {
+    return localStorage.getItem(DEMO_FLAG) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Uključi ili isključi demo način i ponovno učitaj aplikaciju */
+export async function setDemo(on: boolean, fresh = false) {
+  try {
+    if (on) localStorage.setItem(DEMO_FLAG, "1");
+    else localStorage.removeItem(DEMO_FLAG);
+  } catch {
+    /* bez spremišta ostaje kako je */
+  }
+  if (fresh || !on) await del(DEMO_KEY).catch(() => undefined);
+  location.reload();
+}
+
+export function demoStorage(make: () => AppData): Storage {
+  return {
+    async load() {
+      const raw = await get(DEMO_KEY);
+      return raw ? migrate(raw) : make();
+    },
+    async save(data) {
+      await set(DEMO_KEY, data);
+    },
+  };
+}
 
 const num = (v: unknown, d: number) => (typeof v === "number" && isFinite(v) ? v : d);
 const obj = (v: unknown): Record<string, unknown> =>
@@ -48,7 +84,7 @@ export function migrate(raw: unknown): AppData {
     }));
   d.plan.om =
     Array.isArray(p.om) && p.om.length === 7
-      ? p.om.map((x) => ({ sel: validOm(obj(x).sel), done: !!obj(x).done }))
+      ? p.om.map((x) => ({ sel: obj(x).sel === null ? null : validOm(obj(x).sel), done: !!obj(x).done }))
       : defaultOmWeek();
 
   if (Array.isArray(r.hist))
@@ -85,14 +121,14 @@ export function migrate(raw: unknown): AppData {
           x.id.startsWith("c-") &&
           typeof x.n === "string" &&
           (x.cat as string) in CATS &&
-          (x.src as string) in SHOPS &&
+          typeof x.src === "string" &&
           ["g", "ml", "kom"].includes(x.u as string),
       )
       .map((x) => ({
         id: x.id as string,
         n: x.n as string,
         cat: x.cat as CatId,
-        src: x.src as ShopId,
+        src: x.src as string,
         u: x.u as Unit,
         pack: Math.max(0.01, num(x.pack, 1)),
         min: Math.max(0, num(x.min, 0)),
@@ -135,16 +171,44 @@ export function migrate(raw: unknown): AppData {
       ...(typeof o.pack === "number" && o.pack > 0 ? { pack: o.pack } : {}),
       ...(typeof o.n === "string" && o.n.trim() ? { n: o.n } : {}),
       ...((o.cat as string) in CATS ? { cat: o.cat as CatId } : {}),
-      ...((o.src as string) in SHOPS ? { src: o.src as ShopId } : {}),
+      ...(typeof o.src === "string" && o.src ? { src: o.src } : {}),
       ...(typeof o.kcal === "number" ? { kcal: o.kcal } : {}),
       ...(typeof o.prot === "number" ? { prot: o.prot } : {}),
     };
+  }
+  if (Array.isArray(r.shops)) {
+    const shops = r.shops
+      .map(obj)
+      .filter((x) => typeof x.id === "string" && x.id && typeof x.n === "string")
+      .map(
+        (x): Shop => ({
+          id: x.id as string,
+          n: x.n as string,
+          type: typeof x.type === "string" ? x.type : "",
+          addr: typeof x.addr === "string" ? x.addr : "",
+          url: typeof x.url === "string" ? x.url : "",
+          note: typeof x.note === "string" ? x.note : "",
+          ...(Array.isArray(x.links)
+            ? {
+                links: x.links
+                  .map(obj)
+                  .filter((l) => typeof l.n === "string" && typeof l.url === "string")
+                  .map((l) => ({ n: l.n as string, url: l.url as string })),
+              }
+            : {}),
+        }),
+      );
+    // "Ostalo" uvijek postoji, na njega idu namirnice obrisanog dućana
+    if (!shops.some((s) => s.id === "O")) shops.push(d.shops.find((s) => s.id === "O")!);
+    d.shops = shops;
   }
   const ui = obj(r.ui);
   for (const [k, v] of Object.entries(obj(ui.servings))) d.ui.servings[k] = num(v, 1);
   for (const [k, v] of Object.entries(obj(ui.ture))) d.ui.ture[k] = num(v, 1);
   if (typeof ui.tab === "string") d.ui.tab = ui.tab;
   if (typeof ui.omDay === "number" && ui.omDay >= 0 && ui.omDay < 7) d.ui.omDay = ui.omDay;
+  if (typeof ui.needsOpen === "boolean") d.ui.needsOpen = ui.needsOpen;
+  if (ui.kupGroup === "shop" || ui.kupGroup === "cat" || ui.kupGroup === "none") d.ui.kupGroup = ui.kupGroup;
   return d;
 }
 

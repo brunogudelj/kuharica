@@ -140,7 +140,7 @@ export function shuffle<T>(a: T[], rng: () => number = Math.random): T[] {
 /** Popuni nepojedene dane različitim kombinacijama; prednost imaju one za koje imaš sastojke */
 export function autoOmWeek(data: AppData, keepDone: boolean, rng: () => number = Math.random): OmDay[] {
   const cur = data.plan.om && data.plan.om.length === 7 ? data.plan.om : defaultOmWeek();
-  const used = new Set(keepDone ? cur.filter((o) => o.done).map((o) => omNorm(o.sel)) : []);
+  const used = new Set(keepDone ? cur.filter((o) => o.done && o.sel).map((o) => omNorm(o.sel!)) : []);
   const pool = shuffle(OM_PRESETS, rng)
     .filter((p) => !used.has(omNorm(p.sel)))
     .map((p) => ({ p, miss: omMissing(data, p.sel).length }))

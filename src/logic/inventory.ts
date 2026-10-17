@@ -58,7 +58,7 @@ export function planNeeds(d: AppData): Use {
     for (const [id, a] of Object.entries(effUse(r, pcopy, true).use)) need[id] = (need[id] || 0) + a;
   });
   (d.plan.om || []).forEach((o) => {
-    if (!o.done) for (const [id, a] of Object.entries(omEff(d, o.sel, 1, pcopy).use)) need[id] = (need[id] || 0) + a;
+    if (!o.done && o.sel) for (const [id, a] of Object.entries(omEff(d, o.sel, 1, pcopy).use)) need[id] = (need[id] || 0) + a;
   });
   return need;
 }
@@ -86,6 +86,34 @@ export function shopping(d: AppData): ShopRow[] {
       return { i, short, packs, cost: p != null ? packs * p : null, forPlan: (pn[i.id] || 0) > qty(d, i.id) };
     })
     .filter((x): x is ShopRow => x !== null);
+}
+
+export interface NeedRow {
+  i: Item;
+  /** treba za neskuhane dane i nepojedene omlete */
+  need: number;
+  have: number;
+  short: number;
+  packs: number;
+  price: number | null;
+  /** procjena za ono što fali (cijela pakiranja) */
+  cost: number | null;
+}
+
+/** Sve namirnice koje traži plan za ovaj tjedan, s onim što imaš i što fali */
+export function weekNeeds(d: AppData): NeedRow[] {
+  const pn = planNeeds(d);
+  return Object.entries(pn)
+    .map(([id, need]): NeedRow | null => {
+      const i = itemOf(d, id);
+      if (!i) return null;
+      const have = qty(d, id);
+      const short = Math.max(0, need - have);
+      const packs = short > 0.0001 ? Math.max(1, Math.ceil(short / i.pack - 1e-9)) : 0;
+      const p = price(d, id);
+      return { i, need, have, short, packs, price: p, cost: p != null ? packs * p : null };
+    })
+    .filter((x): x is NeedRow => x !== null);
 }
 
 export type Status = "ok" | "low" | "out" | "none";
@@ -131,8 +159,8 @@ export function costOf(d: AppData, use: Use) {
 export function dayCost(d: AppData, rid: string) {
   const r = costOf(d, recipeOf(d, rid)?.use ?? {});
   const dl = costOf(d, DAILY);
-  const oms = d.plan.om || [];
-  const om = oms.length ? oms.reduce((s, o) => s + costOf(d, omUse(d, o.sel, 1)).c, 0) / oms.length : 0;
+  const oms = (d.plan.om || []).filter((o) => o.sel);
+  const om = oms.length ? oms.reduce((s, o) => s + costOf(d, omUse(d, o.sel!, 1)).c, 0) / oms.length : 0;
   return {
     meals: r.c + dl.c,
     perMeal: (r.c + dl.c) / 2,
