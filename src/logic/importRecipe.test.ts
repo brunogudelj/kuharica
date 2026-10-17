@@ -34,6 +34,9 @@ describe("recept iz linka", () => {
     expect(c.amount).toBe(2);
     expect(parseIngredient(d, "1 kg krumpira").amount).toBe(1000);
     expect(parseIngredient(d, "½ l mlijeka").amount).toBe(500);
+    expect(parseIngredient(d, "1 1/2 žlice maslinovog ulja").amount).toBe(22.5);
+    expect(parseIngredient(d, "1 1/2 tbsp olive oil").amount).toBe(22.5);
+    expect(parseIngredient(d, "1½ šalica mlijeka").amount).toBe(360);
     expect(matchItem(d, "chicken breast")?.id).toBe("piletina");
     expect(matchItem(d, "rice vinegar")?.id).toBe("rizin-ocat");
   });

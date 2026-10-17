@@ -150,9 +150,12 @@ export function ReceptiTab() {
     else open({ t: "prep", id: e.id });
   };
 
+  const search = (
+    <FSearch id="recipeSearch" value={f.q} onChange={(q) => set({ q })} placeholder="Traži recept ili sastojak" />
+  );
+
   const filters = (
     <>
-      <FSearch id="recipeSearch" value={f.q} onChange={(q) => set({ q })} placeholder="Traži recept ili sastojak" />
       <FGroup title="Oznake" count={f.tags.length}>
         {tagList.map((k) => (
           <FCheck
@@ -217,7 +220,7 @@ export function ReceptiTab() {
           />
         ))}
       </FGroup>
-      <FGroup title="Namirnice" count={f.items.length} open={f.items.length > 0}>
+      <FGroup title="Namirnice" count={f.items.length}>
         <FSearch value={itemQ} onChange={setItemQ} placeholder="Traži namirnicu" />
         <div className="fscroll">
           {usedItems
@@ -234,7 +237,7 @@ export function ReceptiTab() {
         </div>
         <p className="fhint">Recept mora imati sve odabrane namirnice.</p>
       </FGroup>
-      <FGroup title="Moji recepti" count={f.mine ? 1 : 0} open={false}>
+      <FGroup title="Moji recepti" count={f.mine ? 1 : 0}>
         <FCheck
           on={f.mine}
           label="Samo recepti koje sam dodao"
@@ -255,6 +258,7 @@ export function ReceptiTab() {
         </>
       }
       filters={filters}
+      search={search}
       active={chips.length}
       onClear={() => setF({ ...emptyFilter(), q: f.q })}
       chips={chips}

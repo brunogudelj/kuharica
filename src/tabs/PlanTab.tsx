@@ -375,7 +375,7 @@ export function PlanTab() {
         </p>
       </div>
 
-      <FGroup title="Ovaj tjedan">
+      <FGroup title="Ovaj tjedan" open>
         <dl className="kv">
           <div>
             <dt>Ručak i večera</dt>

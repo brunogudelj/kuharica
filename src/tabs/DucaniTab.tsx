@@ -92,9 +92,10 @@ export function DucaniTab() {
     ...(fBuy ? [["Ima nešto za kupiti", () => setFBuy(false)] as Chip] : []),
   ];
 
+  const search = <FSearch value={q} onChange={setQ} placeholder="Traži dućan" />;
+
   const filters = (
     <>
-      <FSearch value={q} onChange={setQ} placeholder="Traži dućan" />
       <FGroup title="Vrsta" count={fType.length}>
         {types.map((t) => (
           <FCheck
@@ -130,6 +131,7 @@ export function DucaniTab() {
         </>
       }
       filters={filters}
+      search={search}
       active={chips.length}
       onClear={() => {
         setFType([]);

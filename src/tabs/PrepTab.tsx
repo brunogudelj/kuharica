@@ -157,9 +157,10 @@ export function PrepTab() {
     ...(fHave ? [["Već pripremljeno", () => setFHave(false)] as Chip] : []),
   ];
 
+  const search = <FSearch value={q} onChange={setQ} placeholder="Traži prep recept" />;
+
   const filters = (
     <>
-      <FSearch value={q} onChange={setQ} placeholder="Traži prep recept" />
       <FGroup title="Vrsta" count={fK.length}>
         {cats.map((k) => (
           <FCheck
@@ -214,6 +215,7 @@ export function PrepTab() {
         </>
       }
       filters={tab === "list" ? filters : undefined}
+      search={search}
       active={chips.length}
       onClear={() => {
         setFK([]);

@@ -463,9 +463,10 @@ export function KupovinaTab() {
   ];
   const shopsInList = data.shops.filter((sh) => full.some((x) => x.i.src === sh.id));
 
+  const search = <FSearch value={q} onChange={setQ} placeholder="Traži na popisu" />;
+
   const filters = (
     <>
-      <FSearch value={q} onChange={setQ} placeholder="Traži na popisu" />
       <FGroup title="Grupiraj">
         {(
           [
@@ -547,6 +548,7 @@ export function KupovinaTab() {
         </>
       }
       filters={filters}
+      search={search}
       active={chips.length}
       onClear={() => {
         setFShop([]);

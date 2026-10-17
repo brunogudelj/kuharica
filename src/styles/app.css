@@ -3219,3 +3219,59 @@ ol.steps {
 .needsbar span {
   flex: 1 1 280px;
 }
+
+/* filteri: "Prikaži sve · Sakrij sve" i tražilica koja ostaje na vrhu */
+.fbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 20px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.fsearch {
+  padding: 0 20px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.fsearch .searchbox {
+  min-width: 0;
+}
+.fbody {
+  padding-top: 4px;
+}
+.fbody > .fgroup:first-child {
+  border-top: 0;
+}
+.servin {
+  width: 64px;
+  min-height: 30px;
+  text-align: right;
+}
+.importtable .rawcell {
+  white-space: normal;
+  min-width: 220px;
+  font-size: 13px;
+}
+.amtcell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.amtcell .unit {
+  color: var(--muted);
+  font-size: 12px;
+  min-width: 26px;
+}
+.dot.low {
+  background: var(--c-krumpir);
+}
+.dot.none {
+  background: var(--line-2);
+}
+.rowspread {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}

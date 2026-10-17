@@ -1,9 +1,10 @@
 /* Sadržaj panela: recept, omlet, prep, odabir recepta ili omleta za dan */
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { fetchPage, parseRecipeHtml, parseRecipeText, toDraft } from "../logic/importRecipe";
+import { fetchPage, parseIngredient, parseRecipeHtml, parseRecipeText } from "../logic/importRecipe";
+import { ImportReview } from "./ImportReview";
 import { CLAUDE_MODEL, claudeRecipe, loadClaudeKey } from "../logic/claude";
-import type { ParsedRecipe } from "../logic/importRecipe";
+import type { IngLine, ParsedRecipe } from "../logic/importRecipe";
 import { CYCLE, DAYS, DEFAULT_OM, OM_BASE, OM_CARB, OM_PRESETS, PBY, PREP, PREP_INV, REC_PREP } from "../data";
 import type { OmSel } from "../data";
 import { useApp } from "../state/AppContext";
@@ -699,7 +700,9 @@ function ImportRecipe() {
   const [showText, setShowText] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [res, setRes] = useState<ReturnType<typeof toDraft> | null>(null);
+  const [res, setRes] = useState<{ parsed: ParsedRecipe; lines: IngLine[]; method?: string; carb?: string } | null>(
+    null,
+  );
 
   const fromParsed = (p: ParsedRecipe | null) => {
     if (!p || !p.ingredients.length) {
@@ -708,15 +711,14 @@ function ImportRecipe() {
       return;
     }
     setErr("");
-    setRes(toDraft(data, p));
+    setRes({ parsed: p, lines: p.ingredients.map((x) => parseIngredient(data, x)) });
   };
 
   const viaClaude = async (src: { url?: string; text?: string }) => {
     setBusy(true);
     setErr("");
     try {
-      const r = await claudeRecipe(data, key, src);
-      setRes(toDraft(data, r.parsed, r));
+      setRes(await claudeRecipe(data, key, src));
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Claude nije uspio pročitati recept.");
       if (src.url) setShowText(true);
@@ -821,32 +823,14 @@ function ImportRecipe() {
         </>
       )}
       {res && (
-        <>
-          <div className="importsum">
-            <b>
-              Prepoznato {res.matched} od {res.lines.length} sastojaka
-            </b>
-            <span className="sub">
-              Neprepoznati su u polju „Ostalo”. Za njih odaberi namirnicu ili ih ostavi kao bilješku.
-            </span>
-            <table className="grid compact">
-              <tbody>
-                {res.lines.map((l, k) => (
-                  <tr key={k} className={l.item ? "" : "st-out"}>
-                    <td className="namecell">
-                      <span className={"dot " + (l.item ? "ok" : "out")} aria-hidden="true" />
-                      {l.raw}
-                    </td>
-                    <td className="muted">
-                      {l.item ? `→ ${l.item.n}${l.amount ? ` · ${fmt(l.amount, l.item.u)}` : ""}` : "nije prepoznato"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <RecipeForm draft={res.draft} onDone={close} />
-        </>
+        <ImportReview
+          key={res.parsed.n}
+          parsed={res.parsed}
+          lines={res.lines}
+          method={res.method}
+          carb={res.carb}
+          onDone={close}
+        />
       )}
     </div>
   );

@@ -389,9 +389,10 @@ export function ZalihaTab() {
     setFShop([]);
   };
 
+  const search = <FSearch id="itemSearch" value={q} onChange={setQ} placeholder="Traži namirnicu" />;
+
   const filters = (
     <>
-      <FSearch id="itemSearch" value={q} onChange={setQ} placeholder="Traži namirnicu" />
       <FGroup title="Stanje" count={fSt.length}>
         {ST_LABEL.map(([k, l, cls]) => (
           <FCheck
@@ -452,6 +453,7 @@ export function ZalihaTab() {
         </>
       }
       filters={filters}
+      search={search}
       active={chips.length}
       onClear={clear}
       chips={chips}

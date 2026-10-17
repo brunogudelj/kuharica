@@ -310,7 +310,12 @@ export function matchItem(d: AppData, name: string): Item | null {
 
 /** "200 g pilećih prsa" → količina, jedinica, naziv, namirnica */
 export function parseIngredient(d: AppData, raw: string): IngLine {
-  const t = raw.replace(/\(.*?\)/g, " ").trim();
+  const t = raw
+    .replace(/\(.*?\)/g, " ")
+    // mješoviti razlomci: "1 1/2" → 1.5, "1½" → 1.5
+    .replace(/(\d+)\s+(\d+)\s*\/\s*(\d+)/, (_, a, b, c) => String(Number(a) + Number(b) / Number(c)))
+    .replace(/(\d+)\s*([½¼¾⅓⅔])/, (_, a, f) => String(Number(a) + FRACTIONS[f]))
+    .trim();
   const m = t.match(
     /^(\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\d+)?)?|\d+\s*\/\s*\d+|\d*\s*[½¼¾⅓⅔])\s*([^\s\d]+)?\s*(.*)$/,
   );

@@ -16,6 +16,7 @@ export function Page({
   title,
   count,
   filters,
+  search,
   filterTitle = "Filteri",
   active = 0,
   onClear,
@@ -28,6 +29,8 @@ export function Page({
   title: string;
   count?: ReactNode;
   filters?: ReactNode;
+  /** tražilica iznad filtera, ne pomiče se pri listanju */
+  search?: ReactNode;
   filterTitle?: string;
   active?: number;
   onClear?: () => void;
@@ -37,7 +40,22 @@ export function Page({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const [fold, setFold] = useState({ open: true, n: 0 });
+  // skupine filtera su po defaultu zatvorene; "Prikaži sve" / "Sakrij sve" se pamti po stranici
+  const [fold, setFoldRaw] = useState(() => {
+    try {
+      return { open: localStorage.getItem(`kuharica-filteri-${id}`) === "1", n: 0 };
+    } catch {
+      return { open: false, n: 0 };
+    }
+  });
+  const setFold = (o: boolean) => {
+    setFoldRaw((f) => ({ open: o, n: f.n + 1 }));
+    try {
+      localStorage.setItem(`kuharica-filteri-${id}`, o ? "1" : "0");
+    } catch {
+      /* bez spremišta */
+    }
+  };
   useEffect(() => {
     if (!open) return;
     const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
@@ -67,14 +85,6 @@ export function Page({
               )}
               <button
                 type="button"
-                className="linkbtn quiet"
-                onClick={() => setFold((f) => ({ open: !f.open, n: f.n + 1 }))}
-                title={fold.open ? "Zatvori sve skupine filtera (odabir ostaje)" : "Otvori sve skupine filtera"}
-              >
-                {fold.open ? "Zatvori sve" : "Otvori sve"}
-              </button>
-              <button
-                type="button"
                 className="iconbtn fclose"
                 aria-label="Zatvori filtere"
                 onClick={() => setOpen(false)}
@@ -82,6 +92,21 @@ export function Page({
                 <Icon name="close" />
               </button>
             </div>
+            <div className="fbar">
+              <button type="button" className="linkbtn quiet" onClick={() => setFold(true)}>
+                Prikaži sve
+              </button>
+              <span aria-hidden="true">·</span>
+              <button
+                type="button"
+                className="linkbtn quiet"
+                onClick={() => setFold(false)}
+                title="Odabrani filteri ostaju"
+              >
+                Sakrij sve
+              </button>
+            </div>
+            {search && <div className="fsearch">{search}</div>}
             <div className="fbody">
               <FoldCtx.Provider value={fold}>{filters}</FoldCtx.Provider>
             </div>
@@ -137,7 +162,7 @@ export function Page({
 export function FGroup({
   title,
   children,
-  open = true,
+  open,
   count,
 }: {
   title: string;
@@ -146,7 +171,7 @@ export function FGroup({
   count?: number;
 }) {
   const fold = useContext(FoldCtx);
-  const [isOpen, setOpen] = useState(open);
+  const [isOpen, setOpen] = useState(open ?? fold.open);
   const [seen, setSeen] = useState(fold.n);
   if (seen !== fold.n) {
     setSeen(fold.n);
