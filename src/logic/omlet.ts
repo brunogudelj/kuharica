@@ -6,7 +6,8 @@ import { qty } from "./inventory";
 
 export function validOm(v: unknown): OmSel {
   const s = v as Partial<OmSel> | null | undefined;
-  if (!s || !s.base || !OM_BASE[s.base] || !s.carb || !OM_CARB[s.carb] || !Array.isArray(s.fill)) return clone(DEFAULT_OM);
+  if (!s || !s.base || !OM_BASE[s.base] || !s.carb || !OM_CARB[s.carb] || !Array.isArray(s.fill))
+    return clone(DEFAULT_OM);
   return { base: s.base, fill: s.fill.filter((x) => typeof x === "string" && OFBY[x]), carb: s.carb };
 }
 
@@ -36,7 +37,8 @@ export function omEff(sel: OmSel, f: number, pcopy: Record<string, number>) {
     if (k > 0) {
       pcopy[pid] -= k;
       consumed.push([pid, k]);
-      for (const [id, a] of Object.entries(PREP_INV[pid].per)) if (use[id] != null) use[id] = Math.max(0, use[id] - a * k);
+      for (const [id, a] of Object.entries(PREP_INV[pid].per))
+        if (use[id] != null) use[id] = Math.max(0, use[id] - a * k);
     }
   }
   for (const id of Object.keys(use)) if (use[id] < 0.001) delete use[id];
@@ -109,4 +111,51 @@ export function surpriseSel(data: AppData, rng: () => number = Math.random): OmS
     fill: pick(OM_PROT, 1).concat(pick(OM_VEG, 2)),
     carb: "nista",
   };
+}
+
+/** Sastojci omleta kao HTML redci (prije skaliranja) */
+export function omIngredients(sel: OmSel): string[] {
+  const C = OM_CARB[sel.carb];
+  return [OM_BASE[sel.base].line]
+    .concat(sel.fill.map((x) => OFBY[x].line))
+    .concat(C.line ? [C.line] : [])
+    .concat(["sol, papar, ulje u spreju"]);
+}
+
+/** Koraci pripreme, složeni prema nadjevu i načinu (wok ili air fryer) */
+export function omSteps(sel: OmSel, method: "wok" | "af"): string[] {
+  const fills = sel.fill.map((x) => OFBY[x]);
+  const B = OM_BASE[sel.base];
+  const C = OM_CARB[sel.carb];
+  const pre = fills.filter((x) => x.pre).map((x) => x.pre);
+  const post = fills.filter((x) => x.post).map((x) => x.post);
+  const mixin = fills.filter((x) => x.mixin).map((x) => x.mixin);
+  const st: string[] = [];
+  if (C.step && sel.carb === "krumpir") st.push(C.step);
+  st.push(
+    `U zdjelu stavi ${B.mix}, dodaj prstohvat soli i papra i snažno muti vilicom 30 s, dok smjesa ne bude ujednačena i malo pjenasta. ${mixin.join(" ")}`.trim(),
+  );
+  if (method === "wok") {
+    if (pre.length)
+      st.push("Wok zagrij na srednjoj vatri i poprskaj uljem u spreju. " + pre.join(" ") + " Nadjev izvadi na tanjur.");
+    st.push("Smanji vatru na srednje nisku, ponovno poprskaj wok i ulij jaja. Ostavi 30 s da se rub stisne.");
+    st.push(
+      "Kuhačom privlači stisnute rubove prema sredini i naginji wok da sirova smjesa steče na vrući rub. Ponavljaj 1–2 min.",
+    );
+    if (fills.length)
+      st.push(("Dok je gornja strana još malo vlažna, rasporedi nadjev po jednoj polovici. " + post.join(" ")).trim());
+    st.push("Preklopi omlet, poklopi wok i ostavi 1 min na najmanjoj vatri da se sredina dovrši, a sir omekša.");
+  } else {
+    if (pre.length) st.push("Nadjev pripremi u woku na srednjoj vatri s malo ulja u spreju. " + pre.join(" "));
+    st.push(
+      "Mali kalup za air fryer (silikonski, ili od papira za pečenje savijenog u posudicu) poprskaj uljem i ulij jaja.",
+    );
+    if (fills.length) st.push(("Rasporedi nadjev po jajima. " + post.join(" ")).trim());
+    st.push(
+      "Peci na 160 °C 10–12 min, dok sredina nije čvrsta kad lagano protreseš kalup. Na višoj temperaturi rubovi se osuše prije nego sredina bude gotova.",
+    );
+    st.push("Ostavi 1 min u kalupu pa izvrni na tanjur.");
+  }
+  if (C.step && sel.carb !== "krumpir") st.push(C.step);
+  return st;
 }

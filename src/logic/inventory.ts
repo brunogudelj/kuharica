@@ -38,7 +38,8 @@ export function effUse(rid: string, pcopy: Record<string, number>, withDaily: bo
     if (k <= 0) continue;
     pcopy[pid] -= k;
     consumed.push([pid, k]);
-    for (const [id, a] of Object.entries(PREP_INV[pid].per)) if (use[id] != null) use[id] = Math.max(0, use[id] - a * k);
+    for (const [id, a] of Object.entries(PREP_INV[pid].per))
+      if (use[id] != null) use[id] = Math.max(0, use[id] - a * k);
   }
   for (const id of Object.keys(use)) if (use[id] < 0.001) delete use[id];
   return { use, consumed };

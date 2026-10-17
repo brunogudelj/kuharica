@@ -116,7 +116,11 @@ export function autoFillPlan(src: AppData): AppData {
 /** Novi tjedan: ciklus se pomiče za 7 dana, plan se prazni, slažu se novi omleti */
 export function newWeek(src: AppData, rng: () => number = Math.random): AppData {
   const d = clone(src);
-  d.plan = { start: ((d.plan.start || 0) + 7) % 5, days: emptyPlanDays(), om: d.plan.om.map((o) => ({ ...o, done: false })) };
+  d.plan = {
+    start: ((d.plan.start || 0) + 7) % 5,
+    days: emptyPlanDays(),
+    om: d.plan.om.map((o) => ({ ...o, done: false })),
+  };
   d.plan.om = autoOmWeek(d, false, rng);
   return d;
 }
