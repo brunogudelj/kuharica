@@ -12,7 +12,27 @@ Osobna aplikacija za kuhanje i mršavljenje. Jedno kuhanje dnevno (do 30 min, wo
 
 Radi bez interneta i može se instalirati na mobitel.
 
-## Pokretanje
+## Na mobitelu
+
+Aplikacija se nakon svake promjene na `main` sama objavi na **https://brunogudelj.github.io/kuharica/**.
+
+Otvori tu adresu na mobitelu i dodaj je na početni zaslon:
+
+- **Android (Chrome):** izbornik ⋮ → _Dodaj na početni zaslon_ / _Instaliraj aplikaciju_
+- **iPhone (Safari):** gumb za dijeljenje → _Dodaj na početni zaslon_
+
+Nakon prvog otvaranja radi i bez interneta, a nova verzija se učita sama kad je objavljena.
+
+## Uređivanje u Codespaceu (bez ičega na računalu)
+
+1. Na GitHubu otvori repozitorij → zeleni gumb **Code** → kartica **Codespaces** → **Create codespace on main**.
+2. Pričekaj da se sve instalira. Aplikacija se sama pokrene, a pregled se otvori u kartici **Ports** (port 5173).
+3. U terminalu Codespacea možeš pokrenuti i `claude` (Claude Code je već instaliran).
+4. Kad nešto promijeniš, napravi commit i push na `main`. GitHub Actions ponovno objavi aplikaciju za oko 2 minute.
+
+Codespace se sam ugasi nakon 30 minuta neaktivnosti. Besplatni GitHub račun ima mjesečni limit sati za Codespaces.
+
+## Pokretanje na računalu (po želji)
 
 Treba Node 20 ili noviji.
 
@@ -24,15 +44,6 @@ npm run build      # produkcijski build u dist/
 npm run preview    # pregled builda
 npm run lint
 ```
-
-## Instalacija na mobitel
-
-Aplikacija je PWA. Otvori je u pregledniku na mobitelu (s objavljene adrese ili s `npm run preview -- --host` u istoj mreži), pa:
-
-- **Android (Chrome):** izbornik ⋮ → _Dodaj na početni zaslon_ / _Instaliraj aplikaciju_
-- **iPhone (Safari):** gumb za dijeljenje → _Dodaj na početni zaslon_
-
-Nakon prvog otvaranja radi i bez interneta.
 
 ## Kako se vodi inventar
 

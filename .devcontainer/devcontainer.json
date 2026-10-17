@@ -1,0 +1,16 @@
+{
+  "name": "Kuharica",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  "postCreateCommand": "npm ci && npm install -g @anthropic-ai/claude-code",
+  "postAttachCommand": "npm run dev -- --host",
+  "forwardPorts": [5173],
+  "portsAttributes": {
+    "5173": { "label": "Kuharica", "onAutoForward": "openPreview" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode"],
+      "settings": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" }
+    }
+  }
+}

@@ -5,6 +5,9 @@ import { VitePWA } from "vite-plugin-pwa";
 // base: "./" da build radi i na GitHub Pages (podmapa /kuharica/) i lokalno
 export default defineConfig({
   base: "./",
+  // Codespaces otvara dev server preko *.app.github.dev adrese
+  server: { host: true, allowedHosts: [".app.github.dev"] },
+  preview: { host: true, allowedHosts: [".app.github.dev"] },
   plugins: [
     react(),
     VitePWA({
