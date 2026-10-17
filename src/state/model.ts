@@ -35,7 +35,8 @@ export interface CostEntry {
 export interface ItemsState {
   custom: Item[];
   hidden: string[];
-  over: Record<string, { min?: number; pack?: number }>;
+  /** promjene ugrađenih namirnica (sve osim jedinice) */
+  over: Record<string, Partial<Pick<Item, "n" | "cat" | "src" | "min" | "pack" | "kcal" | "prot">>>;
 }
 export interface Settings {
   dostava: number;
@@ -44,6 +45,8 @@ export interface UiState {
   servings: Record<string, number>;
   ture: Record<string, number>;
   tab: string;
+  /** odabrani dan u kartici Omlet (0 = ponedjeljak) */
+  omDay?: number;
 }
 export interface AppData {
   version: 1;

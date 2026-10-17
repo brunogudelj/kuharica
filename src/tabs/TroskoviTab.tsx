@@ -8,8 +8,10 @@ import { clone } from "../state/model";
 import type { AppData } from "../state/model";
 import { costSummary } from "../logic/costs";
 import { dayCost } from "../logic/inventory";
-import { addReceipt, removeCost } from "../logic/actions";
-import { eur, monthKey, round } from "../logic/format";
+import { addReceipt, editCost, removeCost } from "../logic/actions";
+import { itemOf } from "../logic/items";
+import { NumCell, SelectCell, TextCell } from "../components/Cells";
+import { eur, fmt, monthKey, round } from "../logic/format";
 import { exportJson, importJson } from "../storage/storage";
 import { SyncPanel } from "../components/SyncPanel";
 
@@ -138,7 +140,7 @@ export function TroskoviTab() {
   const pct = Math.round(s.cover * 100);
 
   return (
-    <section id="troskovi" role="tabpanel" aria-labelledby="tab-troskovi">
+    <section id="troskovi" aria-labelledby="tab-troskovi">
       <div className="summary four">
         <div>
           <b>{eur(s.spent)}</b>
@@ -258,20 +260,40 @@ export function TroskoviTab() {
           <h2>Cijena po obroku</h2>
           <span className="count">recept ÷ 2 obroka</span>
         </div>
-        <div className="list">
-          {allRecipes(data)
-            .map((r) => ({ r, c: dayCost(data, r.id) }))
-            .sort((a, b) => a.c.perMeal - b.c.perMeal)
-            .map(({ r, c }) => (
-              <div key={r.id} className="crow">
-                <div>
-                  <b>{r.n}</b>
-                  <small>{c.known ? `${c.known}/${c.total} sastojaka ima cijenu` : "nema cijena"}</small>
-                </div>
-                <span className="num">{c.known ? eur(c.perMeal) : "–"}</span>
-                <span className="num save">{c.known ? "−" + eur(Math.max(0, s.dost - c.perMeal)) : ""}</span>
-              </div>
-            ))}
+        <div className="tablewrap">
+          <table className="grid" aria-label="Cijena po obroku">
+            <thead>
+              <tr>
+                <th className="sticky">Recept</th>
+                <th>Ugljikohidrat</th>
+                <th className="num">Po obroku</th>
+                <th className="num">Dostava</th>
+                <th className="num">Ušteda</th>
+                <th className="num">Cijene poznate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allRecipes(data)
+                .map((r) => ({ r, c: dayCost(data, r.id) }))
+                .sort((a, b) => a.c.perMeal - b.c.perMeal)
+                .map(({ r, c }) => (
+                  <tr key={r.id}>
+                    <td className="sticky txt">
+                      <b>{r.n}</b>
+                    </td>
+                    <td className="txt">
+                      <span className={`chip cc-${r.c}`}>{r.c}</span>
+                    </td>
+                    <td className="txt num">{c.known ? eur(c.perMeal) : "–"}</td>
+                    <td className="txt num">{eur(s.dost)}</td>
+                    <td className="txt num save">{c.known ? eur(Math.max(0, s.dost - c.perMeal)) : "–"}</td>
+                    <td className="txt num">
+                      {c.known}/{c.total}
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -322,33 +344,67 @@ export function TroskoviTab() {
             })}
           </select>
         </div>
-        <div className="list">
-          {log.length ? (
-            log.map((e) => (
-              <div key={e.id} className="lrow">
-                <div className="ln">
-                  <b>{e.note || shopName(e.shop)}</b>
-                  <small>
-                    {new Date(e.t).toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" })}{" "}
-                    · {shopName(e.shop)}
-                    {e.est ? " · s popisa za kupovinu" : " · račun"}
-                  </small>
-                </div>
-                <span className="num">{eur(e.amount || 0)}</span>
-                <button
-                  type="button"
-                  className="del"
-                  aria-label="Obriši zapis"
-                  onClick={() => apply(removeCost(data, monthKey(e.t), e.id), "Zapis obrisan.")}
-                >
-                  ×
-                </button>
-              </div>
-            ))
-          ) : (
-            <div className="empty">Nema zapisa za ovaj mjesec.</div>
-          )}
-        </div>
+        {log.length ? (
+          <div className="tablewrap">
+            <table className="grid" aria-label="Zapisi troškova">
+              <thead>
+                <tr>
+                  <th>Datum</th>
+                  <th className="sticky">Opis</th>
+                  <th>Dućan</th>
+                  <th className="num">Količina</th>
+                  <th className="num">Iznos €</th>
+                  <th>Vrsta</th>
+                  <th>
+                    <span className="sr-only">Obriši</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {log.map((e) => {
+                  const it = e.item ? itemOf(data, e.item) : undefined;
+                  const mk = monthKey(e.t);
+                  return (
+                    <tr key={e.id}>
+                      <td className="txt">
+                        {new Date(e.t).toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" })}
+                      </td>
+                      <td className="sticky" style={{ minWidth: 160 }}>
+                        <TextCell label="Opis" value={e.note || shopName(e.shop)} onCommit={(v) => update((x) => editCost(x, mk, e.id, { note: v }))} />
+                      </td>
+                      <td style={{ minWidth: 120 }}>
+                        <SelectCell<ShopId>
+                          label="Dućan"
+                          value={(e.shop as ShopId) in SHOPS ? (e.shop as ShopId) : "O"}
+                          options={Object.entries(SHOPS) as [ShopId, string][]}
+                          onChange={(v) => update((x) => editCost(x, mk, e.id, { shop: v }))}
+                        />
+                      </td>
+                      <td className="txt num">{it && e.qty ? fmt(e.qty, it.u) : "–"}</td>
+                      <td style={{ width: 96 }}>
+                        <NumCell label="Iznos" value={e.amount} onCommit={(v) => update((x) => editCost(x, mk, e.id, { amount: v ?? 0 }))} />
+                      </td>
+                      <td className="txt">
+                        <span className={"chip " + (e.est ? "p-low" : "p-ok")}>{e.est ? "s popisa" : "račun"}</span>
+                      </td>
+                      <td className="c">
+                        <button type="button" className="rowbtn" aria-label="Obriši zapis" onClick={() => apply(removeCost(data, mk, e.id), "Zapis obrisan.")}>
+                          ×
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div className="tblfoot">
+              <span>{log.length} zapisa</span>
+              <span>Ukupno: {eur(log.reduce((t, e) => t + (e.amount || 0), 0))}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="empty">Nema zapisa za ovaj mjesec.</div>
+        )}
       </div>
 
       <SyncPanel />

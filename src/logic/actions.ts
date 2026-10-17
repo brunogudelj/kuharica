@@ -155,8 +155,12 @@ export function editItem(
     });
   } else {
     const o = { ...(d.items.over[id] || {}) };
-    if (patch.pack != null) o.pack = patch.pack;
-    if (patch.min != null) o.min = patch.min;
+    for (const k of ["n", "cat", "src", "min", "pack", "kcal", "prot"] as const) {
+      if (!(k in patch)) continue;
+      const v = patch[k];
+      if (v === undefined) delete o[k];
+      else (o as Record<string, unknown>)[k] = v;
+    }
     d.items.over[id] = o;
   }
   return d;
@@ -244,4 +248,11 @@ export function undoPurchase(src: AppData, mk: string, entryId: string): Result 
   if (e.item && e.qty) setQty(d, e.item, qty(d, e.item) - e.qty);
   d.costs[mk] = d.costs[mk].filter((x) => x.id !== entryId);
   return { data: d, msg: `${e.note} je vraćen na popis.` };
+}
+
+/** Promijeni zapis troška (iznos, dućan, opis) */
+export function editCost(src: AppData, mk: string, id: string, patch: Partial<Pick<CostEntry, "amount" | "shop" | "note">>): AppData {
+  const d = clone(src);
+  d.costs[mk] = (d.costs[mk] || []).map((e) => (e.id === id ? { ...e, ...patch } : e));
+  return d;
 }

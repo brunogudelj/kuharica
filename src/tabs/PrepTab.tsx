@@ -132,7 +132,7 @@ export function PrepTab() {
   const [f, setF] = useState<F>("sve");
   const list = PREP.filter((p) => f === "sve" || p.k === f);
   return (
-    <section id="prep" role="tabpanel" aria-labelledby="tab-prep">
+    <section id="prep" aria-labelledby="tab-prep">
       <Note>
         <strong>Priprema unaprijed.</strong> Svaki recept ovdje radiš jednom, a koristiš ga cijeli tjedan ili duže. Kad
         nešto napraviš, stisni <strong>Napravio sam</strong>: sirovi sastojci se skinu sa zalihe, a vrećice ili kutije

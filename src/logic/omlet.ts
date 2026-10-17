@@ -51,11 +51,20 @@ export const omVeg = (d: AppData) => fills(d).veg;
 
 /** kcal i proteini po jedinici: ugrađeno ili upisano uz vlastitu namirnicu */
 export function macOf(d: AppData, id: string): [number, number] | null {
-  if (MAC[id]) return MAC[id];
   const i = itemOf(d, id);
-  if (!i || (i.kcal == null && i.prot == null)) return null;
+  const base = MAC[id] ?? null;
+  if (!i || (i.kcal == null && i.prot == null)) return base;
   const k = i.u === "kom" ? 1 : 1 / 100;
-  return [(i.kcal ?? 0) * k, (i.prot ?? 0) * k];
+  return [i.kcal != null ? i.kcal * k : (base?.[0] ?? 0), i.prot != null ? i.prot * k : (base?.[1] ?? 0)];
+}
+
+/** kcal i proteini za prikaz: na 100 g/ml ili po komadu */
+export function macDisplay(d: AppData, id: string): [number | null, number | null] {
+  const m = macOf(d, id);
+  const i = itemOf(d, id);
+  if (!m || !i) return [null, null];
+  const k = i.u === "kom" ? 1 : 100;
+  return [Math.round(m[0] * k), Math.round(m[1] * k * 10) / 10];
 }
 
 export function omUse(d: AppData, sel: OmSel, f: number): Use {

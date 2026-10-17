@@ -133,12 +133,18 @@ export function migrate(raw: unknown): AppData {
     d.items.over[id] = {
       ...(typeof o.min === "number" ? { min: Math.max(0, o.min) } : {}),
       ...(typeof o.pack === "number" && o.pack > 0 ? { pack: o.pack } : {}),
+      ...(typeof o.n === "string" && o.n.trim() ? { n: o.n } : {}),
+      ...((o.cat as string) in CATS ? { cat: o.cat as CatId } : {}),
+      ...((o.src as string) in SHOPS ? { src: o.src as ShopId } : {}),
+      ...(typeof o.kcal === "number" ? { kcal: o.kcal } : {}),
+      ...(typeof o.prot === "number" ? { prot: o.prot } : {}),
     };
   }
   const ui = obj(r.ui);
   for (const [k, v] of Object.entries(obj(ui.servings))) d.ui.servings[k] = num(v, 1);
   for (const [k, v] of Object.entries(obj(ui.ture))) d.ui.ture[k] = num(v, 1);
   if (typeof ui.tab === "string") d.ui.tab = ui.tab;
+  if (typeof ui.omDay === "number" && ui.omDay >= 0 && ui.omDay < 7) d.ui.omDay = ui.omDay;
   return d;
 }
 

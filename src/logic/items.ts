@@ -10,7 +10,10 @@ function build(s: ItemsState) {
   if (!c) {
     const all = ITEMS.map((i) => {
       const o = s.over[i.id];
-      return o ? { ...i, min: o.min ?? i.min, pack: o.pack ?? i.pack } : i;
+      if (!o) return i;
+      const n: Item = { ...i, ...o };
+      if (o.pack != null && o.pack !== i.pack) n.step = defaultStep(i.u, o.pack);
+      return n;
     }).concat(s.custom);
     c = { all, map: new Map(all.map((i) => [i.id, i])) };
     cache.set(s, c);

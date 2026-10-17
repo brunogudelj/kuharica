@@ -34,7 +34,7 @@ function RecipeCard({ r }: { r: Recipe }) {
       title={r.n}
       meta={
         <>
-          <span className="carb">{r.c}</span>
+          <span className={`chip cc-${r.c}`}>{r.c}</span>
           {r.two && <span className="carb">2 u 1</span>}
           {r.custom && <span className="carb">moj</span>}
           <span>{r.d}</span>
@@ -149,7 +149,7 @@ export function ReceptiTab() {
     return r.c === f;
   });
   return (
-    <section id="recepti" role="tabpanel" aria-labelledby="tab-recepti">
+    <section id="recepti" aria-labelledby="tab-recepti">
       <Filters<F>
         label="Filtriraj po ugljikohidratu"
         value={f}

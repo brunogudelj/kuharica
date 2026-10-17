@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { CATS, SHOP_LINKS, SHOPS } from "../data";
 import type { CatId, Item, ShopId } from "../data";
@@ -10,6 +10,7 @@ import { addReceipt, purchase, undoPurchase } from "../logic/actions";
 import { eur, fmt, monthKey, round, sameDay, stavki } from "../logic/format";
 import { Note } from "../components/ui";
 import { ItemForm } from "../components/ItemForm";
+import { Icon } from "../components/icons";
 
 const parse = (s: string) => parseFloat(s.replace(",", "."));
 const numStr = (n: number) => String(round(n)).replace(".", ",");
@@ -88,79 +89,76 @@ function AmountFields({
   );
 }
 
-function ListRow({ x }: { x: ShopRow }) {
+/** "0,512 kg" ili "512" → količina u jedinici namirnice (g, ml, kom) */
+export function parseAmount(t: string, u: string): number {
+  const m = t.trim().toLowerCase().replace(",", ".").match(/^([\d.]+)\s*(kg|g|l|ml|kom)?$/);
+  if (!m) return NaN;
+  const v = parseFloat(m[1]);
+  if ((m[2] === "kg" && u === "g") || (m[2] === "l" && u === "ml")) return v * 1000;
+  return v;
+}
+
+function ShopTr({ x }: { x: ShopRow }) {
   const { data, apply } = useApp();
-  const [open, setOpen] = useState(false);
   const def = x.packs * x.i.pack;
-  const [amt, setAmt] = useState(numStr(def));
-  const [big, setBig] = useState(false);
+  const [amt, setAmt] = useState("");
   const [paid, setPaid] = useState("");
-  const amount = () => {
-    const v = parse(amt);
-    return big ? v * 1000 : v;
-  };
-  const buyNow = (a: number, p: number | null) => {
-    const r = purchase(data, x.i.id, a, p);
+  const bad = amt.trim() !== "" && !(parseAmount(amt, x.i.u) > 0);
+  const buyNow = () => {
+    const a = amt.trim() ? parseAmount(amt, x.i.u) : def;
+    if (!(a > 0)) return;
+    const p = paid.trim() ? parse(paid) : null;
+    const r = purchase(data, x.i.id, a, p != null && !isNaN(p) ? p : null);
     apply(r.data, r.msg);
   };
-
   return (
-    <div className={"shoprow" + (open ? " open" : "")}>
-      <div className="srow">
+    <tr>
+      <td className="c" style={{ width: 44 }}>
         <button
           type="button"
-          className="check"
-          aria-label={`Kupljeno: ${x.i.n}, ${x.packs} × ${fmt(x.i.pack, x.i.u)}`}
-          onClick={() => buyNow(def, null)}
-        />
-        <button type="button" className="sn" onClick={() => setOpen(!open)} aria-expanded={open}>
-          <b>{x.i.n}</b>
-          <small>
-            {x.forPlan ? "za plan" : "dopuna zalihe"} · fali {fmt(x.short, x.i.u)} · točna količina ›
-          </small>
-        </button>
-        <div className="sq">
-          {x.packs} × {fmt(x.i.pack, x.i.u)}
-          {x.cost != null && (
-            <>
-              <br />≈ {eur(x.cost)}
-            </>
-          )}
-        </div>
-      </div>
-      {open && (
-        <form
-          className="buyform"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const a = amount();
-            const p = paid.trim() ? parse(paid) : null;
-            if (!(a > 0)) return;
-            buyNow(a, p != null && !isNaN(p) ? p : null);
-          }}
+          className="tick-btn"
+          aria-pressed={false}
+          aria-label={`Kupljeno: ${x.i.n}`}
+          onClick={buyNow}
         >
-          <AmountFields
-            i={x.i}
-            amt={amt}
-            setAmt={setAmt}
-            big={big}
-            setBig={setBig}
-            paid={paid}
-            setPaid={setPaid}
-            idp={`b-${x.i.id}`}
-          />
-          <div className="btnrow">
-            <button type="submit" className="btn">
-              Kupljeno
-            </button>
-            <span className="count">
-              {fmt(def, x.i.u)} je {x.packs} {x.packs === 1 ? "pakiranje" : "pakiranja"}. Upiši točno s etikete ili
-              računa.
-            </span>
-          </div>
-        </form>
-      )}
-    </div>
+          <Icon name="check" size={16} />
+        </button>
+      </td>
+      <td className="sticky txt" style={{ minWidth: 160 }}>
+        <b>{x.i.n}</b>
+        <br />
+        <small className="count">{x.forPlan ? "za plan" : "dopuna zalihe"}</small>
+      </td>
+      <td className="txt num">{fmt(x.short, x.i.u)}</td>
+      <td className="txt num">
+        {x.packs} × {fmt(x.i.pack, x.i.u)}
+      </td>
+      <td style={{ minWidth: 110 }}>
+        <input
+          className={"cellin num" + (bad ? " bad" : "")}
+          type="text"
+          inputMode="decimal"
+          aria-label={`Kupljena količina: ${x.i.n}`}
+          placeholder={fmt(def, x.i.u)}
+          value={amt}
+          onChange={(e) => setAmt(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && buyNow()}
+        />
+      </td>
+      <td style={{ width: 96 }}>
+        <input
+          className="cellin num"
+          type="text"
+          inputMode="decimal"
+          aria-label={`Plaćeno (€): ${x.i.n}`}
+          placeholder="€"
+          value={paid}
+          onChange={(e) => setPaid(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && buyNow()}
+        />
+      </td>
+      <td className="txt num">{x.cost != null ? "≈ " + eur(x.cost) : "–"}</td>
+    </tr>
   );
 }
 
@@ -413,7 +411,7 @@ export function KupovinaTab() {
   };
 
   return (
-    <section id="kupovina" role="tabpanel" aria-labelledby="tab-kupovina">
+    <section id="kupovina" aria-labelledby="tab-kupovina">
       <Note>
         <strong>U dućanu:</strong> kvačicom označiš kupljeno i predložena količina ide u zalihu. Za meso, voće i sve što
         kupuješ na točnu mjeru dodirni naziv i upiši točno koliko je na etiketi (grami ili kg, komadi) i po želji koliko
@@ -422,27 +420,47 @@ export function KupovinaTab() {
 
       {list.length ? (
         <div className="group">
-          {(Object.entries(groups) as [ShopId, ShopRow[]][])
-            .filter(([, a]) => a.length)
-            .map(([s, arr]) => {
-              const sub = arr.reduce((t, x) => t + (x.cost ?? 0), 0);
-              return (
-                <div key={s} className="group">
-                  <div className="ghead">
-                    <h2>{SHOPS[s]}</h2>
-                    <span className="count">
-                      {stavki(arr.length)}
-                      {sub ? ` · ≈ ${eur(sub)}` : ""}
-                    </span>
-                  </div>
-                  <div className="list">
-                    {arr.map((x) => (
-                      <ListRow key={x.i.id + ":" + x.packs + ":" + (price(data, x.i.id) ?? "")} x={x} />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+          <div className="tablewrap">
+            <table className="grid" aria-label="Popis za kupovinu">
+              <thead>
+                <tr>
+                  <th className="c">✓</th>
+                  <th className="sticky">Namirnica</th>
+                  <th className="num">Fali</th>
+                  <th className="num">Predloženo</th>
+                  <th className="num">Kupio</th>
+                  <th className="num">Platio</th>
+                  <th className="num">Procjena</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(Object.entries(groups) as [ShopId, ShopRow[]][])
+                  .filter(([, a]) => a.length)
+                  .map(([s, arr]) => {
+                    const sub = arr.reduce((t, x) => t + (x.cost ?? 0), 0);
+                    return (
+                      <Fragment key={s}>
+                        <tr className="grouprow">
+                          <td />
+                          <td className="sticky">{SHOPS[s]}</td>
+                          <td colSpan={5}>
+                            {stavki(arr.length)}
+                            {sub ? ` · ≈ ${eur(sub)}` : ""}
+                          </td>
+                        </tr>
+                        {arr.map((x) => (
+                          <ShopTr key={x.i.id + ":" + x.packs + ":" + (price(data, x.i.id) ?? "")} x={x} />
+                        ))}
+                      </Fragment>
+                    );
+                  })}
+              </tbody>
+            </table>
+            <div className="tblfoot">
+              <span>Kvačica sprema predloženu količinu, ili ono što upišeš u Kupio.</span>
+              <span>Za meso upiši točno s etikete, npr. „512” ili „0,512 kg”.</span>
+            </div>
+          </div>
           {priced ? (
             <p className="total">
               Procjena: {eur(total)}{" "}

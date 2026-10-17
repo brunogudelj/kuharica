@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
-import type { KeyboardEvent } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "./state/AppContext";
 import { clone } from "./state/model";
 import { shopping } from "./logic/inventory";
 import { syncText } from "./components/SyncPanel";
+import { Icon } from "./components/icons";
+import type { IconName } from "./components/icons";
 import { PlanTab } from "./tabs/PlanTab";
 import { OmletTab } from "./tabs/OmletTab";
 import { ZalihaTab } from "./tabs/ZalihaTab";
@@ -12,114 +13,111 @@ import { TroskoviTab } from "./tabs/TroskoviTab";
 import { ReceptiTab } from "./tabs/ReceptiTab";
 import { PrepTab } from "./tabs/PrepTab";
 
-const TABS = [
-  ["plan", "Plan"],
-  ["omlet", "Omlet"],
-  ["zaliha", "Zaliha"],
-  ["kupovina", "Kupovina"],
-  ["troskovi", "Troškovi"],
-  ["recepti", "Recepti"],
-  ["prep", "Prep"],
-] as const;
-type TabId = (typeof TABS)[number][0];
+const TABS: [string, string, IconName, string][] = [
+  ["plan", "Plan", "plan", "Tjedni kalendar obroka"],
+  ["omlet", "Omlet", "omlet", "Doručak, svaki dan drugi"],
+  ["zaliha", "Zaliha", "zaliha", "Što imaš doma"],
+  ["kupovina", "Kupovina", "kupovina", "Popis za dućan"],
+  ["troskovi", "Troškovi", "troskovi", "Računi i usporedba"],
+  ["recepti", "Recepti", "recepti", "Ručak i večera"],
+  ["prep", "Prep", "prep", "Priprema unaprijed"],
+];
 
 export function App() {
   const { data, loaded, saveError, update, toast, undo, closeToast, sync } = useApp();
-  const tab: TabId = TABS.some(([k]) => k === data.ui.tab) ? (data.ui.tab as TabId) : "plan";
-  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const tab = TABS.some(([k]) => k === data.ui.tab) ? data.ui.tab : "plan";
+  const cur = TABS.find(([k]) => k === tab)!;
   const shopCount = shopping(data).length;
+  const [drawer, setDrawer] = useState(false);
 
-  const setTab = (t: TabId, anchor?: string) => {
+  const setTab = (t: string, anchor?: string) => {
     update((d) => {
       const n = clone(d);
       n.ui.tab = t;
       return n;
     });
+    setDrawer(false);
     if (anchor) setTimeout(() => document.getElementById(anchor)?.scrollIntoView({ block: "start" }), 50);
-  };
-
-  // Strelice lijevo/desno između kartica
-  const onKey = (e: KeyboardEvent) => {
-    const i = TABS.findIndex(([k]) => k === tab);
-    const j = e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : -99;
-    if (j === -99) return;
-    const t = TABS[(j + TABS.length) % TABS.length][0];
-    setTab(t);
-    tabRefs.current[t]?.focus();
   };
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [tab]);
 
+  useEffect(() => {
+    if (!drawer) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setDrawer(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawer]);
+
+  const status = !loaded
+    ? { cls: "", txt: "Učitavam…" }
+    : saveError
+      ? { cls: "err", txt: "Spremanje nije uspjelo. Provjeri da preglednik dopušta spremanje za ovu stranicu." }
+      : { cls: sync.state === "error" ? "err" : sync.state === "ok" ? "ok" : "", txt: syncText(sync.state, sync.at, sync.msg) };
+
   return (
-    <>
-      <div className="wrap">
-        <header>
-          <h1>Wok i Air Fryer Kuharica</h1>
-          <p className="sub">
-            Jedno kuhanje dnevno do 30 min, podijeljeno u ručak i večeru. Ciklus ugljikohidrata: riža → krumpir →
-            tjestenina → riža → krumpir.
-          </p>
-          <p className="status">
-            {!loaded ? (
-              "Učitavam zalihu…"
-            ) : saveError ? (
-              "Spremanje nije uspjelo. Provjeri da preglednik dopušta spremanje podataka za ovu stranicu."
-            ) : sync.state === "off" ? (
-              <>
-                Podaci su samo na ovom uređaju.{" "}
-                <button type="button" className="linkbtn" onClick={() => setTab("troskovi", "sinkronizacija")}>
-                  Poveži laptop i mobitel
-                </button>
-              </>
-            ) : (
-              <span className={sync.state === "error" ? "miss" : undefined}>
-                {syncText(sync.state, sync.at, sync.msg)}
-              </span>
-            )}
-          </p>
-        </header>
-
-        <div className="day" aria-label="Dnevni raspored">
-          <div>
-            <b>Doručak</b>
-            <span>omlet, svaki dan drugi</span>
-          </div>
-          <div>
-            <b>Ručak</b>
-            <span>½ recepta + velika salata + miso</span>
-          </div>
-          <div>
-            <b>Užina</b>
-            <span>1 posni sir</span>
-          </div>
-          <div>
-            <b>Večera</b>
-            <span>½ recepta + velika salata</span>
-          </div>
+    <div className={"shell" + (drawer ? " drawer-open" : "")}>
+      <header className="topbar">
+        <button type="button" className="iconbtn" aria-label="Otvori izbornik" aria-expanded={drawer} onClick={() => setDrawer(true)}>
+          <Icon name="menu" size={22} />
+        </button>
+        <div className="topbar-title">
+          <Icon name={cur[2]} />
+          <b>{cur[1]}</b>
         </div>
+      </header>
 
-        <nav role="tablist" aria-label="Dijelovi kuharice" onKeyDown={onKey}>
-          {TABS.map(([k, l]) => (
+      <aside className="sidebar" aria-label="Izbornik">
+        <div className="brand">
+          <img src="./icon.svg" alt="" width={36} height={36} />
+          <div>
+            <b>Kuharica</b>
+            <small>wok i air fryer</small>
+          </div>
+          <button type="button" className="iconbtn drawer-close" aria-label="Zatvori izbornik" onClick={() => setDrawer(false)}>
+            <Icon name="close" />
+          </button>
+        </div>
+        <nav aria-label="Dijelovi kuharice">
+          {TABS.map(([k, l, ic, sub]) => (
             <button
               key={k}
-              ref={(el) => {
-                tabRefs.current[k] = el;
-              }}
-              role="tab"
               id={`tab-${k}`}
-              aria-selected={tab === k}
-              aria-controls={k}
-              tabIndex={tab === k ? 0 : -1}
+              type="button"
+              className="navitem"
+              aria-current={tab === k ? "page" : undefined}
               onClick={() => setTab(k)}
             >
-              {l}
+              <Icon name={ic} />
+              <span className="navtxt">
+                <b>{l}</b>
+                <small>{sub}</small>
+              </span>
               {k === "kupovina" && shopCount > 0 && <span className="badge">{shopCount}</span>}
             </button>
           ))}
         </nav>
+        <div className="sidefoot">
+          <p className={"syncline " + status.cls}>
+            <Icon name="sync" size={16} />
+            <span>{status.txt}</span>
+          </p>
+          {sync.state === "off" && loaded && (
+            <button type="button" className="linkbtn" onClick={() => setTab("troskovi", "sinkronizacija")}>
+              Poveži laptop i mobitel
+            </button>
+          )}
+        </div>
+      </aside>
+      <div className="scrim" onClick={() => setDrawer(false)} aria-hidden="true" />
 
+      <main className="main">
+        <div className="pagehead">
+          <h1>{cur[1]}</h1>
+          <p className="sub">{cur[3]}</p>
+        </div>
         {tab === "plan" && <PlanTab />}
         {tab === "omlet" && <OmletTab />}
         {tab === "zaliha" && <ZalihaTab />}
@@ -127,7 +125,7 @@ export function App() {
         {tab === "troskovi" && <TroskoviTab />}
         {tab === "recepti" && <ReceptiTab />}
         {tab === "prep" && <PrepTab />}
-      </div>
+      </main>
 
       {toast && (
         <div className="toast" role="status" aria-live="polite">
@@ -145,6 +143,6 @@ export function App() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

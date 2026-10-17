@@ -28,7 +28,13 @@ import { Html, Note } from "../components/ui";
 export function OmletTab() {
   const { data, apply, update } = useApp();
   const tix = todayIx();
-  const [omDay, setOmDay] = useState(tix);
+  const omDay = data.ui.omDay ?? tix;
+  const setOmDay = (ix: number) =>
+    update((d) => {
+      const n = clone(d);
+      n.ui.omDay = ix;
+      return n;
+    });
   const [serv, setServ] = useState(1);
   const [method, setMethod] = useState<"wok" | "af">("wok");
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -46,8 +52,6 @@ export function OmletTab() {
 
   const pickDay = (ix: number) => {
     setOmDay(ix);
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    titleRef.current?.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
   };
 
   const mac = omMacros(data, sel, serv);
@@ -74,7 +78,7 @@ export function OmletTab() {
   );
 
   return (
-    <section id="omlet" role="tabpanel" aria-labelledby="tab-omlet">
+    <section id="omlet" aria-labelledby="tab-omlet">
       <Note>
         <strong>Omlet za doručak, svaki dan drugi.</strong> Tjedan se puni s 7 različitih kombinacija, a prednost imaju
         one za koje imaš sastojke. Dodirni dan da ga promijeniš. Kupovina računa sa svim omletima koje još nisi pojeo.
@@ -93,35 +97,36 @@ export function OmletTab() {
             Novi omleti za tjedan
           </button>
         </div>
-        <div className="list plan">
-          {week.map((o, ix) => {
-            const m = omMacros(data, o.sel, 1);
-            const ms = o.done ? [] : omMissing(data, o.sel);
-            return (
-              <div key={ix} className={"prow omrow" + (o.done ? " done" : "") + (ix === omDay ? " sel" : "")}>
-                <div className="dname">
-                  {DAYS[ix]}
-                  <small>{ix === tix ? "danas" : ""}</small>
-                </div>
-                <button type="button" className="pmid ompick" aria-pressed={ix === omDay} onClick={() => pickDay(ix)}>
-                  <b>{omName(data, o.sel)}</b>
-                  <span className="num">
-                    {m.p} g proteina · {m.k} kcal
-                  </span>
-                  {o.done ? (
-                    <span className="ready">Pojedeno</span>
-                  ) : ms.length ? (
-                    <span className="miss">Fali: {ms.join(", ")}</span>
-                  ) : (
-                    <span className="ready">Sve imaš</span>
-                  )}
-                </button>
-                <span className="chev" aria-hidden="true">
-                  {ix === omDay ? "●" : "›"}
-                </span>
+        <div className="calwrap">
+          <div className="cal omcal" role="grid" aria-label="Omleti ovaj tjedan">
+            {DAYS.map((d, ix) => (
+              <div key={d} className={"ch" + (ix === tix ? " today" : "")} role="columnheader">
+                {d} <small>{ix === tix ? "danas" : ""}</small>
               </div>
-            );
-          })}
+            ))}
+            {week.map((o, ix) => {
+              const m = omMacros(data, o.sel, 1);
+              const ms = o.done ? [] : omMissing(data, o.sel);
+              return (
+                <div key={ix} role="gridcell">
+                  <button
+                    type="button"
+                    className={"cell om cbtn" + (o.done ? " done" : "") + (ix === omDay ? " sel" : "")}
+                    aria-pressed={ix === omDay}
+                    onClick={() => pickDay(ix)}
+                  >
+                    <span className="cname">{omName(data, o.sel)}</span>
+                    <span className="cmeta">
+                      {m.p} g prot · {m.k} kcal
+                    </span>
+                    <span className={"flag " + (o.done ? "ready" : ms.length ? "miss" : "ready")}>
+                      {o.done ? "pojedeno" : ms.length ? `fali ${ms.length}` : "imaš sve"}
+                    </span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
