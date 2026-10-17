@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { PREP, PREP_INV, PREP_K, PREP_TIMELINE } from "../data";
+import { PREP_K, PREP_TIMELINE } from "../data";
+import { allPreps, isCustomPrep, prepInv } from "../logic/preps";
+import { Icon } from "../components/icons";
 import type { PrepCat, PrepRecipe } from "../data";
 import { useApp } from "../state/AppContext";
 import { itemName } from "../logic/items";
@@ -18,7 +20,7 @@ export function prepMeta(data: ReturnType<typeof useApp>["data"], p: PrepRecipe)
   const miss = Object.entries(p.use)
     .filter(([id, a]) => qty(data, id) + 1e-9 < a * t)
     .map(([id]) => itemName(data, id));
-  return { t, miss, have: pc(data, p.id), inv: PREP_INV[p.id] };
+  return { t, miss, have: pc(data, p.id), inv: prepInv(data, p.id) ?? { make: 1, unit: "porcija" as const, per: {} } };
 }
 
 /** Sadržaj prep recepta: količina, zaliha, sastojci, koraci */
@@ -142,13 +144,14 @@ export function PrepTab() {
   const [fAvail, setFAvail] = useState(false);
   const [fHave, setFHave] = useState(false);
   const term = q.trim().toLowerCase();
+  const preps = allPreps(data);
   const pass = (p: PrepRecipe, skip?: "k" | "keep") =>
     (!term || p.n.toLowerCase().includes(term)) &&
     (skip === "k" || !fK.length || fK.includes(p.k)) &&
     (skip === "keep" || !fKeep.length || keepOf(p).some((k) => fKeep.includes(k))) &&
     (!fAvail || !prepMeta(data, p).miss.length) &&
     (!fHave || pc(data, p.id) > 0);
-  const list = PREP.filter((p) => pass(p));
+  const list = preps.filter((p) => pass(p));
   const cats = Object.keys(PREP_K) as PrepCat[];
   const chips: Chip[] = [
     ...fK.map((k): Chip => [PREP_K[k], () => setFK(toggle(fK, k))]),
@@ -167,7 +170,7 @@ export function PrepTab() {
             key={k}
             on={fK.includes(k)}
             label={PREP_K[k]}
-            count={PREP.filter((p) => pass(p, "k") && p.k === k).length}
+            count={preps.filter((p) => pass(p, "k") && p.k === k).length}
             onChange={() => setFK(toggle(fK, k))}
           />
         ))}
@@ -179,7 +182,7 @@ export function PrepTab() {
             on={fKeep.includes(k)}
             label={KEEP_LABEL[k]}
             dot={`l-${k}`}
-            count={PREP.filter((p) => pass(p, "keep") && keepOf(p).includes(k)).length}
+            count={preps.filter((p) => pass(p, "keep") && keepOf(p).includes(k)).length}
             onChange={() => setFKeep(toggle(fKeep, k))}
           />
         ))}
@@ -188,13 +191,13 @@ export function PrepTab() {
         <FCheck
           on={fAvail}
           label="Imam sve sastojke"
-          count={PREP.filter((p) => !prepMeta(data, p).miss.length).length}
+          count={preps.filter((p) => !prepMeta(data, p).miss.length).length}
           onChange={() => setFAvail(!fAvail)}
         />
         <FCheck
           on={fHave}
           label="Već pripremljeno"
-          count={PREP.filter((p) => pc(data, p.id) > 0).length}
+          count={preps.filter((p) => pc(data, p.id) > 0).length}
           onChange={() => setFHave(!fHave)}
         />
       </FGroup>
@@ -211,7 +214,7 @@ export function PrepTab() {
       title="Prep"
       count={
         <>
-          <b>{list.length}</b> od {PREP.length}
+          <b>{list.length}</b> od {preps.length}
         </>
       }
       filters={tab === "list" ? filters : undefined}
@@ -224,6 +227,11 @@ export function PrepTab() {
         setFHave(false);
       }}
       chips={tab === "list" ? chips : []}
+      actions={
+        <button type="button" className="btn" onClick={() => open({ t: "newPrep" })}>
+          <Icon name="plus" size={18} /> Novi prep
+        </button>
+      }
       tabs={
         <div className="seg" role="tablist" aria-label="Prikaz prepa">
           {(
@@ -294,7 +302,11 @@ export function PrepTab() {
                             {p.n}
                           </button>
                           <span className="ent-meta">
-                            {p.for.length ? `za: ${p.for.slice(0, 2).join(", ")}` : p.tip}
+                            {isCustomPrep(p.id)
+                              ? "moj prep"
+                              : p.for.length
+                                ? `za: ${p.for.slice(0, 2).join(", ")}`
+                                : p.tip}
                           </span>
                         </div>
                       </div>

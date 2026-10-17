@@ -1,5 +1,6 @@
 import { Fragment, useState } from "react";
-import { OM_FILL, PREP, PREP_INV } from "../data";
+import { OM_FILL } from "../data";
+import { allPreps, prepInv } from "../logic/preps";
 import { catName, catOpts, grpName, grpOpts, isMass } from "../logic/lists";
 import type { CatId, GrpId, Item } from "../data";
 import { shopIndex, shopName, shopOpts } from "../logic/shops";
@@ -31,7 +32,7 @@ const BUILTIN_OM = new Set(OM_FILL.flatMap((f) => Object.keys(f.use)));
 const ST_ORDER: Record<Status, number> = { out: 0, low: 1, ok: 2, none: 3 };
 
 function PrepStock({ data, update }: { data: AppData; update: (fn: (d: AppData) => AppData) => void }) {
-  const have = PREP.filter((p) => pc(data, p.id) > 0);
+  const have = allPreps(data).filter((p) => pc(data, p.id) > 0);
   if (!have.length) return null;
   const set = (id: string, v: number) =>
     update((d) => {
@@ -60,7 +61,9 @@ function PrepStock({ data, update }: { data: AppData; update: (fn: (d: AppData) 
                 <td style={{ width: 90 }}>
                   <NumCell label={`Imam: ${p.n}`} value={pc(data, p.id)} onCommit={(v) => set(p.id, v ?? 0)} />
                 </td>
-                <td className="txt">{pfmt(pc(data, p.id), PREP_INV[p.id].unit).replace(/^[\d,.]+ /, "")}</td>
+                <td className="txt">
+                  {pfmt(pc(data, p.id), prepInv(data, p.id)?.unit ?? "porcija").replace(/^[\d,.]+ /, "")}
+                </td>
                 <td className="txt">{p.keep}</td>
               </tr>
             ))}
@@ -325,7 +328,7 @@ export function ZalihaTab() {
   const items = visibleItems(data);
   const hidden = hiddenItems(data);
   const term = q.trim().toLowerCase();
-  const prepHave = PREP.filter((p) => pc(data, p.id) > 0);
+  const prepHave = allPreps(data).filter((p) => pc(data, p.id) > 0);
 
   const pass = (i: Item, skip?: "st" | "cat" | "shop" | "grp") =>
     (!term || i.n.toLowerCase().includes(term)) &&

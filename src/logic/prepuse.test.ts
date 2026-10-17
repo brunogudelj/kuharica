@@ -37,3 +37,58 @@ describe("prep kao sastojak recepta", () => {
     expect(s.consumed).toEqual([["teriyaki-umak", 1]]);
   });
 });
+
+describe("vlastiti prep", () => {
+  it("napravi, koristi u receptu, obriši", async () => {
+    const { saveCustomPrep, removeCustomPrep, prepInv } = await import("./preps");
+    const { makePrep } = await import("./actions");
+    let d = defaultData();
+    d = saveCustomPrep(d, {
+      id: "pp-umak-x1",
+      n: "Kikiriki umak",
+      k: "Umaci",
+      time: "5 min",
+      keep: "Hladnjak 1 tjedan",
+      make: 2,
+      unit: "porcija",
+      use: { kikiriki: 40, soja: 20 },
+      extra: [],
+      st: [],
+    }).data;
+    expect(prepInv(d, "pp-umak-x1")!.per).toEqual({ kikiriki: 20, soja: 10 });
+    d = saveRecipe(d, {
+      id: "r-k-1",
+      n: "Satay",
+      c: "Riža",
+      d: "",
+      use: { piletina: 250 },
+      prep: { "pp-umak-x1": 1 },
+      extra: [],
+      st: [],
+    }).data;
+    const r = recipeOf(d, "r-k-1")!;
+    // bez prepa: sirovi sastojci za 1 porciju umaka
+    expect(effUse(r, {}, false, 1, d).use).toEqual({ piletina: 250, kikiriki: 20, soja: 10 });
+    d.stock.kikiriki = { qty: 100, price: null };
+    d.stock.soja = { qty: 100, price: null };
+    d = makePrep(d, "pp-umak-x1", 1).data;
+    expect(d.prepStock["pp-umak-x1"]).toBe(2);
+    expect(effUse(r, { ...d.prepStock }, false, 1, d).use).toEqual({ piletina: 250 });
+    const g = removeCustomPrep(d, "pp-umak-x1").data;
+    expect(g.preps).toHaveLength(0);
+    expect(g.recipes[0].use).toEqual({ piletina: 250, kikiriki: 20, soja: 10 });
+  });
+
+  it("uvoz: skupina sastojaka i postojeći prep se prepoznaju", async () => {
+    const { parseRecipeText, parseIngredient } = await import("./importRecipe");
+    const d = defaultData();
+    const p = parseRecipeText(
+      "Piletina\n2 porcije\n400 g pilećih prsa\nZa umak:\n2 žlice soja umaka\n1 žličica meda\nPriprema:\nSve zapeci u woku i prelij umakom na kraju.",
+    );
+    expect(p.ingredients).toHaveLength(3);
+    expect(p.groups).toEqual([undefined, "Umak", "Umak"]);
+    const l = parseIngredient(d, "1 porcija teriyaki umaka");
+    expect(l.prep).toBe("teriyaki-umak");
+    expect(l.amount).toBe(1);
+  });
+});

@@ -1,5 +1,6 @@
 import { isMass } from "./lists";
-import { DEFAULT_OM, MAC, OFBY, OM_BASE, OM_CARB, OM_PRESETS, OM_PROT, OM_VEG, PREP_INV } from "../data";
+import { prepInv } from "./preps";
+import { DEFAULT_OM, MAC, OFBY, OM_BASE, OM_CARB, OM_PRESETS, OM_PROT, OM_VEG } from "../data";
 import type { OmFill, OmSel, Use } from "../data";
 import type { AppData, ItemsState, OmDay } from "../state/model";
 import { clone, defaultOmWeek } from "../state/model";
@@ -93,7 +94,7 @@ export function omEff(d: AppData, sel: OmSel, f: number, pcopy: Record<string, n
     if (k > 0) {
       pcopy[pid] -= k;
       consumed.push([pid, k]);
-      for (const [id, a] of Object.entries(PREP_INV[pid].per))
+      for (const [id, a] of Object.entries(prepInv(d, pid)?.per ?? {}))
         if (use[id] != null) use[id] = Math.max(0, use[id] - a * k);
     }
   }

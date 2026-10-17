@@ -6,6 +6,7 @@ import { allItems } from "./items";
 import { newRecipeId } from "./recipes";
 import { BASE_SERVINGS } from "./inventory";
 import { isMass } from "./lists";
+import { allPreps } from "./preps";
 
 export interface ParsedRecipe {
   n: string;
@@ -16,6 +17,8 @@ export interface ParsedRecipe {
   kcal: number | null;
   prot: number | null;
   url: string;
+  /** skupina za svaki sastojak (npr. "Umak"), ako je recept dijeli */
+  groups?: (string | undefined)[];
 }
 
 export interface IngLine {
@@ -25,6 +28,10 @@ export interface IngLine {
   unit: string;
   name: string;
   item: Item | null;
+  /** pripremljeno (prep) umjesto namirnice; količina je u jedinicama prepa */
+  prep?: string;
+  /** skupina sastojaka u receptu, npr. "Umak" ili "Marinada" */
+  group?: string;
 }
 
 const norm = (s: string) =>
@@ -166,11 +173,24 @@ export function parseRecipeText(text: string): ParsedRecipe {
     .map((x) => x.replace(/^[-•*·\s]+/, "").trim())
     .filter(Boolean);
   const ing: string[] = [];
+  const groups: (string | undefined)[] = [];
   const st: string[] = [];
+  let group: string | undefined;
   for (const l of lines.slice(1)) {
+    // naslov skupine: "Za umak:", "Marinada:", "Sastojci:"
+    const h = l.match(/^(?:za\s+)?([\p{L} ]{3,30}):$/iu);
+    if (h) {
+      const g = h[1].trim();
+      group = /^(sastojci|priprema|postupak|ingredients|instructions)$/i.test(g)
+        ? undefined
+        : g.replace(/^./, (c) => c.toUpperCase());
+      continue;
+    }
     if (/porcij|osob|serving|\d+\s*min\b/i.test(l) && l.length < 40) continue;
-    if (/^(\d|½|¼|¾)/.test(l) && l.length < 90) ing.push(l);
-    else if (l.length > 25) st.push(l.replace(/^\d+[.)]\s*/, ""));
+    if (/^(\d|½|¼|¾)/.test(l) && l.length < 90) {
+      ing.push(l);
+      groups.push(group);
+    } else if (l.length > 25) st.push(l.replace(/^\d+[.)]\s*/, ""));
   }
   const serv = text.match(/(\d+)\s*(porcij|osob|serving)/i);
   const min = text.match(/(\d+)\s*min/i);
@@ -183,6 +203,7 @@ export function parseRecipeText(text: string): ParsedRecipe {
     kcal: null,
     prot: null,
     url: "",
+    groups,
   };
 }
 
@@ -339,6 +360,26 @@ export function parseIngredient(d: AppData, raw: string): IngLine {
       rest = m[3];
     } else rest = `${m[2] ?? ""} ${m[3]}`.trim();
   }
+  // pripremljeno (npr. "1 porcija teriyaki umaka"): naziv prepa u retku
+  const nr = norm(t);
+  const pp = allPreps(d).find((p) => {
+    const w = norm(p.n)
+      .split(" ")
+      .filter((x) => x.length >= 3);
+    const ys = nr.split(" ").filter((y) => y.length >= 3);
+    return (
+      w.length > 0 &&
+      w.every((x) =>
+        ys.some((y) => {
+          const k = Math.min(5, x.length, y.length);
+          return y.slice(0, k) === x.slice(0, k);
+        }),
+      )
+    );
+  });
+  // količina u g/ml za umak iz prepa ne znači broj porcija: pretpostavi 1 porciju (može se ispraviti)
+  if (pp)
+    return { raw, amount: unit && unit !== "kom" ? 1 : (amount ?? 1), unit: "", name: rest, item: null, prep: pp.id };
   const item = matchItem(d, rest);
   if (item && amount != null) {
     // jedinica namirnice: komadi ostaju komadi; grami za komade → 1 komad na ~100 g
@@ -376,9 +417,12 @@ export function toDraft(
   const lines = pre?.lines ?? p.ingredients.map((x) => parseIngredient(d, x));
   const serv = p.servings && p.servings > 0 ? p.servings : 2;
   const use: Record<string, number> = {};
+  const prep: Record<string, number> = {};
   const extra: string[] = [];
   for (const l of lines) {
-    if (l.item && l.amount != null && l.amount > 0) {
+    if (l.prep && l.amount != null && l.amount > 0) {
+      prep[l.prep] = Math.round(((prep[l.prep] || 0) + (l.amount / serv) * BASE_SERVINGS) * 100) / 100;
+    } else if (l.item && l.amount != null && l.amount > 0) {
       const a = (l.amount / serv) * BASE_SERVINGS;
       use[l.item.id] = Math.round(((use[l.item.id] || 0) + a) * 10) / 10;
     } else extra.push(l.raw);
@@ -392,11 +436,12 @@ export function toDraft(
       c: carb,
       d: `${method}${p.minutes ? ` · ${p.minutes} min` : ""}`,
       use,
+      ...(Object.keys(prep).length ? { prep } : {}),
       extra: p.url ? [...extra, `Izvor: ${p.url}`] : extra,
       st: p.steps,
     },
     lines,
-    matched: Object.keys(use).length,
+    matched: Object.keys(use).length + Object.keys(prep).length,
   };
 }
 

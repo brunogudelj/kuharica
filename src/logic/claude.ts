@@ -3,6 +3,8 @@
    Ključ se čuva samo na ovom uređaju (localStorage), kao token za sinkronizaciju. */
 import type { AppData } from "../state/model";
 import { allItems, itemOf } from "./items";
+import { allPreps, prepInv } from "./preps";
+import { plural } from "./format";
 import type { IngLine, ParsedRecipe } from "./importRecipe";
 
 const KEY = "kuharica-claude";
@@ -32,7 +34,7 @@ export interface ClaudeRecipe {
   minutes?: number | null;
   method?: string;
   carb?: string;
-  ingredients?: { raw: string; item: string | null; amount: number | null }[];
+  ingredients?: { raw: string; item: string | null; amount: number | null; group?: string | null }[];
   steps?: string[];
   kcal?: number | null;
   protein?: number | null;
@@ -41,9 +43,12 @@ export interface ClaudeRecipe {
 export class ClaudeError extends Error {}
 
 function prompt(d: AppData, src: { url?: string; text?: string }) {
-  const catalog = allItems(d)
-    .map((i) => `${i.id} | ${i.n} | ${i.u}`)
-    .join("\n");
+  const catalog = [
+    ...allItems(d).map((i) => `${i.id} | ${i.n} | ${i.u}`),
+    ...allPreps(d).map(
+      (p) => `p:${p.id} | ${p.n} (pripremljeno, prep) | ${plural(2, prepInv(d, p.id)?.unit ?? "porcija")}`,
+    ),
+  ].join("\n");
   return `${src.url ? `Dohvati recept s ove stranice: ${src.url}` : `Ovo je tekst recepta:\n"""\n${src.text}\n"""`}
 
 Pretvori recept u JSON za aplikaciju kuharica. Pravila:
@@ -51,13 +56,15 @@ Pretvori recept u JSON za aplikaciju kuharica. Pravila:
 - Svaki sastojak poveži s namirnicom iz kataloga ispod (polje "item" = id iz kataloga) ako je to ista namirnica ili vrlo bliska (npr. "pileća prsa" = piletina, "basmati riža" = basmati). Ako nema odgovarajuće, "item": null.
 - "amount" je količina za CIJELI recept, u jedinici namirnice iz kataloga (g, ml, kom ili druga). Pretvori žlice, šalice, kg, l itd. (1 žlica ≈ 15 g/ml, 1 žličica ≈ 5, 1 šalica ≈ 240 ml). Za "kom" broji komade. Ako količina nije navedena (sol, papar po želji), "amount": null.
 - "raw" je izvorni redak sastojka.
+- Ako recept koristi nešto što u katalogu postoji kao pripremljeno (id počinje s "p:", npr. teriyaki umak), poveži taj sastojak s tim prepom i "amount" upiši u njegovoj jedinici (obično 1 porcija za cijeli recept). Tada sirove sastojke tog umaka ne navodi zasebno.
+- "group": ako recept dijeli sastojke u skupine (npr. "Za umak:", "Marinada", "Dresing"), upiši naziv skupine na hrvatskom ("Umak", "Marinada", "Dresing"…), inače null. Glavni sastojci jela imaju null.
 - "method": jedno od Wok, Air fryer, Lonac, Pećnica, Tava, Bez kuhanja.
 - "carb": Riža, Krumpir, Tjestenina ili Ostalo, prema glavnom prilogu.
 - "minutes": ukupno vrijeme; "servings": broj porcija; "kcal" i "protein": po porciji ako su navedeni, inače null.
 - Ako stranicu ne možeš dohvatiti ili na njoj nema recepta, vrati {"ok": false, "error": "kratko objašnjenje na hrvatskom"}.
 
 Vrati SAMO JSON, bez ikakvog drugog teksta:
-{"ok": true, "n": "...", "servings": 2, "minutes": 25, "method": "Wok", "carb": "Riža", "ingredients": [{"raw": "400 g pilećih prsa", "item": "piletina", "amount": 400}], "steps": ["..."], "kcal": null, "protein": null}
+{"ok": true, "n": "...", "servings": 2, "minutes": 25, "method": "Wok", "carb": "Riža", "ingredients": [{"raw": "400 g pilećih prsa", "item": "piletina", "amount": 400, "group": null}, {"raw": "2 žlice soja umaka", "item": "soja", "amount": 30, "group": "Umak"}], "steps": ["..."], "kcal": null, "protein": null}
 
 Katalog namirnica (id | naziv | jedinica):
 ${catalog}`;
@@ -136,9 +143,22 @@ export function fromClaudeText(d: AppData, text: string, url: string) {
   if (!j.ok) throw new ClaudeError(j.error || "Claude na stranici nije našao recept.");
   const ings = Array.isArray(j.ingredients) ? j.ingredients : [];
   const lines: IngLine[] = ings.map((x) => {
-    const item = typeof x.item === "string" ? (itemOf(d, x.item) ?? null) : null;
+    const pid =
+      typeof x.item === "string" && x.item.startsWith("p:") && prepInv(d, x.item.slice(2))
+        ? x.item.slice(2)
+        : undefined;
+    const item = !pid && typeof x.item === "string" ? (itemOf(d, x.item) ?? null) : null;
     const amount = typeof x.amount === "number" && x.amount > 0 ? x.amount : null;
-    return { raw: String(x.raw ?? ""), amount, unit: item?.u ?? "", name: String(x.raw ?? ""), item };
+    const group = typeof x.group === "string" && x.group.trim() ? x.group.trim() : undefined;
+    return {
+      raw: String(x.raw ?? ""),
+      amount,
+      unit: item?.u ?? "",
+      name: String(x.raw ?? ""),
+      item,
+      ...(pid ? { prep: pid } : {}),
+      ...(group ? { group } : {}),
+    };
   });
   const parsed: ParsedRecipe = {
     n: j.n?.trim() || "Recept",

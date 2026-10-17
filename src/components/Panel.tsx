@@ -12,7 +12,9 @@ export type View =
   | { t: "pickOm"; day: number }
   | { t: "newRecipe"; day?: number }
   | { t: "editRecipe"; id: string }
-  | { t: "importRecipe" };
+  | { t: "importRecipe" }
+  | { t: "newPrep" }
+  | { t: "editPrep"; id: string };
 
 interface PanelCtx {
   view: View | null;

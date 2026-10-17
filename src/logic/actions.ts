@@ -1,5 +1,6 @@
 /* Čiste funkcije koje iz stanja rade novo stanje. Poništavanje = povratak prethodnog stanja. */
-import { CYCLE, ITEMS, PBY, PREP_INV } from "../data";
+import { CYCLE, ITEMS } from "../data";
+import { prepInv, prepOf } from "./preps";
 import type { CustomRecipe, Item, OmSel } from "../data";
 import { allRecipes, recipeOf } from "./recipes";
 import type { AppData, CostEntry, Slot, SlotKey } from "../state/model";
@@ -28,7 +29,7 @@ export function cook(src: AppData, rid: string, dayIx: number | null, f = 1, now
   const d = clone(src);
   const r = recipeOf(src, rid);
   if (!r) return { data: src, msg: "Recept ne postoji." };
-  const eff = effUse(r, { ...d.prepStock }, true, f);
+  const eff = effUse(r, { ...d.prepStock }, true, f, src);
   consume(d, eff.use, eff.consumed);
   let ix = dayIx;
   if (ix == null) ix = d.plan.days.findIndex((x) => x.r === rid && !x.done);
@@ -41,8 +42,9 @@ export function cook(src: AppData, rid: string, dayIx: number | null, f = 1, now
 /** Napravi prep: skida sirove sastojke × t i dodaje make × t jedinica u pripremljeno */
 export function makePrep(src: AppData, pid: string, t = 1): Result {
   const d = clone(src);
-  const p = PBY[pid];
-  const inv = PREP_INV[pid];
+  const p = prepOf(src, pid);
+  const inv = prepInv(src, pid);
+  if (!p || !inv) return { data: src, msg: "Prep ne postoji." };
   for (const [id, a] of Object.entries(p.use)) setQty(d, id, qty(d, id) - a * t);
   d.prepStock[pid] = round(pc(d, pid) + inv.make * t);
   return { data: d, msg: `${p.n}: +${pfmt(inv.make * t, inv.unit)} u pripremljenom.` };

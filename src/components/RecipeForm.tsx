@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { DAYS, PBY, PREP, PREP_INV } from "../data";
+import { DAYS } from "../data";
+import { allPreps, prepInv, prepName } from "../logic/preps";
 import { plural } from "../logic/format";
 import type { Carb, CustomRecipe } from "../data";
 import { useApp } from "../state/AppContext";
@@ -78,7 +79,7 @@ export function RecipeForm({
       if (!r.id) continue;
       const a = parse(r.amt);
       const isPrep = r.id.startsWith("p:");
-      const label = isPrep ? PBY[r.id.slice(2)]?.n : itemOf(data, r.id)?.n;
+      const label = isPrep ? prepName(data, r.id.slice(2)) : itemOf(data, r.id)?.n;
       if (isNaN(a) || a <= 0) return setErr(`Upiši količinu za ${label ?? "namirnicu"}.`);
       if (isPrep) prep[r.id.slice(2)] = (prep[r.id.slice(2)] || 0) + a * BASE_SERVINGS;
       else use[r.id] = (use[r.id] || 0) + a * BASE_SERVINGS;
@@ -160,9 +161,9 @@ export function RecipeForm({
                   <option value="">Odaberi namirnicu…</option>
                   <option value="__new">+ Nova namirnica</option>
                   <optgroup label="Pripremljeno (prep)">
-                    {PREP.map((p) => (
+                    {allPreps(data).map((p) => (
                       <option key={p.id} value={"p:" + p.id}>
-                        {p.n} ({plural(2, PREP_INV[p.id].unit)})
+                        {p.n} ({plural(2, prepInv(data, p.id)?.unit ?? "porcija")})
                       </option>
                     ))}
                   </optgroup>
@@ -189,7 +190,7 @@ export function RecipeForm({
                   onChange={(e) => setRow(r.key, { amt: e.target.value })}
                 />
                 <span className="unit">
-                  {it ? it.u : r.id.startsWith("p:") ? plural(2, PREP_INV[r.id.slice(2)].unit) : ""}
+                  {it ? it.u : r.id.startsWith("p:") ? plural(2, prepInv(data, r.id.slice(2))?.unit ?? "porcija") : ""}
                 </span>
                 <button
                   type="button"

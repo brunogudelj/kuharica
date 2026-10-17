@@ -1,5 +1,6 @@
 /* Recepti za korisnika: ugrađeni + vlastiti */
-import { PBY, PREP_INV, RECIPES } from "../data";
+import { RECIPES } from "../data";
+import { prepInv, prepName } from "./preps";
 import { plural } from "./format";
 import type { CustomRecipe, Recipe } from "../data";
 import type { AppData } from "../state/model";
@@ -14,9 +15,9 @@ export function toRecipe(d: AppData, r: CustomRecipe): Recipe {
     if (!it) return `<span class=g>${num(a)}</span> (obrisana namirnica)`;
     return `<span class=g>${num(a)} ${it.u === "kom" ? "kom" : it.u}</span> ${it.n}`;
   });
-  const prep = Object.entries(r.prep ?? {}).filter(([p, n]) => PBY[p] && n > 0);
+  const prep = Object.entries(r.prep ?? {}).filter(([p, n]) => prepInv(d, p) && n > 0);
   const ingPrep = prep.map(
-    ([p, n]) => `<span class=g>${num(n)} ${plural(n, PREP_INV[p].unit)}</span> ${PBY[p].n} (prep)`,
+    ([p, n]) => `<span class=g>${num(n)} ${plural(n, prepInv(d, p)!.unit)}</span> ${prepName(d, p)} (prep)`,
   );
   return {
     id: r.id,

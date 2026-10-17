@@ -88,6 +88,22 @@ export interface PrepRecipe {
   for: string[];
 }
 
+/** Vlastiti prep (npr. umak spremljen iz recepta s weba). `use` su sirovi sastojci za jednu turu. */
+export interface CustomPrep {
+  id: string;
+  n: string;
+  k: PrepCat;
+  time: string;
+  keep: string;
+  /** koliko jedinica daje jedna tura */
+  make: number;
+  unit: UnitId;
+  use: Use;
+  /** sastojci koji se ne prate (začini) */
+  extra: string[];
+  st: string[];
+}
+
 export interface PrepInv {
   make: number;
   unit: UnitId;

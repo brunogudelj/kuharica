@@ -1,4 +1,5 @@
-import { DAILY, DAILY_COOK, PREP_INV, REC_USE_PREP } from "../data";
+import { DAILY, DAILY_COOK, REC_USE_PREP } from "../data";
+import { prepInv } from "./preps";
 import type { Item, Recipe, Use } from "../data";
 import { recipeOf } from "./recipes";
 import type { AppData, Slot } from "../state/model";
@@ -33,14 +34,14 @@ export const prepListOf = (r: Recipe): [string, number][] => r.prep ?? REC_USE_P
  * Što recept stvarno troši: sirovi sastojci × f, umanjeni za ono što pokrije pripremljeno.
  * Pripremljeno se troši iz `pcopy` (kopija stanja prepa koju funkcija mijenja).
  */
-export function effUse(r: Recipe, pcopy: Record<string, number>, withDaily: boolean, f = 1): EffUse {
+export function effUse(r: Recipe, pcopy: Record<string, number>, withDaily: boolean, f = 1, d?: AppData): EffUse {
   const use: Use = {};
   for (const [id, a] of Object.entries(r.use)) use[id] = a * f;
   if (withDaily) for (const [id, a] of Object.entries(DAILY_COOK)) use[id] = (use[id] || 0) + a;
   const consumed: [string, number][] = [];
   const own = !!r.prep;
   const list: [string, number][] = prepListOf(r)
-    .filter(([p]) => PREP_INV[p])
+    .filter(([p]) => prepInv(d, p))
     .map(([p, n]): [string, number] => [p, n * f]);
   const prep: EffUse["prep"] = [];
   for (const [pid, n] of list) {
@@ -50,7 +51,7 @@ export function effUse(r: Recipe, pcopy: Record<string, number>, withDaily: bool
       pcopy[pid] -= k;
       consumed.push([pid, k]);
     }
-    const per = PREP_INV[pid].per;
+    const per = prepInv(d, pid)!.per;
     if (own) {
       // vlastiti recept nema sirove sastojke prepa: za ono što fali troše se sirovi
       const short = n - k;
@@ -71,7 +72,7 @@ export const slotFactor = (r: Recipe) => (r.side ? 1 : 1 / BASE_SERVINGS);
 export function slotUse(d: AppData, s: Slot, pcopy: Record<string, number>): EffUse {
   if (s.item) return { use: { [s.item]: s.qty ?? 1 }, consumed: [], prep: [] };
   const r = s.r ? recipeOf(d, s.r) : undefined;
-  return r ? effUse(r, pcopy, false, slotFactor(r)) : { use: {}, consumed: [], prep: [] };
+  return r ? effUse(r, pcopy, false, slotFactor(r), d) : { use: {}, consumed: [], prep: [] };
 }
 
 /** Potreba za tjedan: neskuhani dani (s posnim sirom i prepom), nepojedeni doručci i dodatni slotovi */
@@ -83,7 +84,7 @@ export function planNeeds(d: AppData): Use {
   const pcopy = { ...d.prepStock };
   d.plan.days.forEach((day) => {
     const r = day.r && !day.done ? recipeOf(d, day.r) : undefined;
-    if (r) add(effUse(r, pcopy, true).use);
+    if (r) add(effUse(r, pcopy, true, 1, d).use);
   });
   (d.plan.om || []).forEach((o) => {
     if (o.done) return;
@@ -158,14 +159,14 @@ export function status(d: AppData, i: Item): Status {
 export function missingFor(d: AppData, rid: string, f = 1): string[] {
   const r = recipeOf(d, rid);
   if (!r) return [];
-  return Object.entries(effUse(r, { ...d.prepStock }, false, f).use)
+  return Object.entries(effUse(r, { ...d.prepStock }, false, f, d).use)
     .filter(([id, a]) => qty(d, id) + 1e-9 < a)
     .map(([id]) => itemName(d, id));
 }
 
 export const prepUsed = (d: AppData, rid: string, f = 1) => {
   const r = recipeOf(d, rid);
-  return r ? effUse(r, { ...d.prepStock }, false, f).consumed : [];
+  return r ? effUse(r, { ...d.prepStock }, false, f, d).consumed : [];
 };
 
 /** Cijena sastojaka prema cijeni pakiranja iz zalihe */

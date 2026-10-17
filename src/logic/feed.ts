@@ -1,5 +1,6 @@
 /* Svi recepti na jednom mjestu: ručak i večera, omleti i prep, s podacima za filtere i kartice */
-import { OM_CARB, OM_PRESETS, PREP, PREP_K } from "../data";
+import { OM_CARB, OM_PRESETS, PREP_K } from "../data";
+import { allPreps, isCustomPrep, prepOf } from "./preps";
 import type { OmSel, Use } from "../data";
 import type { AppData } from "../state/model";
 import { costOf, effUse, qty } from "./inventory";
@@ -125,7 +126,7 @@ const minutes = (s: string) => {
 export function mealEntry(d: AppData, id: string): FeedEntry | null {
   const r = allRecipes(d).find((x) => x.id === id);
   if (!r) return null;
-  const use = effUse(r, { ...d.prepStock }, false).use;
+  const use = effUse(r, { ...d.prepStock }, false, 1, d).use;
   const mac = macrosOf(d, r.use);
   const c = costOf(d, r.use);
   const av = availability(d, use);
@@ -188,7 +189,7 @@ export function omEntry(d: AppData, sel: OmSel, key: string, n: string, desc: st
 }
 
 export function prepEntry(d: AppData, id: string): FeedEntry | null {
-  const p = PREP.find((x) => x.id === id);
+  const p = prepOf(d, id);
   if (!p) return null;
   const mac = macrosOf(d, p.use);
   const c = costOf(d, p.use);
@@ -209,7 +210,7 @@ export function prepEntry(d: AppData, id: string): FeedEntry | null {
     ...availability(d, p.use),
     time: minutes(p.time),
     method: PREP_K[p.k],
-    custom: false,
+    custom: isCustomPrep(p.id),
     two: false,
     tags: ["Prep"],
   };
@@ -221,7 +222,9 @@ export function feed(d: AppData): FeedEntry[] {
     .map((r) => mealEntry(d, r.id))
     .filter((x): x is FeedEntry => !!x);
   const oms = OM_PRESETS.map((p, i) => omEntry(d, p.sel, "o:" + i, p.n, p.d, String(i)));
-  const preps = PREP.map((p) => prepEntry(d, p.id)).filter((x): x is FeedEntry => !!x);
+  const preps = allPreps(d)
+    .map((p) => prepEntry(d, p.id))
+    .filter((x): x is FeedEntry => !!x);
   return [...meals, ...oms, ...preps];
 }
 

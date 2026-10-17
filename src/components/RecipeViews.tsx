@@ -5,7 +5,7 @@ import { fetchPage, parseIngredient, parseRecipeHtml, parseRecipeText } from "..
 import { ImportReview } from "./ImportReview";
 import { CLAUDE_MODEL, claudeRecipe, loadClaudeKey } from "../logic/claude";
 import type { IngLine, ParsedRecipe } from "../logic/importRecipe";
-import { CYCLE, DAYS, DEFAULT_OM, OM_BASE, OM_CARB, OM_PRESETS, PBY, PREP, PREP_INV, REC_PREP } from "../data";
+import { CYCLE, DAYS, DEFAULT_OM, OM_BASE, OM_CARB, OM_PRESETS, PBY, REC_PREP } from "../data";
 import type { OmSel } from "../data";
 import { useApp } from "../state/AppContext";
 import { clone } from "../state/model";
@@ -34,6 +34,8 @@ import { shopName } from "../logic/shops";
 import { Html, Stepper } from "./ui";
 import { Icon } from "./icons";
 import { RecipeForm } from "./RecipeForm";
+import { PrepForm } from "./PrepForm";
+import { isCustomPrep, prepInv, prepName, prepOf, removeCustomPrep } from "../logic/preps";
 import { PrepBody } from "../tabs/PrepTab";
 import { usePanel } from "./Panel";
 import type { View } from "./Panel";
@@ -173,13 +175,13 @@ function StockList({ data, use, prep = [] }: { data: AppData; use: Record<string
       <tbody>
         {prep.map((p) => {
           const ok = p.used + 1e-9 >= p.need;
-          const unit = PREP_INV[p.id].unit;
+          const unit = prepInv(data, p.id)?.unit ?? "porcija";
           return (
             <tr key={"p:" + p.id} className={ok ? "" : "st-low"}>
               <td className="namecell">
                 <span className={"dot " + (ok ? "ok" : "low")} aria-hidden="true" />
                 <button type="button" className="linkbtn plain" onClick={() => open({ t: "prep", id: p.id })}>
-                  {PBY[p.id].n}
+                  {prepName(data, p.id)}
                 </button>{" "}
                 <span className="chip">prep</span>
               </td>
@@ -237,7 +239,7 @@ export function MealView({ id, day }: { id: string; day?: number }) {
   if (!r || !e) return <p className="sub">Recept više ne postoji.</p>;
   const s = data.ui.servings[r.id] ?? BASE_SERVINGS;
   const f = s / BASE_SERVINGS;
-  const eff = effUse(r, { ...data.prepStock }, false, f);
+  const eff = effUse(r, { ...data.prepStock }, false, f, data);
   const own = r.custom ? data.recipes.find((x) => x.id === r.id) : undefined;
   const setS = (v: number) =>
     update((d) => {
@@ -539,15 +541,64 @@ export function OmView({ sel: initSel, day, n }: { sel?: OmSel; day?: number; n?
 }
 
 export function PrepView({ id }: { id: string }) {
-  const { data } = useApp();
-  const p = PREP.find((x) => x.id === id);
+  const { data, apply } = useApp();
+  const { open, close } = usePanel();
+  const [confirm, setConfirm] = useState(false);
+  const p = prepOf(data, id);
   const e = prepEntry(data, id);
-  if (!p || !e) return null;
+  if (!p || !e) return <p className="sub">Prep više ne postoji.</p>;
   return (
     <div className="pbody">
-      <Head e={e} />
+      <Head e={e} kicker={isCustomPrep(id) ? "moj prep" : undefined} />
       <Stats e={e} />
       <PrepBody p={p} />
+      {isCustomPrep(id) && (
+        <div className="btnrow">
+          <button type="button" className="btn ghost" onClick={() => open({ t: "editPrep", id })}>
+            <Icon name="edit" size={16} /> Uredi prep
+          </button>
+          {confirm ? (
+            <>
+              <button
+                type="button"
+                className="btn danger"
+                onClick={() => {
+                  const r = removeCustomPrep(data, id);
+                  apply(r.data, r.msg);
+                  close();
+                }}
+              >
+                Da, obriši
+              </button>
+              <button type="button" className="btn ghost" onClick={() => setConfirm(false)}>
+                Odustani
+              </button>
+            </>
+          ) : (
+            <button type="button" className="btn ghost danger" onClick={() => setConfirm(true)}>
+              <Icon name="trash" size={16} /> Obriši
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PrepFormView({ id }: { id?: string }) {
+  const { data } = useApp();
+  const { open, close } = usePanel();
+  const existing = id ? data.preps.find((x) => x.id === id) : undefined;
+  return (
+    <div className="pbody">
+      <header className="phead">
+        <p className="kicker">Prep</p>
+        <h2 className="pname">{existing ? `Uredi: ${existing.n}` : "Novi prep"}</h2>
+        <p className="sub">
+          Umak, marinada ili baza koju radiš unaprijed. Recepti ga onda mogu koristiti kao sastojak.
+        </p>
+      </header>
+      <PrepForm existing={existing} onDone={(pid?: string) => (pid ? open({ t: "prep", id: pid }) : close())} />
     </div>
   );
 }
@@ -713,6 +764,10 @@ export function renderView(v: View) {
       return <EditRecipe id={v.id} />;
     case "importRecipe":
       return <ImportRecipe />;
+    case "newPrep":
+      return <PrepFormView />;
+    case "editPrep":
+      return <PrepFormView key={v.id} id={v.id} />;
   }
 }
 
@@ -737,7 +792,14 @@ function ImportRecipe() {
       return;
     }
     setErr("");
-    setRes({ parsed: p, lines: p.ingredients.map((x) => parseIngredient(data, x)) });
+    setRes({
+      parsed: p,
+      lines: p.ingredients.map((x, i) => {
+        const l = parseIngredient(data, x);
+        const g = p.groups?.[i];
+        return g ? { ...l, group: g } : l;
+      }),
+    });
   };
 
   const viaClaude = async (src: { url?: string; text?: string }) => {

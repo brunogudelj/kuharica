@@ -1,7 +1,7 @@
 import { del, get, set } from "idb-keyval";
-import { DAYS, ITEMS, NEW_ITEMS } from "../data";
+import { DAYS, ITEMS, NEW_ITEMS, UNITS } from "../data";
 import { isBuiltin } from "../logic/lists";
-import type { Carb, CatId, GrpId, Shop, Unit } from "../data";
+import type { Carb, CatId, GrpId, PrepCat, Shop, Unit, UnitId } from "../data";
 import type { AppData, Slot } from "../state/model";
 import { SLOT_KEYS, defaultData, defaultOmWeek } from "../state/model";
 import { validOm } from "../logic/omlet";
@@ -204,6 +204,24 @@ export function migrate(raw: unknown): AppData {
           : {}),
         extra: Array.isArray(x.extra) ? x.extra.filter((s): s is string => typeof s === "string") : [],
         st: Array.isArray(x.st) ? x.st.filter((s): s is string => typeof s === "string") : [],
+      }));
+  if (Array.isArray(r.preps))
+    d.preps = r.preps
+      .map(obj)
+      .filter((x) => typeof x.id === "string" && x.id.startsWith("pp-") && typeof x.n === "string")
+      .map((x) => ({
+        id: x.id as string,
+        n: x.n as string,
+        k: (["Umaci", "Marinade", "Baze", "Gotovo"].includes(x.k as string) ? x.k : "Umaci") as PrepCat,
+        time: typeof x.time === "string" ? x.time : "",
+        keep: typeof x.keep === "string" ? x.keep : "",
+        make: Math.max(0.01, num(x.make, 1)),
+        unit: ((x.unit as string) in UNITS ? x.unit : "porcija") as UnitId,
+        use: Object.fromEntries(
+          Object.entries(obj(x.use)).filter(([, a]) => typeof a === "number" && a > 0) as [string, number][],
+        ),
+        extra: Array.isArray(x.extra) ? x.extra.filter((v): v is string => typeof v === "string") : [],
+        st: Array.isArray(x.st) ? x.st.filter((v): v is string => typeof v === "string") : [],
       }));
   if (Array.isArray(it.hidden)) {
     d.items.hidden = it.hidden.filter((x): x is string => typeof x === "string");

@@ -1,5 +1,5 @@
 import { CATS, DAYS, DEFAULT_SHOPS, GROUPS, OM_PRESETS } from "../data";
-import type { CustomRecipe, Item, OmSel, Shop } from "../data";
+import type { CustomPrep, CustomRecipe, Item, OmSel, Shop } from "../data";
 
 export interface StockEntry {
   qty: number;
@@ -90,6 +90,8 @@ export interface AppData {
   settings: Settings;
   items: ItemsState;
   recipes: CustomRecipe[];
+  /** vlastiti prep recepti (id "pp-…") */
+  preps: CustomPrep[];
   /** popis dućana */
   shops: Shop[];
   /** mjesta spremanja, skupine i jedinice (uređuju se u Postavkama) */
@@ -149,6 +151,7 @@ export function defaultData(): AppData {
     settings: { dostava: 12 },
     items: { v: 2, custom: [], hidden: [], over: {} },
     recipes: [],
+    preps: [],
     shops: clone(DEFAULT_SHOPS),
     lists: defaultLists(),
     ui: { servings: {}, ture: {}, tab: "plan" },

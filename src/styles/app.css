@@ -3292,3 +3292,17 @@ ol.steps {
 .stocklist td.namecell .dot {
   margin-right: 4px;
 }
+
+.importtable tr.selrow td {
+  background: var(--orange-soft) !important;
+}
+.grpchip {
+  display: inline-flex;
+  margin: 0 6px 2px 0;
+  background: var(--orange-soft);
+  border-color: transparent;
+  color: var(--orange-ink);
+}
+.mkprep {
+  border-color: var(--orange);
+}
