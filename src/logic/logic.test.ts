@@ -69,7 +69,7 @@ describe("pravilo 3: pripremljeno se ne oduzima dvaput", () => {
   });
 
   it("bez prepa recept skida sve sirovo", () => {
-    const e = effUse("tandoori", {}, false, 1);
+    const e = effUse(RBY.tandoori, {}, false, 1);
     expect(e.consumed).toEqual([]);
     close(e.use.piletina, 250);
   });
@@ -204,7 +204,7 @@ describe("omleti", () => {
   });
   it("gotove kombinacije imaju smislene proteine", () => {
     for (const p of OM_PRESETS) {
-      const m = omMacros(p.sel, 1);
+      const m = omMacros(defaultData(), p.sel, 1);
       expect(m.p).toBeGreaterThan(20);
       expect(m.k).toBeLessThan(600);
     }

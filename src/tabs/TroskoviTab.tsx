@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { RECIPES, SHOPS } from "../data";
+import { SHOPS } from "../data";
+import { allRecipes } from "../logic/recipes";
 import type { ShopId } from "../data";
 import { useApp } from "../state/AppContext";
 import { clone } from "../state/model";
@@ -259,7 +260,8 @@ export function TroskoviTab() {
           <span className="count">recept ÷ 2 obroka</span>
         </div>
         <div className="list">
-          {RECIPES.map((r) => ({ r, c: dayCost(data, r.id) }))
+          {allRecipes(data)
+            .map((r) => ({ r, c: dayCost(data, r.id) }))
             .sort((a, b) => a.c.perMeal - b.c.perMeal)
             .map(({ r, c }) => (
               <div key={r.id} className="crow">

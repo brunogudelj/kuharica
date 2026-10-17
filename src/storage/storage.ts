@@ -1,6 +1,6 @@
 import { get, set } from "idb-keyval";
 import { CATS, DAYS, SHOPS } from "../data";
-import type { CatId, ShopId, Unit } from "../data";
+import type { Carb, CatId, ShopId, Unit } from "../data";
 import type { AppData } from "../state/model";
 import { defaultData, defaultOmWeek } from "../state/model";
 import { validOm } from "../logic/omlet";
@@ -96,6 +96,34 @@ export function migrate(raw: unknown): AppData {
         min: Math.max(0, num(x.min, 0)),
         step: Math.max(0.01, num(x.step, 1)),
         hint: typeof x.hint === "string" ? x.hint : "",
+        ...(x.om && ["prot", "veg"].includes(obj(x.om).role as string) && num(obj(x.om).amt, 0) > 0
+          ? {
+              om: {
+                role: obj(x.om).role as "prot" | "veg",
+                amt: num(obj(x.om).amt, 0),
+                ...(typeof obj(x.om).pre === "string" && (obj(x.om).pre as string).trim()
+                  ? { pre: obj(x.om).pre as string }
+                  : {}),
+              },
+            }
+          : {}),
+        ...(typeof x.kcal === "number" ? { kcal: x.kcal } : {}),
+        ...(typeof x.prot === "number" ? { prot: x.prot } : {}),
+      }));
+  if (Array.isArray(r.recipes))
+    d.recipes = r.recipes
+      .map(obj)
+      .filter((x) => typeof x.id === "string" && x.id.startsWith("r-") && typeof x.n === "string")
+      .map((x) => ({
+        id: x.id as string,
+        n: x.n as string,
+        c: (["Riža", "Krumpir", "Tjestenina", "Ostalo"].includes(x.c as string) ? x.c : "Ostalo") as Carb,
+        d: typeof x.d === "string" ? x.d : "",
+        use: Object.fromEntries(
+          Object.entries(obj(x.use)).filter(([, a]) => typeof a === "number" && a > 0) as [string, number][],
+        ),
+        extra: Array.isArray(x.extra) ? x.extra.filter((s): s is string => typeof s === "string") : [],
+        st: Array.isArray(x.st) ? x.st.filter((s): s is string => typeof s === "string") : [],
       }));
   if (Array.isArray(it.hidden)) d.items.hidden = it.hidden.filter((x): x is string => typeof x === "string");
   for (const [id, v] of Object.entries(obj(it.over))) {

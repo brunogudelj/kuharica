@@ -1,22 +1,18 @@
 import { useState } from "react";
-import type { FormEvent } from "react";
 import { CATS, PREP, PREP_INV, SHOPS } from "../data";
-import type { CatId, Item, ShopId, Unit } from "../data";
+import type { CatId, Item, ShopId } from "../data";
 import { useApp } from "../state/AppContext";
 import { clone } from "../state/model";
 import type { AppData } from "../state/model";
 import { pc, price, qty, status } from "../logic/inventory";
-import { hiddenItems, isCustom, newCustomItem, visibleItems } from "../logic/items";
-import { addItem, buy, editItem, removeItem, setHidden, setQty } from "../logic/actions";
+import { hiddenItems, isCustom, visibleItems } from "../logic/items";
+import { buy, editItem, removeItem, setHidden, setQty } from "../logic/actions";
 import { eur, fmt, pfmt, round } from "../logic/format";
 import { Filters, Note, SrcTag, StatusPill, Stepper } from "../components/ui";
+import { ItemForm, OmFields, omPatch } from "../components/ItemForm";
+import type { OmRole } from "../components/ItemForm";
 
 type F = "sve" | "nisko" | CatId;
-const UNITS: [Unit, string][] = [
-  ["g", "grami (g)"],
-  ["ml", "mililitri (ml)"],
-  ["kom", "komadi (kom)"],
-];
 const parse = (s: string) => parseFloat(s.replace(",", "."));
 
 function PrepStock({ data, update }: { data: AppData; update: (fn: (d: AppData) => AppData) => void }) {
@@ -53,134 +49,6 @@ function PrepStock({ data, update }: { data: AppData; update: (fn: (d: AppData) 
         ))}
       </div>
     </div>
-  );
-}
-
-/** Obrazac za novu namirnicu */
-function AddItem({ onDone }: { onDone: () => void }) {
-  const { data, apply } = useApp();
-  const [n, setN] = useState("");
-  const [cat, setCat] = useState<CatId>("fri");
-  const [u, setU] = useState<Unit>("g");
-  const [pack, setPack] = useState("");
-  const [min, setMin] = useState("0");
-  const [src, setSrc] = useState<ShopId>("K");
-  const [have, setHave] = useState("");
-  const [err, setErr] = useState("");
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    const p = parse(pack);
-    const m = parse(min || "0");
-    const h = parse(have || "0");
-    if (!n.trim()) return setErr("Upiši naziv namirnice.");
-    if (visibleItems(data).some((i) => i.n.toLowerCase() === n.trim().toLowerCase()))
-      return setErr("Namirnica s tim nazivom već postoji. Potraži je u popisu.");
-    if (isNaN(p) || p <= 0) return setErr(`Upiši koliko je u jednom pakiranju (${u}).`);
-    if (isNaN(m) || m < 0) return setErr("Minimum mora biti 0 ili više.");
-    const item = newCustomItem({ n, cat, src, u, pack: p, min: m });
-    const r = addItem(data, item, isNaN(h) ? 0 : h);
-    apply(r.data, r.msg);
-    onDone();
-  };
-
-  return (
-    <form className="confirm" onSubmit={submit} aria-label="Nova namirnica">
-      <b>Nova namirnica</b>
-      <div className="edit">
-        <label htmlFor="niName">
-          Naziv
-          <input
-            id="niName"
-            type="text"
-            placeholder="npr. Pileće kobasice Gavrilović"
-            value={n}
-            onChange={(e) => setN(e.target.value)}
-          />
-        </label>
-        <label htmlFor="niCat">
-          Gdje stoji
-          <select id="niCat" value={cat} onChange={(e) => setCat(e.target.value as CatId)}>
-            {(Object.entries(CATS) as [CatId, string][]).map(([k, t]) => (
-              <option key={k} value={k}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label htmlFor="niUnit">
-          Mjeri se u
-          <select id="niUnit" value={u} onChange={(e) => setU(e.target.value as Unit)}>
-            {UNITS.map(([k, t]) => (
-              <option key={k} value={k}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label htmlFor="niPack">
-          Jedno pakiranje ({u})
-          <input
-            id="niPack"
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="any"
-            placeholder={u === "kom" ? "npr. 10" : "npr. 400"}
-            value={pack}
-            onChange={(e) => setPack(e.target.value)}
-          />
-        </label>
-        <label htmlFor="niHave">
-          Trenutno imam ({u})
-          <input
-            id="niHave"
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="any"
-            placeholder="0"
-            value={have}
-            onChange={(e) => setHave(e.target.value)}
-          />
-        </label>
-        <label htmlFor="niMin">
-          Uvijek želim imati barem ({u})
-          <input
-            id="niMin"
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="any"
-            value={min}
-            onChange={(e) => setMin(e.target.value)}
-          />
-        </label>
-        <label htmlFor="niSrc">
-          Kupujem u
-          <select id="niSrc" value={src} onChange={(e) => setSrc(e.target.value as ShopId)}>
-            {(Object.entries(SHOPS) as [ShopId, string][]).map(([k, t]) => (
-              <option key={k} value={k}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <p className="sub">
-        Minimum 0 znači da je samo pratiš, a ne dolazi na popis za kupovinu dok je ne potroši recept. Jedinicu kasnije
-        ne možeš mijenjati.
-      </p>
-      {err && <p className="miss">{err}</p>}
-      <div className="btnrow">
-        <button type="submit" className="btn">
-          Dodaj
-        </button>
-        <button type="button" className="btn ghost" onClick={onDone}>
-          Odustani
-        </button>
-      </div>
-    </form>
   );
 }
 
@@ -227,6 +95,12 @@ function ItemRow({ i, open, onOpen }: { i: Item; open: boolean; onOpen: () => vo
   const p = price(data, i.id);
   const custom = isCustom(i.id);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [role, setRole] = useState<OmRole>(i.om?.role ?? "");
+  const [amt, setAmt] = useState(i.om ? String(i.om.amt) : "");
+  const [pre, setPre] = useState(i.om?.pre ?? "");
+  const [kcal, setKcal] = useState(i.kcal != null ? String(i.kcal) : "");
+  const [prot, setProt] = useState(i.prot != null ? String(i.prot) : "");
+  const commitOm = () => change((n) => editItem(n, i.id, omPatch(role, amt, pre, kcal, prot)));
   const change = (fn: (n: AppData) => AppData | void) =>
     update((d) => {
       const n = clone(d);
@@ -330,6 +204,30 @@ function ItemRow({ i, open, onOpen }: { i: Item; open: boolean; onOpen: () => vo
               </>
             )}
           </div>
+          {custom && (
+            <>
+              <h4 className="omh">Omlet i kalorije</h4>
+              <OmFields
+                idp={`om-${i.id}`}
+                u={i.u}
+                role={role}
+                setRole={(v) => {
+                  setRole(v);
+                  change((n) => editItem(n, i.id, omPatch(v, amt || (i.u === "kom" ? "1" : "50"), pre, kcal, prot)));
+                  if (v && !amt) setAmt(i.u === "kom" ? "1" : "50");
+                }}
+                amt={amt}
+                setAmt={setAmt}
+                pre={pre}
+                setPre={setPre}
+                kcal={kcal}
+                setKcal={setKcal}
+                prot={prot}
+                setProt={setProt}
+                onBlur={commitOm}
+              />
+            </>
+          )}
           <div className="btnrow">
             <button
               type="button"
@@ -443,7 +341,7 @@ export function ZalihaTab() {
           </button>
         )}
       </div>
-      {adding && <AddItem onDone={() => setAdding(false)} />}
+      {adding && <ItemForm initialName={q.trim()} onDone={() => setAdding(false)} />}
 
       <Note>
         Plusom i minusom mijenjaš količinu. Dodir na naziv otvara točan unos, cijenu, pakiranje i minimum, a namirnice

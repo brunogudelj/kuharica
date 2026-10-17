@@ -1086,3 +1086,39 @@ code {
 .edit input[type="text"] {
   font-family: var(--body);
 }
+.rfrows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rfrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 84px 34px 30px;
+  gap: 6px;
+  align-items: center;
+}
+.rfrow select,
+.rfrow input {
+  font: inherit;
+  font-size: 0.92rem;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+.rfrow .unit {
+  font: 500 0.8rem var(--mono);
+  color: var(--muted);
+}
+.edit.one {
+  grid-template-columns: 1fr;
+}
+.edit textarea {
+  min-height: 0;
+  font: inherit;
+  font-size: 0.92rem;
+}

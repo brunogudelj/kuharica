@@ -1,6 +1,7 @@
 /* Čiste funkcije koje iz stanja rade novo stanje. Poništavanje = povratak prethodnog stanja. */
-import { CYCLE, PBY, PREP_INV, RBY, RECIPES } from "../data";
-import type { Item } from "../data";
+import { CYCLE, PBY, PREP_INV } from "../data";
+import type { CustomRecipe, Item } from "../data";
+import { allRecipes, recipeOf } from "./recipes";
 import type { AppData, CostEntry } from "../state/model";
 import { clone, emptyPlanDays } from "../state/model";
 import { effUse, missingFor, pc, price, qty } from "./inventory";
@@ -25,14 +26,16 @@ function consume(d: AppData, use: Record<string, number>, consumed: [string, num
 /** Skuhaj recept: skida sastojke × f (osnova 1,5 porcija), dnevne dodatke i prvo troši pripremljeno */
 export function cook(src: AppData, rid: string, dayIx: number | null, f = 1, now = Date.now()): Result {
   const d = clone(src);
-  const eff = effUse(rid, { ...d.prepStock }, true, f);
+  const r = recipeOf(src, rid);
+  if (!r) return { data: src, msg: "Recept ne postoji." };
+  const eff = effUse(r, { ...d.prepStock }, true, f);
   consume(d, eff.use, eff.consumed);
   let ix = dayIx;
   if (ix == null) ix = d.plan.days.findIndex((x) => x.r === rid && !x.done);
   if (ix != null && ix >= 0) d.plan.days[ix] = { r: rid, done: true };
   d.hist = [{ r: rid, t: now }, ...d.hist].slice(0, 30);
   const np = eff.consumed.length;
-  return { data: d, msg: `${RBY[rid].n}: skinuto sa zalihe${np ? `, iskorišteno ${np} iz prepa` : ""}.` };
+  return { data: d, msg: `${r.n}: skinuto sa zalihe${np ? `, iskorišteno ${np} iz prepa` : ""}.` };
 }
 
 /** Napravi prep: skida sirove sastojke × t i dodaje make × t jedinica u pripremljeno */
@@ -48,10 +51,10 @@ export function makePrep(src: AppData, pid: string, t = 1): Result {
 export function eatOmlet(src: AppData, ix: number, f = 1): Result {
   const d = clone(src);
   const day = d.plan.om[ix];
-  const eff = omEff(day.sel, f, { ...d.prepStock });
+  const eff = omEff(src, day.sel, f, { ...d.prepStock });
   consume(d, eff.use, eff.consumed);
   d.plan.om[ix] = { sel: day.sel, done: true };
-  return { data: d, msg: `${omName(day.sel)}: sastojci skinuti sa zalihe.` };
+  return { data: d, msg: `${omName(src, day.sel)}: sastojci skinuti sa zalihe.` };
 }
 
 export function eatMuffins(src: AppData, ix: number): Result {
@@ -105,7 +108,7 @@ export function autoFillPlan(src: AppData): AppData {
   d.plan.days = d.plan.days.map((day, ix) => {
     if (day.done) return day;
     const c = CYCLE[((d.plan.start || 0) + ix) % 5];
-    const pool = RECIPES.filter((r) => r.c === c);
+    const pool = allRecipes(d).filter((r) => r.c === c);
     pool.sort(
       (a, b) => (used[a.id] || 0) - (used[b.id] || 0) || missingFor(d, a.id).length - missingFor(d, b.id).length,
     );
@@ -140,13 +143,14 @@ export function addItem(src: AppData, item: Item, startQty = 0): Result {
 export function editItem(
   src: AppData,
   id: string,
-  patch: Partial<Pick<Item, "n" | "cat" | "src" | "pack" | "min">>,
+  patch: Partial<Pick<Item, "n" | "cat" | "src" | "pack" | "min" | "om" | "kcal" | "prot">>,
 ): AppData {
   const d = clone(src);
   if (isCustom(id)) {
     d.items.custom = d.items.custom.map((i) => {
       if (i.id !== id) return i;
-      const n = { ...i, ...patch };
+      const n: Item = { ...i, ...patch };
+      for (const k of ["om", "kcal", "prot"] as const) if (k in patch && patch[k] === undefined) delete n[k];
       return { ...n, step: patch.pack != null ? defaultStep(n.u, n.pack) : n.step };
     });
   } else {
@@ -172,4 +176,22 @@ export function setHidden(src: AppData, id: string, hidden: boolean): Result {
   d.items.hidden = hidden ? [...new Set([...d.items.hidden, id])] : d.items.hidden.filter((x) => x !== id);
   const n = itemOf(src, id)?.n ?? "Namirnica";
   return { data: d, msg: hidden ? `${n} je skrivena. Vratiti je možeš na dnu Zalihe.` : `${n} je vraćena u zalihu.` };
+}
+
+/** Spremi vlastiti recept (novi ili izmjena postojećeg) */
+export function saveRecipe(src: AppData, r: CustomRecipe): Result {
+  const d = clone(src);
+  const i = d.recipes.findIndex((x) => x.id === r.id);
+  if (i >= 0) d.recipes[i] = r;
+  else d.recipes.push(r);
+  return { data: d, msg: i >= 0 ? `${r.n} je spremljen.` : `${r.n} je dodan u recepte.` };
+}
+
+/** Obriši vlastiti recept; makni ga i iz plana */
+export function removeRecipe(src: AppData, id: string): Result {
+  const d = clone(src);
+  const r = d.recipes.find((x) => x.id === id);
+  d.recipes = d.recipes.filter((x) => x.id !== id);
+  d.plan.days = d.plan.days.map((x) => (x.r === id && !x.done ? { r: "", done: false } : x));
+  return { data: d, msg: `${r?.n ?? "Recept"} je obrisan.` };
 }

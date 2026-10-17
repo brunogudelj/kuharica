@@ -1,6 +1,6 @@
-import { RECIPES } from "../data";
 import type { AppData } from "../state/model";
 import { dayCost } from "./inventory";
+import { allRecipes, recipeOf } from "./recipes";
 import { monthKey } from "./format";
 
 /** Sažetak troškova za karticu Troškovi */
@@ -13,8 +13,8 @@ export function costSummary(d: AppData, now = Date.now()) {
   const spent = entries.reduce((s, e) => s + (e.amount || 0), 0);
 
   // Procjena iz plana: prosjek planiranih dana (ili svih recepata ako plan nije složen)
-  const planned = d.plan.days.filter((x) => x.r).map((x) => x.r);
-  const pool = planned.length ? planned : RECIPES.map((r) => r.id);
+  const planned = d.plan.days.filter((x) => x.r && recipeOf(d, x.r)).map((x) => x.r);
+  const pool = planned.length ? planned : allRecipes(d).map((r) => r.id);
   const dcs = pool.map((r) => dayCost(d, r));
   const avgFull = dcs.reduce((s, x) => s + x.full, 0) / dcs.length;
   const avgMeal = dcs.reduce((s, x) => s + x.perMeal, 0) / dcs.length;

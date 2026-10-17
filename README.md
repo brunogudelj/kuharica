@@ -58,7 +58,14 @@ npm run lint
 
 Svaka radnja ima _Poništi_ 6 sekundi.
 
-## Dodavanje recepta
+## Vlastite namirnice i recepti (u aplikaciji)
+
+- **Namirnica:** _Zaliha → + Dodaj namirnicu_. Upiši naziv, gdje stoji, mjeru (g, ml, kom), pakiranje, koliko imaš, minimum i dućan. Po želji je označi za omlet (kao protein ili povrće, s količinom po omletu i kratkom uputom) te upiši kcal i proteine s deklaracije. Ugrađene namirnice koje ne koristiš možeš sakriti.
+- **Recept:** _Recepti → + Novi recept_. Odaberi namirnice iz zalihe s količinama za 1 porciju (ili dodaj novu izravno iz obrasca), pa upiši ono što ne pratiš (začini) i korake. Recept se pojavi u Receptima (filter _Moji_), u Planu prema ugljikohidratu, u _Popuni tjedan_, u kupovini i u troškovima. _Skuhao sam_ skida njegove namirnice sa zalihe.
+
+Vlastite namirnice i recepti sinkroniziraju se između laptopa i mobitela kao i ostali podaci.
+
+## Dodavanje ugrađenog recepta (u kodu)
 
 Podaci su u `src/data/`:
 

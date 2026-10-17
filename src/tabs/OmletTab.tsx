@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { DAYS, OFBY, OM_BASE, OM_CARB, OM_PRESETS, OM_PROT, OM_VEG, PBY, PREP_INV } from "../data";
+import { DAYS, OM_BASE, OM_CARB, OM_PRESETS, PBY, PREP_INV } from "../data";
 import type { OmSel } from "../data";
 import { useApp } from "../state/AppContext";
 import { itemName } from "../logic/items";
@@ -7,6 +7,9 @@ import { clone } from "../state/model";
 import { costOf, pc, qty } from "../logic/inventory";
 import {
   autoOmWeek,
+  fillOf,
+  omProt,
+  omVeg,
   omEff,
   omIngredients,
   omMacros,
@@ -47,13 +50,13 @@ export function OmletTab() {
     titleRef.current?.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
   };
 
-  const mac = omMacros(sel, serv);
+  const mac = omMacros(data, sel, serv);
   const per = mac.p / serv;
-  const eff = omEff(sel, serv, { ...data.prepStock });
+  const eff = omEff(data, sel, serv, { ...data.prepStock });
   const miss = Object.entries(eff.use)
     .filter(([id, a]) => qty(data, id) + 1e-9 < a)
     .map(([id]) => itemName(data, id));
-  const cost = costOf(data, omUse(sel, serv));
+  const cost = costOf(data, omUse(data, sel, serv));
   const pu = eff.consumed.map(([p, k]) => `${pfmt(k, PREP_INV[p].unit)} ${PBY[p].n.toLowerCase()}`);
   const mf = pc(data, "egg-muffini");
 
@@ -66,7 +69,7 @@ export function OmletTab() {
         setSel({ ...sel, fill: sel.fill.includes(x) ? sel.fill.filter((y) => y !== x) : [...sel.fill, x] })
       }
     >
-      {OFBY[x].n}
+      {fillOf(data, x)?.n}
     </button>
   );
 
@@ -92,7 +95,7 @@ export function OmletTab() {
         </div>
         <div className="list plan">
           {week.map((o, ix) => {
-            const m = omMacros(o.sel, 1);
+            const m = omMacros(data, o.sel, 1);
             const ms = o.done ? [] : omMissing(data, o.sel);
             return (
               <div key={ix} className={"prow omrow" + (o.done ? " done" : "") + (ix === omDay ? " sel" : "")}>
@@ -101,7 +104,7 @@ export function OmletTab() {
                   <small>{ix === tix ? "danas" : ""}</small>
                 </div>
                 <button type="button" className="pmid ompick" aria-pressed={ix === omDay} onClick={() => pickDay(ix)}>
-                  <b>{omName(o.sel)}</b>
+                  <b>{omName(data, o.sel)}</b>
                   <span className="num">
                     {m.p} g proteina · {m.k} kcal
                   </span>
@@ -136,7 +139,7 @@ export function OmletTab() {
         <h4 className="omh">Gotove kombinacije</h4>
         <div className="presets">
           {OM_PRESETS.map((p, ix) => {
-            const m = omMacros(p.sel, 1);
+            const m = omMacros(data, p.sel, 1);
             const on = omNorm(p.sel) === omNorm(sel);
             const inWeek = week.some((o, j) => j !== omDay && omNorm(o.sel) === omNorm(p.sel));
             return (
@@ -168,9 +171,9 @@ export function OmletTab() {
           ))}
         </div>
         <h4 className="omh">Protein</h4>
-        <div className="filters">{OM_PROT.map(chip)}</div>
+        <div className="filters">{omProt(data).map(chip)}</div>
         <h4 className="omh">Povrće</h4>
-        <div className="filters">{OM_VEG.map(chip)}</div>
+        <div className="filters">{omVeg(data).map(chip)}</div>
         <h4 className="omh">Prilog</h4>
         <div className="filters">
           {Object.entries(OM_CARB).map(([k, c]) => (
@@ -182,7 +185,7 @@ export function OmletTab() {
       </div>
 
       <div className="group">
-        <h2>{omName(sel)}</h2>
+        <h2>{omName(data, sel)}</h2>
         <div className="summary four">
           <div>
             <b>{mac.p} g</b>
@@ -234,7 +237,7 @@ export function OmletTab() {
             <div>
               <h4>Sastojci za {porcTxt(serv)}</h4>
               <ul className="ing">
-                {omIngredients(sel).map((i, k) => (
+                {omIngredients(data, sel).map((i, k) => (
                   <Html key={k} as="li" html={scaleText(i, serv)} />
                 ))}
               </ul>
@@ -250,7 +253,7 @@ export function OmletTab() {
             <div>
               <h4>Priprema</h4>
               <ol>
-                {omSteps(sel, method).map((x, k) => (
+                {omSteps(data, sel, method).map((x, k) => (
                   <li key={k}>{x}</li>
                 ))}
               </ol>

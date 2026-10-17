@@ -1,4 +1,5 @@
-import { CYCLE, DAYS, RBY, RECIPES } from "../data";
+import { CYCLE, DAYS } from "../data";
+import { allRecipes, recipeName, recipeOf } from "../logic/recipes";
 import type { Carb } from "../data";
 import { useApp } from "../state/AppContext";
 import { clone } from "../state/model";
@@ -6,7 +7,7 @@ import { missingFor } from "../logic/inventory";
 import { autoFillPlan, cook, newWeek } from "../logic/actions";
 import { Note } from "../components/ui";
 
-const CARBS: Carb[] = ["Riža", "Krumpir", "Tjestenina"];
+const CARBS: Carb[] = ["Riža", "Krumpir", "Tjestenina", "Ostalo"];
 
 export function PlanTab() {
   const { data, apply, update } = useApp();
@@ -76,7 +77,7 @@ export function PlanTab() {
       <div className="list plan">
         {plan.days.map((d, ix) => {
           const cyc = CYCLE[((plan.start || 0) + ix) % 5];
-          const m = d.r && RBY[d.r] && !d.done ? missingFor(data, d.r) : [];
+          const m = d.r && recipeOf(data, d.r) && !d.done ? missingFor(data, d.r) : [];
           return (
             <div key={ix} className={"prow" + (d.done ? " done" : "")}>
               <div className="dname">
@@ -91,17 +92,19 @@ export function PlanTab() {
                   aria-label={`Recept za ${DAYS[ix]}`}
                 >
                   <option value="">Nije planirano</option>
-                  {CARBS.map((c) => (
+                  {CARBS.filter((c) => allRecipes(data).some((x) => x.c === c)).map((c) => (
                     <optgroup key={c} label={c}>
-                      {RECIPES.filter((x) => x.c === c).map((x) => (
-                        <option key={x.id} value={x.id}>
-                          {x.n}
-                        </option>
-                      ))}
+                      {allRecipes(data)
+                        .filter((x) => x.c === c)
+                        .map((x) => (
+                          <option key={x.id} value={x.id}>
+                            {x.n}
+                          </option>
+                        ))}
                     </optgroup>
                   ))}
                 </select>
-                {d.r && RBY[d.r] ? (
+                {d.r && recipeOf(data, d.r) ? (
                   d.done ? (
                     <span className="ready">Skuhano</span>
                   ) : m.length ? (
@@ -132,7 +135,7 @@ export function PlanTab() {
           {data.hist.length ? (
             data.hist.slice(0, 8).map((h, i) => (
               <li key={i}>
-                {RBY[h.r] ? RBY[h.r].n : h.r} ·{" "}
+                {recipeName(data, h.r)} ·{" "}
                 {new Date(h.t).toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" })}
               </li>
             ))

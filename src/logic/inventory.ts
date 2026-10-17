@@ -1,5 +1,6 @@
-import { DAILY, DAILY_PREP, PREP_INV, RBY, REC_USE_PREP } from "../data";
-import type { Item, Use } from "../data";
+import { DAILY, DAILY_PREP, PREP_INV, REC_USE_PREP } from "../data";
+import type { Item, Recipe, Use } from "../data";
+import { recipeOf } from "./recipes";
 import type { AppData } from "../state/model";
 import { omEff, omUse } from "./omlet";
 import { allItems, itemName, itemOf } from "./items";
@@ -26,9 +27,10 @@ export interface EffUse {
  * Što recept stvarno troši: sirovi sastojci × f, umanjeni za ono što pokrije pripremljeno.
  * Pripremljeno se troši iz `pcopy` (kopija stanja prepa koju funkcija mijenja).
  */
-export function effUse(rid: string, pcopy: Record<string, number>, withDaily: boolean, f = 1): EffUse {
+export function effUse(r: Recipe, pcopy: Record<string, number>, withDaily: boolean, f = 1): EffUse {
+  const rid = r.id;
   const use: Use = {};
-  for (const [id, a] of Object.entries(RBY[rid].use)) use[id] = a * f;
+  for (const [id, a] of Object.entries(r.use)) use[id] = a * f;
   if (withDaily) for (const [id, a] of Object.entries(DAILY)) use[id] = (use[id] || 0) + a;
   const consumed: [string, number][] = [];
   const list: [string, number][] = (REC_USE_PREP[rid] || [])
@@ -51,11 +53,12 @@ export function planNeeds(d: AppData): Use {
   const need: Use = {};
   const pcopy = { ...d.prepStock };
   d.plan.days.forEach((day) => {
-    if (!day.r || day.done || !RBY[day.r]) return;
-    for (const [id, a] of Object.entries(effUse(day.r, pcopy, true).use)) need[id] = (need[id] || 0) + a;
+    const r = day.r && !day.done ? recipeOf(d, day.r) : undefined;
+    if (!r) return;
+    for (const [id, a] of Object.entries(effUse(r, pcopy, true).use)) need[id] = (need[id] || 0) + a;
   });
   (d.plan.om || []).forEach((o) => {
-    if (!o.done) for (const [id, a] of Object.entries(omEff(o.sel, 1, pcopy).use)) need[id] = (need[id] || 0) + a;
+    if (!o.done) for (const [id, a] of Object.entries(omEff(d, o.sel, 1, pcopy).use)) need[id] = (need[id] || 0) + a;
   });
   return need;
 }
@@ -94,12 +97,17 @@ export function status(d: AppData, i: Item): Status {
 }
 
 export function missingFor(d: AppData, rid: string, f = 1): string[] {
-  return Object.entries(effUse(rid, { ...d.prepStock }, false, f).use)
+  const r = recipeOf(d, rid);
+  if (!r) return [];
+  return Object.entries(effUse(r, { ...d.prepStock }, false, f).use)
     .filter(([id, a]) => qty(d, id) + 1e-9 < a)
     .map(([id]) => itemName(d, id));
 }
 
-export const prepUsed = (d: AppData, rid: string, f = 1) => effUse(rid, { ...d.prepStock }, false, f).consumed;
+export const prepUsed = (d: AppData, rid: string, f = 1) => {
+  const r = recipeOf(d, rid);
+  return r ? effUse(r, { ...d.prepStock }, false, f).consumed : [];
+};
 
 /** Cijena sastojaka prema cijeni pakiranja iz zalihe */
 export function costOf(d: AppData, use: Use) {
@@ -121,10 +129,10 @@ export function costOf(d: AppData, use: Use) {
 
 /** Trošak dana s receptom: obroci (recept + dodaci), po obroku, cijeli dan s omletom */
 export function dayCost(d: AppData, rid: string) {
-  const r = costOf(d, RBY[rid].use);
+  const r = costOf(d, recipeOf(d, rid)?.use ?? {});
   const dl = costOf(d, DAILY);
   const oms = d.plan.om || [];
-  const om = oms.length ? oms.reduce((s, o) => s + costOf(d, omUse(o.sel, 1)).c, 0) / oms.length : 0;
+  const om = oms.length ? oms.reduce((s, o) => s + costOf(d, omUse(d, o.sel, 1)).c, 0) / oms.length : 0;
   return {
     meals: r.c + dl.c,
     perMeal: (r.c + dl.c) / 2,

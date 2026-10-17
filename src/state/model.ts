@@ -1,5 +1,5 @@
 import { DAYS, OM_PRESETS } from "../data";
-import type { Item, OmSel } from "../data";
+import type { CustomRecipe, Item, OmSel } from "../data";
 
 export interface StockEntry {
   qty: number;
@@ -54,6 +54,7 @@ export interface AppData {
   costs: Record<string, CostEntry[]>;
   settings: Settings;
   items: ItemsState;
+  recipes: CustomRecipe[];
   ui: UiState;
 }
 
@@ -74,6 +75,7 @@ export function defaultData(): AppData {
     costs: {},
     settings: { dostava: 12 },
     items: { custom: [], hidden: [], over: {} },
+    recipes: [],
     ui: { servings: {}, ture: {}, tab: "plan" },
   };
 }

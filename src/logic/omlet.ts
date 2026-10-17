@@ -1,35 +1,80 @@
 import { DEFAULT_OM, MAC, OFBY, OM_BASE, OM_CARB, OM_PRESETS, OM_PROT, OM_VEG, PREP_INV } from "../data";
-import type { OmSel, Use } from "../data";
-import type { AppData, OmDay } from "../state/model";
+import type { OmFill, OmSel, Use } from "../data";
+import type { AppData, ItemsState, OmDay } from "../state/model";
 import { clone, defaultOmWeek } from "../state/model";
 import { qty } from "./inventory";
-import { itemName } from "./items";
+import { allItems, itemName, itemOf } from "./items";
 
+/** Odabir omleta iz spremišta. Vlastiti nadjevi (c-…) se zadržavaju i kad se ne mogu odmah provjeriti. */
 export function validOm(v: unknown): OmSel {
   const s = v as Partial<OmSel> | null | undefined;
   if (!s || !s.base || !OM_BASE[s.base] || !s.carb || !OM_CARB[s.carb] || !Array.isArray(s.fill))
     return clone(DEFAULT_OM);
-  return { base: s.base, fill: s.fill.filter((x) => typeof x === "string" && OFBY[x]), carb: s.carb };
+  return {
+    base: s.base,
+    fill: s.fill.filter((x) => typeof x === "string" && (OFBY[x] || x.startsWith("c-"))),
+    carb: s.carb,
+  };
 }
 
 export const omNorm = (s: OmSel) => JSON.stringify([s.base, s.fill.slice().sort(), s.carb]);
 
-export function omUse(sel: OmSel, f: number): Use {
+const fillCache = new WeakMap<ItemsState, { map: Record<string, OmFill>; prot: string[]; veg: string[] }>();
+
+/** Nadjevi: ugrađeni + vlastite namirnice označene za omlet */
+function fills(d: AppData) {
+  let c = fillCache.get(d.items);
+  if (!c) {
+    const map: Record<string, OmFill> = { ...OFBY };
+    const prot = [...OM_PROT];
+    const veg = [...OM_VEG];
+    for (const i of allItems(d)) {
+      if (!i.om || d.items.hidden.includes(i.id)) continue;
+      const amt = String(i.om.amt).replace(".", ",");
+      map[i.id] = {
+        id: i.id,
+        n: i.n,
+        line: `<span class=g>${amt} ${i.u}</span> ${i.n.toLowerCase()}`,
+        use: { [i.id]: i.om.amt },
+        ...(i.om.pre ? { pre: i.om.pre } : { post: `${i.n} rasporedi po nadjevu.` }),
+      };
+      (i.om.role === "prot" ? prot : veg).push(i.id);
+    }
+    c = { map, prot, veg };
+    fillCache.set(d.items, c);
+  }
+  return c;
+}
+export const fillOf = (d: AppData, id: string): OmFill | undefined => fills(d).map[id];
+export const omProt = (d: AppData) => fills(d).prot;
+export const omVeg = (d: AppData) => fills(d).veg;
+
+/** kcal i proteini po jedinici: ugrađeno ili upisano uz vlastitu namirnicu */
+export function macOf(d: AppData, id: string): [number, number] | null {
+  if (MAC[id]) return MAC[id];
+  const i = itemOf(d, id);
+  if (!i || (i.kcal == null && i.prot == null)) return null;
+  const k = i.u === "kom" ? 1 : 1 / 100;
+  return [(i.kcal ?? 0) * k, (i.prot ?? 0) * k];
+}
+
+export function omUse(d: AppData, sel: OmSel, f: number): Use {
   const use: Use = {};
   const add = (o: Use) => {
     for (const [id, a] of Object.entries(o)) use[id] = (use[id] || 0) + a * f;
   };
   add(OM_BASE[sel.base].use);
   sel.fill.forEach((x) => {
-    if (OFBY[x]) add(OFBY[x].use);
+    const F = fillOf(d, x);
+    if (F) add(F.use);
   });
   add(OM_CARB[sel.carb].use);
   return use;
 }
 
 /** Stvarna potrošnja omleta: prilog iz prepa (pola kutije riže ili krumpira) troši se prvo */
-export function omEff(sel: OmSel, f: number, pcopy: Record<string, number>) {
-  const use = omUse(sel, f);
+export function omEff(d: AppData, sel: OmSel, f: number, pcopy: Record<string, number>) {
+  const use = omUse(d, sel, f);
   const consumed: [string, number][] = [];
   const C = OM_CARB[sel.carb];
   if (C.prep) {
@@ -46,11 +91,11 @@ export function omEff(sel: OmSel, f: number, pcopy: Record<string, number>) {
   return { use, consumed };
 }
 
-export function omMacros(sel: OmSel, f: number) {
+export function omMacros(d: AppData, sel: OmSel, f: number) {
   let k = 10 * f; // ulje u spreju
   let p = 0;
-  for (const [id, a] of Object.entries(omUse(sel, f))) {
-    const m = MAC[id];
+  for (const [id, a] of Object.entries(omUse(d, sel, f))) {
+    const m = macOf(d, id);
     if (m) {
       k += m[0] * a;
       p += m[1] * a;
@@ -59,17 +104,17 @@ export function omMacros(sel: OmSel, f: number) {
   return { k: Math.round(k), p: Math.round(p) };
 }
 
-export function omName(sel: OmSel): string {
+export function omName(d: AppData, sel: OmSel): string {
   const p = OM_PRESETS.find((x) => omNorm(x.sel) === omNorm(sel));
   if (p) return p.n;
-  const f = sel.fill.map((x) => OFBY[x].n.toLowerCase());
+  const f = sel.fill.map((x) => fillOf(d, x)?.n.toLowerCase()).filter((x): x is string => !!x);
   if (!f.length) return OM_BASE[sel.base].n + " omlet";
   const t = f.length > 1 ? f.slice(0, -1).join(", ") + " i " + f[f.length - 1] : f[0];
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
 export function omMissing(data: AppData, sel: OmSel, f = 1): string[] {
-  return Object.entries(omEff(sel, f, { ...data.prepStock }).use)
+  return Object.entries(omEff(data, sel, f, { ...data.prepStock }).use)
     .filter(([id, a]) => qty(data, id) + 1e-9 < a)
     .map(([id]) => itemName(data, id));
 }
@@ -99,9 +144,10 @@ export function autoOmWeek(data: AppData, keepDone: boolean, rng: () => number =
   });
 }
 
-/** Nasumičan omlet: 1 protein i 2 povrća, prednost ima ono što je na zalihi */
+/** Nasumičan omlet: 1 protein i 2 povrća (i vlastiti nadjevi), prednost ima ono što je na zalihi */
 export function surpriseSel(data: AppData, rng: () => number = Math.random): OmSel {
-  const ok = (id: string) => (Object.entries(OFBY[id].use).every(([k, a]) => qty(data, k) + 1e-9 >= a) ? 1 : 0);
+  const ok = (id: string) =>
+    Object.entries(fillOf(data, id)?.use ?? {}).every(([k, a]) => qty(data, k) + 1e-9 >= a) ? 1 : 0;
   const pick = (arr: string[], n: number) =>
     shuffle(arr, rng)
       .sort((a, b) => ok(b) - ok(a))
@@ -109,28 +155,28 @@ export function surpriseSel(data: AppData, rng: () => number = Math.random): OmS
   const r = rng();
   return {
     base: r < 0.6 ? "protein" : r < 0.8 ? "lagani" : "klasik",
-    fill: pick(OM_PROT, 1).concat(pick(OM_VEG, 2)),
+    fill: pick(omProt(data), 1).concat(pick(omVeg(data), 2)),
     carb: "nista",
   };
 }
 
 /** Sastojci omleta kao HTML redci (prije skaliranja) */
-export function omIngredients(sel: OmSel): string[] {
+export function omIngredients(d: AppData, sel: OmSel): string[] {
   const C = OM_CARB[sel.carb];
   return [OM_BASE[sel.base].line]
-    .concat(sel.fill.map((x) => OFBY[x].line))
+    .concat(sel.fill.map((x) => fillOf(d, x)?.line).filter((x): x is string => !!x))
     .concat(C.line ? [C.line] : [])
     .concat(["sol, papar, ulje u spreju"]);
 }
 
 /** Koraci pripreme, složeni prema nadjevu i načinu (wok ili air fryer) */
-export function omSteps(sel: OmSel, method: "wok" | "af"): string[] {
-  const fills = sel.fill.map((x) => OFBY[x]);
+export function omSteps(d: AppData, sel: OmSel, method: "wok" | "af"): string[] {
+  const fs = sel.fill.map((x) => fillOf(d, x)).filter((x): x is OmFill => !!x);
   const B = OM_BASE[sel.base];
   const C = OM_CARB[sel.carb];
-  const pre = fills.filter((x) => x.pre).map((x) => x.pre);
-  const post = fills.filter((x) => x.post).map((x) => x.post);
-  const mixin = fills.filter((x) => x.mixin).map((x) => x.mixin);
+  const pre = fs.filter((x) => x.pre).map((x) => x.pre);
+  const post = fs.filter((x) => x.post).map((x) => x.post);
+  const mixin = fs.filter((x) => x.mixin).map((x) => x.mixin);
   const st: string[] = [];
   if (C.step && sel.carb === "krumpir") st.push(C.step);
   st.push(
@@ -143,7 +189,7 @@ export function omSteps(sel: OmSel, method: "wok" | "af"): string[] {
     st.push(
       "Kuhačom privlači stisnute rubove prema sredini i naginji wok da sirova smjesa steče na vrući rub. Ponavljaj 1–2 min.",
     );
-    if (fills.length)
+    if (fs.length)
       st.push(("Dok je gornja strana još malo vlažna, rasporedi nadjev po jednoj polovici. " + post.join(" ")).trim());
     st.push("Preklopi omlet, poklopi wok i ostavi 1 min na najmanjoj vatri da se sredina dovrši, a sir omekša.");
   } else {
@@ -151,7 +197,7 @@ export function omSteps(sel: OmSel, method: "wok" | "af"): string[] {
     st.push(
       "Mali kalup za air fryer (silikonski, ili od papira za pečenje savijenog u posudicu) poprskaj uljem i ulij jaja.",
     );
-    if (fills.length) st.push(("Rasporedi nadjev po jajima. " + post.join(" ")).trim());
+    if (fs.length) st.push(("Rasporedi nadjev po jajima. " + post.join(" ")).trim());
     st.push(
       "Peci na 160 °C 10–12 min, dok sredina nije čvrsta kad lagano protreseš kalup. Na višoj temperaturi rubovi se osuše prije nego sredina bude gotova.",
     );

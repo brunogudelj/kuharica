@@ -2,7 +2,7 @@ export type CatId = "frz" | "fri" | "dry" | "fre";
 export type ShopId = "K" | "BIO" | "AZ" | "O";
 export type Unit = "g" | "ml" | "kom";
 export type UnitId = "vrecica" | "kutija" | "porcija" | "kockica" | "cufta" | "muffin" | "obrok";
-export type Carb = "Riža" | "Krumpir" | "Tjestenina";
+export type Carb = "Riža" | "Krumpir" | "Tjestenina" | "Ostalo";
 export type PrepCat = "Umaci" | "Marinade" | "Baze" | "Gotovo";
 
 /** Namirnica iz kataloga */
@@ -20,6 +20,11 @@ export interface Item {
   /** korak za + i − */
   step: number;
   hint: string;
+  /** vlastita namirnica kao nadjev za omlet */
+  om?: { role: "prot" | "veg"; amt: number; pre?: string };
+  /** kcal i proteini na 100 g/ml, ili po komadu */
+  kcal?: number;
+  prot?: number;
 }
 
 /** Količine po id-u namirnice */
@@ -39,6 +44,20 @@ export interface Recipe {
   ing: string[];
   st: string[];
   split?: string[];
+  /** vlastiti recept */
+  custom?: boolean;
+}
+
+/** Vlastiti recept kako se sprema: količine su za 1,5 porcija (kao ugrađeni) */
+export interface CustomRecipe {
+  id: string;
+  n: string;
+  c: Carb;
+  d: string;
+  use: Use;
+  /** sastojci koji se ne prate (začini i sl.) */
+  extra: string[];
+  st: string[];
 }
 
 export interface PrepRecipe {
