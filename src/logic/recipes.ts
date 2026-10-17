@@ -1,5 +1,6 @@
 /* Recepti za korisnika: ugrađeni + vlastiti */
-import { RECIPES } from "../data";
+import { PBY, PREP_INV, RECIPES } from "../data";
+import { plural } from "./format";
 import type { CustomRecipe, Recipe } from "../data";
 import type { AppData } from "../state/model";
 import { itemOf } from "./items";
@@ -13,7 +14,21 @@ export function toRecipe(d: AppData, r: CustomRecipe): Recipe {
     if (!it) return `<span class=g>${num(a)}</span> (obrisana namirnica)`;
     return `<span class=g>${num(a)} ${it.u === "kom" ? "kom" : it.u}</span> ${it.n}`;
   });
-  return { id: r.id, n: r.n, c: r.c, d: r.d, use: r.use, ing: [...ing, ...r.extra], st: r.st, custom: true };
+  const prep = Object.entries(r.prep ?? {}).filter(([p, n]) => PBY[p] && n > 0);
+  const ingPrep = prep.map(
+    ([p, n]) => `<span class=g>${num(n)} ${plural(n, PREP_INV[p].unit)}</span> ${PBY[p].n} (prep)`,
+  );
+  return {
+    id: r.id,
+    n: r.n,
+    c: r.c,
+    d: r.d,
+    use: r.use,
+    ing: [...ingPrep, ...ing, ...r.extra],
+    st: r.st,
+    custom: true,
+    ...(prep.length ? { prep } : {}),
+  };
 }
 
 const cache = new WeakMap<CustomRecipe[], { items: unknown; all: Recipe[]; map: Map<string, Recipe> }>();

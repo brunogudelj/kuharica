@@ -11,6 +11,7 @@ import { useApp } from "../state/AppContext";
 import { clone } from "../state/model";
 import type { AppData } from "../state/model";
 import { BASE_SERVINGS, effUse, pc, qty } from "../logic/inventory";
+import type { EffUse } from "../logic/inventory";
 import { cook, eatMuffins, eatOmlet, removeRecipe, setOmDay, setPlanDay } from "../logic/actions";
 import { allRecipes, recipeOf } from "../logic/recipes";
 import { itemOf } from "../logic/items";
@@ -157,7 +158,8 @@ function DayPicker({
 }
 
 /** Popis namirnica iz zalihe: treba, imaš, status */
-function StockList({ data, use }: { data: AppData; use: Record<string, number> }) {
+function StockList({ data, use, prep = [] }: { data: AppData; use: Record<string, number>; prep?: EffUse["prep"] }) {
+  const { open } = usePanel();
   return (
     <table className="grid compact stocklist">
       <thead>
@@ -169,6 +171,26 @@ function StockList({ data, use }: { data: AppData; use: Record<string, number> }
         </tr>
       </thead>
       <tbody>
+        {prep.map((p) => {
+          const ok = p.used + 1e-9 >= p.need;
+          const unit = PREP_INV[p.id].unit;
+          return (
+            <tr key={"p:" + p.id} className={ok ? "" : "st-low"}>
+              <td className="namecell">
+                <span className={"dot " + (ok ? "ok" : "low")} aria-hidden="true" />
+                <button type="button" className="linkbtn plain" onClick={() => open({ t: "prep", id: p.id })}>
+                  {PBY[p.id].n}
+                </button>{" "}
+                <span className="chip">prep</span>
+              </td>
+              <td className="num">{pfmt(p.need, unit)}</td>
+              <td className="num">{pfmt(pc(data, p.id), unit)}</td>
+              <td className="muted">
+                {ok ? "iz pripremljenog" : p.used > 0 ? "dio iz sirovog" : "napravi ili sirovo"}
+              </td>
+            </tr>
+          );
+        })}
         {Object.entries(use).map(([id, a]) => {
           const i = itemOf(data, id);
           if (!i) return null;
@@ -216,7 +238,6 @@ export function MealView({ id, day }: { id: string; day?: number }) {
   const s = data.ui.servings[r.id] ?? BASE_SERVINGS;
   const f = s / BASE_SERVINGS;
   const eff = effUse(r, { ...data.prepStock }, false, f);
-  const pu = eff.consumed.map(([p, k]) => `${pfmt(k, PREP_INV[p].unit)} ${PBY[p].n.toLowerCase()}`);
   const own = r.custom ? data.recipes.find((x) => x.id === r.id) : undefined;
   const setS = (v: number) =>
     update((d) => {
@@ -258,8 +279,13 @@ export function MealView({ id, day }: { id: string; day?: number }) {
       )}
       <section className="psec">
         <h3>Iz zalihe</h3>
-        <StockList data={data} use={eff.use} />
-        {pu.length > 0 && <p className="ready">Iz pripremljenog koristi: {pu.join(", ")}</p>}
+        <StockList data={data} use={eff.use} prep={eff.prep} />
+        {eff.prep.some((p) => p.used + 1e-9 < p.need) && (
+          <p className="sub">
+            Za prep koji nemaš, sirovi sastojci su već u tablici i na popisu za kupovinu. Ili ga napravi unaprijed u
+            Prepu.
+          </p>
+        )}
         {REC_PREP[r.id] && (
           <p className="prepline">
             Brže uz prep:{" "}
@@ -306,7 +332,7 @@ export function MealView({ id, day }: { id: string; day?: number }) {
         >
           <Icon name="check" size={18} /> Skuhao sam
         </button>
-        <span className="count">skida {porcTxt(s)} i dnevne dodatke sa zalihe</span>
+        <span className="count">skida {porcTxt(s)}, prep i posni sir sa zalihe</span>
       </div>
       {own && (
         <div className="btnrow">

@@ -3275,3 +3275,20 @@ ol.steps {
   justify-content: space-between;
   gap: 8px;
 }
+.linkbtn.plain {
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: inherit;
+}
+.linkbtn.plain:hover {
+  text-decoration: underline;
+}
+.stocklist td.namecell {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+}
+.stocklist td.namecell .dot {
+  margin-right: 4px;
+}

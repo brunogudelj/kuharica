@@ -55,6 +55,9 @@ export interface Recipe {
   custom?: boolean;
   /** dodatak uz ručak: juha (prije) ili salata (poslije); količine su za cijeli dan */
   side?: "juha" | "salata";
+  /** pripremljeno (prep) kao sastojak vlastitog recepta: [id prepa, jedinica] za 1,5 porcija.
+   * Ako prepa nema, troše se njegovi sirovi sastojci. */
+  prep?: [string, number][];
 }
 
 /** Vlastiti recept kako se sprema: količine su za 1,5 porcija (kao ugrađeni) */
@@ -66,6 +69,8 @@ export interface CustomRecipe {
   use: Use;
   /** sastojci koji se ne prate (začini i sl.) */
   extra: string[];
+  /** pripremljeno kao sastojak: id prepa → jedinice (porcije, kutije…) za 1,5 porcija */
+  prep?: Record<string, number>;
   st: string[];
 }
 

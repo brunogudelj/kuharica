@@ -195,6 +195,13 @@ export function migrate(raw: unknown): AppData {
         use: Object.fromEntries(
           Object.entries(obj(x.use)).filter(([, a]) => typeof a === "number" && a > 0) as [string, number][],
         ),
+        ...(x.prep && typeof x.prep === "object"
+          ? {
+              prep: Object.fromEntries(
+                Object.entries(obj(x.prep)).filter(([, a]) => typeof a === "number" && a > 0) as [string, number][],
+              ),
+            }
+          : {}),
         extra: Array.isArray(x.extra) ? x.extra.filter((s): s is string => typeof s === "string") : [],
         st: Array.isArray(x.st) ? x.st.filter((s): s is string => typeof s === "string") : [],
       }));

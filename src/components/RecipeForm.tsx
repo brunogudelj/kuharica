@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { DAYS } from "../data";
+import { DAYS, PBY, PREP, PREP_INV } from "../data";
+import { plural } from "../logic/format";
 import type { Carb, CustomRecipe } from "../data";
 import { useApp } from "../state/AppContext";
 import { allItems, itemOf } from "../logic/items";
@@ -44,8 +45,11 @@ export function RecipeForm({
   const [c, setC] = useState<Carb>(init?.c ?? "Riža");
   const [dtext, setD] = useState(init?.d ?? "");
   const [rows, setRows] = useState<Row[]>(() =>
-    init && Object.keys(init.use).length
-      ? Object.entries(init.use).map(([id, a], k) => ({
+    init && Object.keys(init.use).length + Object.keys(init.prep ?? {}).length
+      ? [
+          ...Object.entries(init.prep ?? {}).map(([p, a]): [string, number] => ["p:" + p, a]),
+          ...Object.entries(init.use),
+        ].map(([id, a], k) => ({
           key: k,
           id,
           amt: String(Math.round((a / BASE_SERVINGS) * 10) / 10).replace(".", ","),
@@ -69,13 +73,17 @@ export function RecipeForm({
     e.preventDefault();
     if (!n.trim()) return setErr("Upiši naziv recepta.");
     const use: Record<string, number> = {};
+    const prep: Record<string, number> = {};
     for (const r of rows) {
       if (!r.id) continue;
       const a = parse(r.amt);
-      if (isNaN(a) || a <= 0) return setErr(`Upiši količinu za ${itemOf(data, r.id)?.n ?? "namirnicu"}.`);
-      use[r.id] = (use[r.id] || 0) + a * BASE_SERVINGS;
+      const isPrep = r.id.startsWith("p:");
+      const label = isPrep ? PBY[r.id.slice(2)]?.n : itemOf(data, r.id)?.n;
+      if (isNaN(a) || a <= 0) return setErr(`Upiši količinu za ${label ?? "namirnicu"}.`);
+      if (isPrep) prep[r.id.slice(2)] = (prep[r.id.slice(2)] || 0) + a * BASE_SERVINGS;
+      else use[r.id] = (use[r.id] || 0) + a * BASE_SERVINGS;
     }
-    if (!Object.keys(use).length) return setErr("Dodaj barem jednu namirnicu iz zalihe.");
+    if (!Object.keys(use).length && !Object.keys(prep).length) return setErr("Dodaj barem jednu namirnicu ili prep.");
     const lines = (t: string) =>
       t
         .split("\n")
@@ -87,6 +95,7 @@ export function RecipeForm({
       c,
       d: dtext.trim() || "Vlastiti recept",
       use,
+      ...(Object.keys(prep).length ? { prep } : {}),
       extra: lines(extra),
       st: lines(steps),
     };
@@ -150,6 +159,13 @@ export function RecipeForm({
                 >
                   <option value="">Odaberi namirnicu…</option>
                   <option value="__new">+ Nova namirnica</option>
+                  <optgroup label="Pripremljeno (prep)">
+                    {PREP.map((p) => (
+                      <option key={p.id} value={"p:" + p.id}>
+                        {p.n} ({plural(2, PREP_INV[p.id].unit)})
+                      </option>
+                    ))}
+                  </optgroup>
                   {catOpts(data).map(([k, t]) => (
                     <optgroup key={k} label={t}>
                       {items
@@ -172,7 +188,9 @@ export function RecipeForm({
                   value={r.amt}
                   onChange={(e) => setRow(r.key, { amt: e.target.value })}
                 />
-                <span className="unit">{it ? it.u : ""}</span>
+                <span className="unit">
+                  {it ? it.u : r.id.startsWith("p:") ? plural(2, PREP_INV[r.id.slice(2)].unit) : ""}
+                </span>
                 <button
                   type="button"
                   className="del"

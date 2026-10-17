@@ -22,29 +22,46 @@ export const BASE_SERVINGS = 1.5;
 export interface EffUse {
   use: Use;
   consumed: [string, number][];
+  /** pripremljeno koje recept traži: koliko treba i koliko se uzima iz pripremljenog */
+  prep: { id: string; need: number; used: number }[];
 }
+
+/** Prep sastojci recepta: vlastiti (r.prep) ili ugrađeni (REC_USE_PREP) */
+export const prepListOf = (r: Recipe): [string, number][] => r.prep ?? REC_USE_PREP[r.id] ?? [];
 
 /**
  * Što recept stvarno troši: sirovi sastojci × f, umanjeni za ono što pokrije pripremljeno.
  * Pripremljeno se troši iz `pcopy` (kopija stanja prepa koju funkcija mijenja).
  */
 export function effUse(r: Recipe, pcopy: Record<string, number>, withDaily: boolean, f = 1): EffUse {
-  const rid = r.id;
   const use: Use = {};
   for (const [id, a] of Object.entries(r.use)) use[id] = a * f;
   if (withDaily) for (const [id, a] of Object.entries(DAILY_COOK)) use[id] = (use[id] || 0) + a;
   const consumed: [string, number][] = [];
-  const list: [string, number][] = (REC_USE_PREP[rid] || []).map(([p, n]): [string, number] => [p, n * f]);
+  const own = !!r.prep;
+  const list: [string, number][] = prepListOf(r)
+    .filter(([p]) => PREP_INV[p])
+    .map(([p, n]): [string, number] => [p, n * f]);
+  const prep: EffUse["prep"] = [];
   for (const [pid, n] of list) {
-    const k = Math.min(n, pcopy[pid] || 0);
-    if (k <= 0) continue;
-    pcopy[pid] -= k;
-    consumed.push([pid, k]);
-    for (const [id, a] of Object.entries(PREP_INV[pid].per))
-      if (use[id] != null) use[id] = Math.max(0, use[id] - a * k);
+    const k = Math.max(0, Math.min(n, pcopy[pid] || 0));
+    prep.push({ id: pid, need: n, used: k });
+    if (k > 0) {
+      pcopy[pid] -= k;
+      consumed.push([pid, k]);
+    }
+    const per = PREP_INV[pid].per;
+    if (own) {
+      // vlastiti recept nema sirove sastojke prepa: za ono što fali troše se sirovi
+      const short = n - k;
+      if (short > 0) for (const [id, a] of Object.entries(per)) use[id] = (use[id] || 0) + a * short;
+    } else if (k > 0) {
+      // ugrađeni recept već ima sirove sastojke: pripremljeno ih zamjenjuje
+      for (const [id, a] of Object.entries(per)) if (use[id] != null) use[id] = Math.max(0, use[id] - a * k);
+    }
   }
   for (const id of Object.keys(use)) if (use[id] < 0.001) delete use[id];
-  return { use, consumed };
+  return { use, consumed, prep };
 }
 
 /** Recept kao jedna porcija u slotu (doručak, juha, salata): dodaci (juha, salata) su već za cijeli dan */
@@ -52,9 +69,9 @@ export const slotFactor = (r: Recipe) => (r.side ? 1 : 1 / BASE_SERVINGS);
 
 /** Što troši slot (recept ili namirnica), s pripremljenim iz `pcopy` */
 export function slotUse(d: AppData, s: Slot, pcopy: Record<string, number>): EffUse {
-  if (s.item) return { use: { [s.item]: s.qty ?? 1 }, consumed: [] };
+  if (s.item) return { use: { [s.item]: s.qty ?? 1 }, consumed: [], prep: [] };
   const r = s.r ? recipeOf(d, s.r) : undefined;
-  return r ? effUse(r, pcopy, false, slotFactor(r)) : { use: {}, consumed: [] };
+  return r ? effUse(r, pcopy, false, slotFactor(r)) : { use: {}, consumed: [], prep: [] };
 }
 
 /** Potreba za tjedan: neskuhani dani (s posnim sirom i prepom), nepojedeni doručci i dodatni slotovi */
