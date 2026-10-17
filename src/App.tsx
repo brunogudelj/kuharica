@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useApp } from "./state/AppContext";
 import { clone } from "./state/model";
 import { shopping } from "./logic/inventory";
@@ -29,30 +29,21 @@ const TABS: [string, string, IconName, string][] = [
 export function App() {
   const { data, loaded, saveError, update, toast, undo, closeToast, sync, demo } = useApp();
   const tab = data.ui.tab === "omlet" ? "recepti" : TABS.some(([k]) => k === data.ui.tab) ? data.ui.tab : "plan";
-  const cur = TABS.find(([k]) => k === tab)!;
   const shopCount = shopping(data).length;
-  const [drawer, setDrawer] = useState(false);
 
   const setTab = (t: string, anchor?: string) => {
     update((d) => {
       const n = clone(d);
       n.ui.tab = t;
+      if (anchor === "sinkronizacija") n.ui.trTab = "set";
       return n;
     });
-    setDrawer(false);
     if (anchor) setTimeout(() => document.getElementById(anchor)?.scrollIntoView({ block: "start" }), 50);
   };
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [tab]);
-
-  useEffect(() => {
-    if (!drawer) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setDrawer(false);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [drawer]);
 
   const status = !loaded
     ? { cls: "", txt: "Učitavam…" }
@@ -62,110 +53,104 @@ export function App() {
 
   return (
     <PanelProvider render={renderView}>
-    <div className={"shell" + (drawer ? " drawer-open" : "")}>
-      <header className="topbar">
-        <button type="button" className="iconbtn" aria-label="Otvori izbornik" aria-expanded={drawer} onClick={() => setDrawer(true)}>
-          <Icon name="menu" size={22} />
-        </button>
-        <div className="topbar-title">
-          <Icon name={cur[2]} />
-          <b>{cur[1]}</b>
-        </div>
-      </header>
-
-      <aside className="sidebar" aria-label="Izbornik">
-        <div className="brand">
-          <img src="./icon.svg" alt="" width={36} height={36} />
-          <div>
-            <b>Kuharica</b>
-            <small>wok i air fryer</small>
+      <div className="shell">
+        <nav className="rail" aria-label="Dijelovi kuharice">
+          <div className="rail-brand" title="Kuharica">
+            <img src="./icon.svg" alt="Kuharica" width={34} height={34} />
           </div>
-          <button type="button" className="iconbtn drawer-close" aria-label="Zatvori izbornik" onClick={() => setDrawer(false)}>
-            <Icon name="close" />
-          </button>
-        </div>
-        <nav aria-label="Dijelovi kuharice">
-          {TABS.map(([k, l, ic, sub]) => (
+          <div className="rail-items">
+            {TABS.map(([k, l, ic, sub]) => (
+              <button
+                key={k}
+                id={`tab-${k}`}
+                type="button"
+                className="railitem"
+                title={sub}
+                aria-current={tab === k ? "page" : undefined}
+                onClick={() => setTab(k)}
+              >
+                <span className="railicon">
+                  <Icon name={ic} size={22} />
+                  {k === "kupovina" && shopCount > 0 && <span className="badge">{shopCount}</span>}
+                </span>
+                <span className="raillabel">{l}</span>
+              </button>
+            ))}
+          </div>
+          <div className="rail-foot">
             <button
-              key={k}
-              id={`tab-${k}`}
               type="button"
-              className="navitem"
-              aria-current={tab === k ? "page" : undefined}
-              onClick={() => setTab(k)}
+              className={"railitem small sync-" + (status.cls || "off")}
+              title={status.txt}
+              aria-label={`Sinkronizacija: ${status.txt}`}
+              onClick={() => setTab("troskovi", "sinkronizacija")}
             >
-              <Icon name={ic} />
-              <span className="navtxt">
-                <b>{l}</b>
-                <small>{sub}</small>
+              <span className="railicon">
+                <Icon name="sync" size={20} />
+                <i className="syncdot" aria-hidden="true" />
               </span>
-              {k === "kupovina" && shopCount > 0 && <span className="badge">{shopCount}</span>}
+              <span className="raillabel">Sync</span>
             </button>
-          ))}
+            <button
+              type="button"
+              className="railitem small"
+              aria-pressed={demo}
+              title={demo ? "Izađi iz demo podataka" : "Isprobaj s demo podacima"}
+              onClick={() => setDemo(!demo)}
+            >
+              <span className="railicon">
+                <Icon name="flask" size={20} />
+              </span>
+              <span className="raillabel">Demo</span>
+            </button>
+          </div>
         </nav>
-        <div className="sidefoot">
-          <p className={"syncline " + status.cls}>
-            <Icon name="sync" size={16} />
-            <span>{status.txt}</span>
-          </p>
-          {sync.state === "off" && loaded && !demo && (
-            <button type="button" className="linkbtn" onClick={() => setTab("troskovi", "sinkronizacija")}>
-              Poveži laptop i mobitel
-            </button>
-          )}
-          {!demo && (
-            <button type="button" className="linkbtn" onClick={() => setDemo(true)}>
-              Isprobaj s demo podacima
-            </button>
-          )}
-        </div>
-      </aside>
-      <div className="scrim" onClick={() => setDrawer(false)} aria-hidden="true" />
 
-      <main className="main">
-        {demo && (
-          <div className="demobar" role="status">
-            <span>
-              <b>Demo podaci.</b> Cijene, kalorije i zalihe su izmišljene, a tvoji pravi podaci su netaknuti.
-            </span>
-            <button type="button" className="btn small ghost" onClick={() => setDemo(true, true)}>
-              Kreni ispočetka
-            </button>
-            <button type="button" className="btn small" onClick={() => setDemo(false)}>
-              Izađi iz dema
-            </button>
+        <main className="main">
+          {demo && (
+            <div className="demobar" role="status">
+              <span>
+                <b>Demo podaci.</b> Cijene, kalorije i zalihe su izmišljene, a tvoji pravi podaci su netaknuti.
+              </span>
+              <button type="button" className="btn small ghost" onClick={() => setDemo(true, true)}>
+                Kreni ispočetka
+              </button>
+              <button type="button" className="btn small" onClick={() => setDemo(false)}>
+                Izađi iz dema
+              </button>
+            </div>
+          )}
+          {saveError && (
+            <div className="demobar err" role="alert">
+              <span>{status.txt}</span>
+            </div>
+          )}
+          {tab === "plan" && <PlanTab />}
+          {tab === "zaliha" && <ZalihaTab />}
+          {tab === "kupovina" && <KupovinaTab />}
+          {tab === "troskovi" && <TroskoviTab />}
+          {tab === "recepti" && <ReceptiTab />}
+          {tab === "ducani" && <DucaniTab />}
+          {tab === "prep" && <PrepTab />}
+        </main>
+
+        {toast && (
+          <div className="toast" role="status" aria-live="polite">
+            <div key={toast.key}>
+              <span>{toast.msg}</span>
+              {toast.undo ? (
+                <button type="button" onClick={undo}>
+                  Poništi
+                </button>
+              ) : (
+                <button type="button" onClick={closeToast} aria-label="Zatvori poruku">
+                  ×
+                </button>
+              )}
+            </div>
           </div>
         )}
-        <div className="pagehead">
-          <h1>{cur[1]}</h1>
-          <p className="sub">{cur[3]}</p>
-        </div>
-        {tab === "plan" && <PlanTab />}
-        {tab === "zaliha" && <ZalihaTab />}
-        {tab === "kupovina" && <KupovinaTab />}
-        {tab === "troskovi" && <TroskoviTab />}
-        {tab === "recepti" && <ReceptiTab />}
-        {tab === "ducani" && <DucaniTab />}
-        {tab === "prep" && <PrepTab />}
-      </main>
-
-      {toast && (
-        <div className="toast" role="status" aria-live="polite">
-          <div key={toast.key}>
-            <span>{toast.msg}</span>
-            {toast.undo ? (
-              <button type="button" onClick={undo}>
-                Poništi
-              </button>
-            ) : (
-              <button type="button" onClick={closeToast} aria-label="Zatvori poruku">
-                ×
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+      </div>
     </PanelProvider>
   );
 }

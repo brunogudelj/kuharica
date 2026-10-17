@@ -7,9 +7,12 @@ import { clone } from "../state/model";
 import { pc, qty } from "../logic/inventory";
 import { makePrep } from "../logic/actions";
 import { pfmt, scaleText } from "../logic/format";
-import { Card, Filters, Html, Note, Stepper } from "../components/ui";
+import { Html, Stepper } from "../components/ui";
+import { FCheck, FGroup, FSearch, Page, toggle } from "../components/Page";
+import type { Chip } from "../components/Page";
+import { usePanel } from "../components/Panel";
+import { Thumb } from "./ReceptiTab";
 
-type F = "sve" | PrepCat;
 
 export function prepMeta(data: ReturnType<typeof useApp>["data"], p: PrepRecipe) {
   const t = data.ui.ture[p.id] ?? 1;
@@ -118,75 +121,167 @@ export function PrepBody({ p }: { p: PrepRecipe }) {
   );
 }
 
-function PrepCard({ p }: { p: PrepRecipe }) {
-  const { data } = useApp();
-  const { miss, have, inv } = prepMeta(data, p);
-  return (
-    <Card
-      title={p.n}
-      meta={
-        <>
-          <span className="chip">{PREP_K[p.k]}</span>
-          <span>{p.time}</span>
-          {have > 0 && <span className="pill p-ok">{pfmt(have, inv.unit)}</span>}
-          {miss.length ? (
-            <span className="pill p-out">fali {miss.length}</span>
-          ) : (
-            <span className="pill p-ok">imaš sastojke</span>
-          )}
-        </>
-      }
-    >
-      <PrepBody p={p} />
-    </Card>
-  );
-}
+type PTab = "list" | "order";
 
 export function PrepTab() {
-  const [f, setF] = useState<F>("sve");
-  const list = PREP.filter((p) => f === "sve" || p.k === f);
-  return (
-    <section id="prep" aria-labelledby="tab-prep">
-      <Note>
-        <strong>Priprema unaprijed.</strong> Svaki recept ovdje radiš jednom, a koristiš ga cijeli tjedan ili duže. Kad
-        nešto napraviš, stisni <strong>Napravio sam</strong>: sirovi sastojci se skinu sa zalihe, a vrećice ili kutije
-        dodaju u pripremljeno. Recepti onda troše pripremljeno umjesto sirovog, pa se ništa ne oduzima dvaput.
-      </Note>
-      <Card
-        title="Nedjeljni prep: redoslijed"
-        meta={
-          <>
-            <span className="chip">oko 75 min</span>
-            <span>lonac + wok + air fryer istovremeno</span>
-          </>
-        }
-      >
-        <ol className="tl">
-          {PREP_TIMELINE.map(([t, x]) => (
-            <li key={t}>
-              <b className="g">{t}</b> {x}
-            </li>
-          ))}
-        </ol>
-        <p className="sub">Gulaš u duploj turi radi kao zaseban prep kad imaš 45 min, ne uz sve ostalo.</p>
-      </Card>
-      <Filters<F>
-        label="Filtriraj prep recepte"
-        value={f}
-        onChange={setF}
-        options={[
-          ["sve", "Sve"],
-          ["Umaci", "Umaci i dresinzi"],
-          ["Marinade", "Marinade"],
-          ["Baze", "Baze"],
-          ["Gotovo", "Gotove komponente"],
-        ]}
-      />
-      <div className="group">
-        {list.map((p) => (
-          <PrepCard key={p.id} p={p} />
+  const { data } = useApp();
+  const { open } = usePanel();
+  const [tab, setTab] = useState<PTab>("list");
+  const [q, setQ] = useState("");
+  const [fK, setFK] = useState<PrepCat[]>([]);
+  const [fAvail, setFAvail] = useState(false);
+  const [fHave, setFHave] = useState(false);
+  const term = q.trim().toLowerCase();
+  const pass = (p: PrepRecipe, skip?: "k") =>
+    (!term || p.n.toLowerCase().includes(term)) &&
+    (skip === "k" || !fK.length || fK.includes(p.k)) &&
+    (!fAvail || !prepMeta(data, p).miss.length) &&
+    (!fHave || pc(data, p.id) > 0);
+  const list = PREP.filter((p) => pass(p));
+  const cats = Object.keys(PREP_K) as PrepCat[];
+  const chips: Chip[] = [
+    ...fK.map((k): Chip => [PREP_K[k], () => setFK(toggle(fK, k))]),
+    ...(fAvail ? [["Imam sastojke", () => setFAvail(false)] as Chip] : []),
+    ...(fHave ? [["Već pripremljeno", () => setFHave(false)] as Chip] : []),
+  ];
+
+  const filters = (
+    <>
+      <FSearch value={q} onChange={setQ} placeholder="Traži prep recept" />
+      <FGroup title="Vrsta" count={fK.length}>
+        {cats.map((k) => (
+          <FCheck key={k} on={fK.includes(k)} label={PREP_K[k]} count={PREP.filter((p) => pass(p, "k") && p.k === k).length} onChange={() => setFK(toggle(fK, k))} />
         ))}
-      </div>
-    </section>
+      </FGroup>
+      <FGroup title="Dostupnost" count={(fAvail ? 1 : 0) + (fHave ? 1 : 0)}>
+        <FCheck on={fAvail} label="Imam sve sastojke" count={PREP.filter((p) => !prepMeta(data, p).miss.length).length} onChange={() => setFAvail(!fAvail)} />
+        <FCheck on={fHave} label="Već pripremljeno" count={PREP.filter((p) => pc(data, p.id) > 0).length} onChange={() => setFHave(!fHave)} />
+      </FGroup>
+      <p className="fhint">
+        Prep radiš jednom, a koristiš cijeli tjedan. „Napravio sam” skida sirove sastojke i dodaje pripremljeno, a recepti onda
+        troše pripremljeno umjesto sirovog.
+      </p>
+    </>
+  );
+
+  return (
+    <Page
+      id="prep"
+      title="Prep"
+      count={
+        <>
+          <b>{list.length}</b> od {PREP.length}
+        </>
+      }
+      filters={tab === "list" ? filters : undefined}
+      active={chips.length}
+      onClear={() => {
+        setFK([]);
+        setFAvail(false);
+        setFHave(false);
+      }}
+      chips={tab === "list" ? chips : []}
+      tabs={
+        <div className="seg" role="tablist" aria-label="Prikaz prepa">
+          {(
+            [
+              ["list", "Prep recepti"],
+              ["order", "Nedjeljni redoslijed"],
+            ] as [PTab, string][]
+          ).map(([k, l]) => (
+            <button key={k} type="button" role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>
+              {l}
+            </button>
+          ))}
+        </div>
+      }
+    >
+      {tab === "order" ? (
+        <div className="group">
+          <p className="sub">Oko 75 min: lonac, wok i air fryer rade istovremeno.</p>
+          <ol className="tl">
+            {PREP_TIMELINE.map(([t, x]) => (
+              <li key={t}>
+                <b className="g">{t}</b> {x}
+              </li>
+            ))}
+          </ol>
+          <p className="sub">Gulaš u duploj turi radi kao zaseban prep kad imaš 45 min, ne uz sve ostalo.</p>
+        </div>
+      ) : list.length ? (
+        <div className="tablewrap">
+          <table className="grid rows cards-mobile" aria-label="Prep recepti">
+            <thead>
+              <tr>
+                <th className="sticky">Recept</th>
+                <th>Vrsta</th>
+                <th>Vrijeme</th>
+                <th>Količina</th>
+                <th>Čuvanje</th>
+                <th className="num">Imaš</th>
+                <th>Sastojci</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((p) => {
+                const { miss, have, inv } = prepMeta(data, p);
+                const total = Object.keys(p.use).length;
+                const ok = total - miss.length;
+                return (
+                  <tr key={p.id} className="rowlink" onClick={() => open({ t: "prep", id: p.id })}>
+                    <td className="sticky namecol">
+                      <div className="ent">
+                        <Thumb kind="prep" carb="" />
+                        <div className="ent-txt">
+                          <button
+                            type="button"
+                            className="ent-name"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              open({ t: "prep", id: p.id });
+                            }}
+                          >
+                            {p.n}
+                          </button>
+                          <span className="ent-meta">{p.for.length ? `za: ${p.for.slice(0, 2).join(", ")}` : p.tip}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td data-l="Vrsta">
+                      <span className="chip">{PREP_K[p.k]}</span>
+                    </td>
+                    <td data-l="Vrijeme" className="muted">
+                      {p.time}
+                    </td>
+                    <td data-l="Količina" className="muted">
+                      {p.yieldTxt.replace(/<[^>]+>/g, "")}
+                    </td>
+                    <td data-l="Čuvanje" className="muted">
+                      {p.keep}
+                    </td>
+                    <td data-l="Imaš" className="num strong">
+                      {have > 0 ? pfmt(have, inv.unit) : "–"}
+                    </td>
+                    <td data-l="Sastojci">
+                      <div className={"avail" + (!miss.length ? " full" : "")}>
+                        <span className="avail-bar" aria-hidden="true">
+                          <i style={{ width: `${total ? (ok / total) * 100 : 0}%` }} />
+                        </span>
+                        <span>{!miss.length ? "Imaš sve" : `${ok}/${total}`}</span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="empty">
+          <b>Nijedan prep recept ne odgovara.</b>
+          <span>Makni neki filter.</span>
+        </div>
+      )}
+    </Page>
   );
 }

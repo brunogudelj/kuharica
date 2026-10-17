@@ -7,6 +7,8 @@ import { addShop, editShop, removeShop } from "../logic/shops";
 import { eur, monthKey } from "../logic/format";
 import { TextCell } from "../components/Cells";
 import { Icon } from "../components/icons";
+import { FCheck, FGroup, FSearch, Page, toggle } from "../components/Page";
+import type { Chip } from "../components/Page";
 
 const TYPES = ["Supermarket", "Zdrava hrana", "Azijski dućan", "Tržnica", "Mesnica", "Pekara", "Online", "Ostalo"];
 
@@ -71,19 +73,60 @@ export function DucaniTab() {
     (m, e) => ((m[e.shop] = (m[e.shop] || 0) + e.amount), m),
     {},
   );
+  const [q, setQ] = useState("");
+  const [fType, setFType] = useState<string[]>([]);
+  const [fBuy, setFBuy] = useState(false);
+  const term = q.trim().toLowerCase();
+  const pass = (s: (typeof data.shops)[number], skip?: "type") =>
+    (!term || `${s.n} ${s.addr}`.toLowerCase().includes(term)) &&
+    (skip === "type" || !fType.length || fType.includes(s.type)) &&
+    (!fBuy || toBuy.some((x) => x.i.src === s.id));
+  const shops = data.shops.filter((s) => pass(s));
+  const types = [...new Set([...TYPES, ...data.shops.map((s) => s.type)])].filter((t) => data.shops.some((s) => s.type === t));
+  const chips: Chip[] = [
+    ...fType.map((t): Chip => [t, () => setFType(toggle(fType, t))]),
+    ...(fBuy ? [["Ima nešto za kupiti", () => setFBuy(false)] as Chip] : []),
+  ];
+
+  const filters = (
+    <>
+      <FSearch value={q} onChange={setQ} placeholder="Traži dućan" />
+      <FGroup title="Vrsta" count={fType.length}>
+        {types.map((t) => (
+          <FCheck key={t} on={fType.includes(t)} label={t} count={data.shops.filter((s) => pass(s, "type") && s.type === t).length} onChange={() => setFType(toggle(fType, t))} />
+        ))}
+      </FGroup>
+      <FGroup title="Kupovina" count={fBuy ? 1 : 0}>
+        <FCheck on={fBuy} label="Ima nešto za kupiti" count={data.shops.filter((s) => toBuy.some((x) => x.i.src === s.id)).length} onChange={() => setFBuy(!fBuy)} />
+      </FGroup>
+      <p className="fhint">Svaka namirnica ima svoj dućan (mijenjaš ga u Zalihi), pa se po njemu slaže popis za kupovinu.</p>
+    </>
+  );
 
   return (
-    <section id="ducani" aria-labelledby="tab-ducani">
-      <div className="toolbar">
-        <p className="sub grow">
-          Gdje kupuješ. Svaka namirnica ima svoj dućan (mijenjaš ga u Zalihi), pa se po njemu slaže popis za kupovinu.
-        </p>
-        {!adding && (
+    <Page
+      id="ducani"
+      title="Dućani"
+      count={
+        <>
+          <b>{shops.length}</b> od {data.shops.length}
+        </>
+      }
+      filters={filters}
+      active={chips.length}
+      onClear={() => {
+        setFType([]);
+        setFBuy(false);
+      }}
+      chips={chips}
+      actions={
+        !adding && (
           <button type="button" className="btn" onClick={() => setAdding(true)}>
             <Icon name="plus" size={18} /> Dodaj dućan
           </button>
-        )}
-      </div>
+        )
+      }
+    >
       {adding && <AddShop onDone={() => setAdding(false)} />}
 
       <div className="tablewrap">
@@ -103,7 +146,7 @@ export function DucaniTab() {
             </tr>
           </thead>
           <tbody>
-            {data.shops.map((s) => {
+            {shops.map((s) => {
               const its = items.filter((i) => i.src === s.id);
               const buy = toBuy.filter((x) => x.i.src === s.id);
               const buyCost = buy.reduce((t, x) => t + (x.cost ?? 0), 0);
@@ -112,8 +155,15 @@ export function DucaniTab() {
               return (
                 <Fragment key={s.id}>
                   <tr>
-                    <td className="sticky namecell">
-                      <TextCell label={`Naziv: ${s.n}`} value={s.n} onCommit={(v) => ed({ n: v })} />
+                    <td className="sticky">
+                      <div className="ent">
+                        <span className="thumb shop" aria-hidden="true">
+                          {s.n.slice(0, 1).toUpperCase()}
+                        </span>
+                        <div className="namecell grow">
+                          <TextCell label={`Naziv: ${s.n}`} value={s.n} onCommit={(v) => ed({ n: v })} />
+                        </div>
+                      </div>
                     </td>
                     <td>
                       <select className="cellsel" aria-label={`Vrsta: ${s.n}`} value={s.type} onChange={(e) => ed({ type: e.target.value })}>
@@ -245,6 +295,6 @@ export function DucaniTab() {
           </tbody>
         </table>
       </div>
-    </section>
+    </Page>
   );
 }

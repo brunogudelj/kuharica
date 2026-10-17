@@ -1,80 +1,93 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { DEFAULT_OM } from "../data";
 import { useApp } from "../state/AppContext";
 import { allItems } from "../logic/items";
-import {
-  CARB_ORDER,
-  KIND_LABEL,
-  PROT_GROUPS,
-  SORTS,
-  emptyFilter,
-  facetCounts,
-  feed,
-  filterFeed,
-  matches,
-  sortFeed,
-} from "../logic/feed";
+import { CARB_ORDER, KIND_LABEL, PROT_GROUPS, SORTS, emptyFilter, facetCounts, feed, filterFeed, matches, sortFeed } from "../logic/feed";
 import type { FeedEntry, FeedFilter, Kind, SortKey } from "../logic/feed";
-import { FeedCard } from "../components/RecipeViews";
+import { eur } from "../logic/format";
 import { usePanel } from "../components/Panel";
 import { Icon } from "../components/icons";
+import type { IconName } from "../components/icons";
+import { FCheck, FGroup, FSearch, Page, toggle } from "../components/Page";
+import type { Chip } from "../components/Page";
 
-/** Padajući izbornik filtera */
-function Drop({ label, active, children }: { label: string; active: number; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const out = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", out);
-    document.addEventListener("keydown", esc);
-    return () => {
-      document.removeEventListener("mousedown", out);
-      document.removeEventListener("keydown", esc);
-    };
-  }, [open]);
+const KIND_ICON: Record<Kind, IconName> = { meal: "recepti", om: "omlet", prep: "prep" };
+const carbCls = (c: string) => `cc-${c.replace(/\s/g, "") || "none"}`;
+const n = (v: number | null, suf = "") => (v == null ? "–" : v.toLocaleString("hr-HR") + suf);
+
+/** Kvadratić s ikonom: boja po prilogu (obroci) ili vrsti */
+export function Thumb({ kind, carb }: { kind: Kind; carb: string }) {
   return (
-    <div className="drop" ref={ref}>
-      <button
-        type="button"
-        className={"dropbtn" + (active ? " on" : "")}
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-      >
-        {label}
-        {active > 0 && <span className="badge">{active}</span>}
-        <Icon name="chev" size={16} />
-      </button>
-      {open && <div className="dropmenu">{children}</div>}
-    </div>
+    <span className={`thumb k-${kind} ${carbCls(carb)}`} aria-hidden="true">
+      <Icon name={KIND_ICON[kind]} size={20} />
+    </span>
   );
 }
 
-function Check({
-  on,
-  label,
-  count,
-  onChange,
-  radio,
-}: {
-  on: boolean;
-  label: string;
-  count?: number;
-  onChange: () => void;
-  radio?: boolean;
-}) {
+function Row({ e, onOpen }: { e: FeedEntry; onOpen: () => void }) {
+  const all = e.total > 0 && e.have >= e.total;
+  const approx = e.macKnown > 0 && e.macKnown < e.items.length ? "≈ " : "";
   return (
-    <label className={"checkrow" + (count === 0 && !on ? " dim" : "")}>
-      <input type={radio ? "radio" : "checkbox"} checked={on} onChange={onChange} />
-      <span>{label}</span>
-      {count != null && <small>{count}</small>}
-    </label>
+    <tr className="rowlink" onClick={onOpen}>
+      <td className="sticky namecol">
+        <div className="ent">
+          <Thumb kind={e.kind} carb={e.carb} />
+          <div className="ent-txt">
+            <button
+              type="button"
+              className="ent-name"
+              onClick={(ev) => {
+                ev.stopPropagation();
+                onOpen();
+              }}
+            >
+              {e.n}
+            </button>
+            <span className="ent-meta">
+              {[e.method, e.time ? `${e.time} min` : ""].filter(Boolean).join(" · ") || e.d}
+            </span>
+          </div>
+        </div>
+      </td>
+      <td data-l="Vrsta" className="muted">
+        {KIND_LABEL[e.kind]}
+      </td>
+      <td data-l="Prilog">{e.carb && <span className={`chip carb-chip ${carbCls(e.carb)}`}>{e.carb}</span>}</td>
+      <td data-l="Protein">
+        <div className="chips">
+          {e.prot.slice(0, 2).map((p) => (
+            <span key={p} className="chip">
+              {p}
+            </span>
+          ))}
+          {e.prot.length > 2 && <span className="chip">+{e.prot.length - 2}</span>}
+          {e.two && <span className="chip">2 u 1</span>}
+          {e.custom && <span className="chip mine">moj</span>}
+        </div>
+      </td>
+      <td data-l="kcal" className="num">
+        {e.kcal == null ? "–" : approx + n(e.kcal)}
+      </td>
+      <td data-l="Proteini" className="num strong">
+        {n(e.p, " g")}
+      </td>
+      <td data-l="Cijena" className="num">
+        {e.cost == null ? "–" : eur(e.cost)}
+      </td>
+      <td data-l="Vrijeme" className="num">
+        {e.time == null ? "–" : `${e.time} min`}
+      </td>
+      <td data-l="Sastojci">
+        <div className={"avail" + (all ? " full" : "")}>
+          <span className="avail-bar" aria-hidden="true">
+            <i style={{ width: `${e.total ? (e.have / e.total) * 100 : 0}%` }} />
+          </span>
+          <span>{all ? "Imaš sve" : `${e.have}/${e.total}`}</span>
+        </div>
+      </td>
+    </tr>
   );
 }
-
-const toggle = <T,>(arr: T[], v: T) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
 
 export function ReceptiTab() {
   const { data } = useApp();
@@ -89,33 +102,25 @@ export function ReceptiTab() {
   const carbs = facetCounts(all, f, data, "carb");
   const set = (p: Partial<FeedFilter>) => setF({ ...f, ...p });
 
-  const protList = [
-    ...PROT_GROUPS.map(([g]) => g),
-    ...Object.keys(prots).filter((p) => !PROT_GROUPS.some(([g]) => g === p)),
-  ];
+  const protList = [...PROT_GROUPS.map(([g]) => g), ...Object.keys(prots).filter((p) => !PROT_GROUPS.some(([g]) => g === p))];
   const carbList = CARB_ORDER.filter((c) => all.some((e) => e.carb === c));
 
-  // namirnice koje se pojavljuju u receptima, s brojem recepata uz trenutne filtere
   const usedItems = useMemo(() => {
     const ids = new Set(all.flatMap((e) => e.items));
     return allItems(data)
       .filter((i) => ids.has(i.id))
       .sort((a, b) => a.n.localeCompare(b.n, "hr"));
   }, [all, data]);
-  const itemCount = (id: string) =>
-    all.filter((e) => matches(e, { ...f, items: [...f.items.filter((x) => x !== id), id] }, data)).length;
+  const itemCount = (id: string) => all.filter((e) => matches(e, { ...f, items: [...f.items.filter((x) => x !== id), id] }, data)).length;
 
-  const chips: [string, () => void][] = [
-    ...f.kind.map((k): [string, () => void] => [KIND_LABEL[k], () => set({ kind: toggle(f.kind, k) })]),
-    ...f.prot.map((p): [string, () => void] => [p, () => set({ prot: toggle(f.prot, p) })]),
-    ...f.carb.map((c): [string, () => void] => [c, () => set({ carb: toggle(f.carb, c) })]),
-    ...f.items.map((id): [string, () => void] => [
-      "s: " + (allItems(data).find((i) => i.id === id)?.n ?? id),
-      () => set({ items: toggle(f.items, id) }),
-    ]),
-    ...(f.avail ? [[f.avail === "all" ? "Imam sve" : "Fale najviše 2", () => set({ avail: "" })] as [string, () => void]] : []),
-    ...(f.time ? [[`do ${f.time} min`, () => set({ time: 0 })] as [string, () => void]] : []),
-    ...(f.mine ? [["Moji recepti", () => set({ mine: false })] as [string, () => void]] : []),
+  const chips: Chip[] = [
+    ...f.kind.map((k): Chip => [KIND_LABEL[k], () => set({ kind: toggle(f.kind, k) })]),
+    ...f.prot.map((p): Chip => [p, () => set({ prot: toggle(f.prot, p) })]),
+    ...f.carb.map((c): Chip => [c, () => set({ carb: toggle(f.carb, c) })]),
+    ...f.items.map((id): Chip => ["s: " + (allItems(data).find((i) => i.id === id)?.n ?? id), () => set({ items: toggle(f.items, id) })]),
+    ...(f.avail ? [[f.avail === "all" ? "Imam sve" : "Fale najviše 2", () => set({ avail: "" })] as Chip] : []),
+    ...(f.time ? [[`do ${f.time} min`, () => set({ time: 0 })] as Chip] : []),
+    ...(f.mine ? [["Moji recepti", () => set({ mine: false })] as Chip] : []),
   ];
 
   const openEntry = (e: FeedEntry) => {
@@ -124,143 +129,137 @@ export function ReceptiTab() {
     else open({ t: "prep", id: e.id });
   };
 
-  return (
-    <section id="recepti" aria-labelledby="tab-recepti">
-      <div className="toolbar">
-        <div className="searchbox grow">
-          <Icon name="search" size={18} />
-          <input
-            id="recipeSearch"
-            type="search"
-            placeholder="Traži recept ili sastojak"
-            aria-label="Traži recept ili sastojak"
-            value={f.q}
-            onChange={(e) => set({ q: e.target.value })}
-          />
-        </div>
-        <button type="button" className="btn" onClick={() => open({ t: "newRecipe" })}>
-          <Icon name="plus" size={18} /> Novi recept
-        </button>
-        <button type="button" className="btn ghost" onClick={() => open({ t: "om", sel: DEFAULT_OM })}>
-          <Icon name="plus" size={18} /> Složi omlet
-        </button>
-      </div>
-
-      <div className="filterbar" role="group" aria-label="Filteri recepata">
-        <Drop label="Vrsta" active={f.kind.length}>
-          {(["meal", "om", "prep"] as Kind[]).map((k) => (
-            <Check
-              key={k}
-              on={f.kind.includes(k)}
-              label={KIND_LABEL[k]}
-              count={kinds[k] || 0}
-              onChange={() => set({ kind: toggle(f.kind, k) })}
-            />
-          ))}
-        </Drop>
-        <Drop label="Protein" active={f.prot.length}>
-          {protList.map((p) => (
-            <Check key={p} on={f.prot.includes(p)} label={p} count={prots[p] || 0} onChange={() => set({ prot: toggle(f.prot, p) })} />
-          ))}
-        </Drop>
-        <Drop label="Ugljikohidrat" active={f.carb.length}>
-          {carbList.map((c) => (
-            <Check key={c} on={f.carb.includes(c)} label={c} count={carbs[c] || 0} onChange={() => set({ carb: toggle(f.carb, c) })} />
-          ))}
-        </Drop>
-        <Drop label="Namirnice" active={f.items.length}>
-          <div className="searchbox small">
-            <Icon name="search" size={16} />
-            <input
-              type="search"
-              placeholder="Traži namirnicu"
-              aria-label="Traži namirnicu"
-              value={itemQ}
-              onChange={(e) => setItemQ(e.target.value)}
-            />
-          </div>
-          <div className="dropscroll">
-            {usedItems
-              .filter((i) => !itemQ.trim() || i.n.toLowerCase().includes(itemQ.trim().toLowerCase()))
-              .map((i) => (
-                <Check
-                  key={i.id}
-                  on={f.items.includes(i.id)}
-                  label={i.n}
-                  count={itemCount(i.id)}
-                  onChange={() => set({ items: toggle(f.items, i.id) })}
-                />
-              ))}
-          </div>
-          <p className="drophint">Recept mora imati sve odabrane namirnice.</p>
-        </Drop>
-        <Drop label="Dostupnost" active={f.avail ? 1 : 0}>
-          {(
-            [
-              ["", "Svi recepti"],
-              ["all", "Imam sve sastojke"],
-              ["max2", "Fale najviše 2"],
-            ] as [FeedFilter["avail"], string][]
-          ).map(([k, l]) => (
-            <Check
-              key={k || "sve"}
-              radio
-              on={f.avail === k}
-              label={l}
-              count={all.filter((e) => matches(e, { ...f, avail: k }, data)).length}
-              onChange={() => set({ avail: k })}
-            />
-          ))}
-        </Drop>
-        <Drop label="Vrijeme" active={f.time ? 1 : 0}>
-          {[0, 15, 25, 30].map((t) => (
-            <Check
-              key={t}
-              radio
-              on={f.time === t}
-              label={t ? `do ${t} min` : "Bilo koliko"}
-              count={all.filter((e) => matches(e, { ...f, time: t }, data)).length}
-              onChange={() => set({ time: t })}
-            />
-          ))}
-        </Drop>
-        <button type="button" className={"dropbtn" + (f.mine ? " on" : "")} aria-pressed={f.mine} onClick={() => set({ mine: !f.mine })}>
-          Moji recepti
-        </button>
-        <span className="grow" />
-        <label className="inline-label sortsel">
-          Poredaj
-          <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
-            {SORTS.map(([k, l]) => (
-              <option key={k} value={k}>
-                {l}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <div className="resultbar">
-        <span>
-          <b>{list.length}</b> {list.length === 1 ? "recept" : list.length >= 2 && list.length <= 4 ? "recepta" : "recepata"}
-        </span>
-        {chips.map(([l, rm]) => (
-          <button key={l} type="button" className="chip removable" onClick={rm} aria-label={`Makni filter: ${l}`}>
-            {l} <Icon name="close" size={12} />
-          </button>
+  const filters = (
+    <>
+      <FSearch id="recipeSearch" value={f.q} onChange={(q) => set({ q })} placeholder="Traži recept ili sastojak" />
+      <FGroup title="Vrsta" count={f.kind.length}>
+        {(["meal", "om", "prep"] as Kind[]).map((k) => (
+          <FCheck key={k} on={f.kind.includes(k)} label={KIND_LABEL[k]} count={kinds[k] || 0} onChange={() => set({ kind: toggle(f.kind, k) })} />
         ))}
-        {chips.length > 0 && (
-          <button type="button" className="linkbtn" onClick={() => setF({ ...emptyFilter(), q: f.q })}>
-            Očisti filtere
-          </button>
-        )}
-      </div>
+      </FGroup>
+      <FGroup title="Protein" count={f.prot.length}>
+        {protList.map((p) => (
+          <FCheck key={p} on={f.prot.includes(p)} label={p} count={prots[p] || 0} onChange={() => set({ prot: toggle(f.prot, p) })} />
+        ))}
+      </FGroup>
+      <FGroup title="Ugljikohidrat" count={f.carb.length}>
+        {carbList.map((c) => (
+          <FCheck
+            key={c}
+            on={f.carb.includes(c)}
+            label={c}
+            dot={carbCls(c)}
+            count={carbs[c] || 0}
+            onChange={() => set({ carb: toggle(f.carb, c) })}
+          />
+        ))}
+      </FGroup>
+      <FGroup title="Dostupnost" count={f.avail ? 1 : 0}>
+        {(
+          [
+            ["", "Svi recepti"],
+            ["all", "Imam sve sastojke"],
+            ["max2", "Fale najviše 2"],
+          ] as [FeedFilter["avail"], string][]
+        ).map(([k, l]) => (
+          <FCheck
+            key={k || "sve"}
+            radio
+            on={f.avail === k}
+            label={l}
+            count={all.filter((e) => matches(e, { ...f, avail: k }, data)).length}
+            onChange={() => set({ avail: k })}
+          />
+        ))}
+      </FGroup>
+      <FGroup title="Vrijeme" count={f.time ? 1 : 0}>
+        {[0, 15, 25, 30].map((t) => (
+          <FCheck
+            key={t}
+            radio
+            on={f.time === t}
+            label={t ? `do ${t} min` : "Bilo koliko"}
+            count={all.filter((e) => matches(e, { ...f, time: t }, data)).length}
+            onChange={() => set({ time: t })}
+          />
+        ))}
+      </FGroup>
+      <FGroup title="Namirnice" count={f.items.length} open={f.items.length > 0}>
+        <FSearch value={itemQ} onChange={setItemQ} placeholder="Traži namirnicu" />
+        <div className="fscroll">
+          {usedItems
+            .filter((i) => !itemQ.trim() || i.n.toLowerCase().includes(itemQ.trim().toLowerCase()))
+            .map((i) => (
+              <FCheck key={i.id} on={f.items.includes(i.id)} label={i.n} count={itemCount(i.id)} onChange={() => set({ items: toggle(f.items, i.id) })} />
+            ))}
+        </div>
+        <p className="fhint">Recept mora imati sve odabrane namirnice.</p>
+      </FGroup>
+      <FGroup title="Moji recepti" count={f.mine ? 1 : 0} open={false}>
+        <FCheck on={f.mine} label="Samo recepti koje sam dodao" count={all.filter((e) => e.custom).length} onChange={() => set({ mine: !f.mine })} />
+      </FGroup>
+    </>
+  );
 
+  return (
+    <Page
+      id="recepti"
+      title="Recepti"
+      count={
+        <>
+          <b>{list.length}</b> od {all.length}
+        </>
+      }
+      filters={filters}
+      active={chips.length}
+      onClear={() => setF({ ...emptyFilter(), q: f.q })}
+      chips={chips}
+      actions={
+        <>
+          <label className="sortsel">
+            <span className="sr-only">Poredaj</span>
+            <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} aria-label="Poredaj recepte">
+              {SORTS.map(([k, l]) => (
+                <option key={k} value={k}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="button" className="btn ghost" onClick={() => open({ t: "om", sel: DEFAULT_OM })}>
+            <Icon name="omlet" size={18} /> Složi omlet
+          </button>
+          <button type="button" className="btn" onClick={() => open({ t: "newRecipe" })}>
+            <Icon name="plus" size={18} /> Novi recept
+          </button>
+        </>
+      }
+    >
       {list.length ? (
-        <div className="cardgrid">
-          {list.map((e) => (
-            <FeedCard key={e.key} e={e} onOpen={() => openEntry(e)} />
-          ))}
+        <div className="tablewrap">
+          <table className="grid rows cards-mobile" aria-label="Recepti">
+            <thead>
+              <tr>
+                <th className="sticky">Recept</th>
+                <th>Vrsta</th>
+                <th>Prilog</th>
+                <th>Protein</th>
+                <th className="num">kcal</th>
+                <th className="num">Proteini</th>
+                <th className="num">Cijena</th>
+                <th className="num">Vrijeme</th>
+                <th>Sastojci</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((e) => (
+                <Row key={e.key} e={e} onOpen={() => openEntry(e)} />
+              ))}
+            </tbody>
+          </table>
+          <div className="tblfoot">
+            <span>Brojke su po obroku, za omlet po omletu, a za prep za cijelu turu. Klik na recept otvara ga sa strane.</span>
+          </div>
         </div>
       ) : (
         <div className="empty">
@@ -268,6 +267,6 @@ export function ReceptiTab() {
           <span>Makni neki filter ili dodaj svoj recept.</span>
         </div>
       )}
-    </section>
+    </Page>
   );
 }

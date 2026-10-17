@@ -15,13 +15,12 @@ import { Icon } from "../components/icons";
 import { usePanel } from "../components/Panel";
 import { dateOf } from "../components/RecipeViews";
 import { SortTh } from "../components/Cells";
+import { FGroup, Page } from "../components/Page";
 
 type NK = "n" | "shop" | "need" | "have" | "short" | "cost";
 
 /** Namirnice koje traži plan za ovaj tjedan */
 function WeekNeeds({ data }: { data: AppData }) {
-  const { update } = useApp();
-  const open = data.ui.needsOpen ?? true;
   const [sort, setSort] = useState<{ k: NK; dir: 1 | -1 }>({ k: "shop", dir: 1 });
   const rows = weekNeeds(data);
   const short = rows.filter((r) => r.short > 0.0001);
@@ -41,36 +40,18 @@ function WeekNeeds({ data }: { data: AppData }) {
     return c * sort.dir || a.i.n.localeCompare(b.i.n, "hr");
   });
   const grouped = sort.k === "shop";
-  const toggle = () =>
-    update((d) => {
-      const n = clone(d);
-      n.ui.needsOpen = !open;
-      return n;
-    });
+  if (!rows.length)
+    return (
+      <div className="empty">
+        <b>Plan je prazan.</b>
+        <span>Dodaj recepte i omlete u kalendar pa ćeš ovdje vidjeti sve namirnice za tjedan.</span>
+      </div>
+    );
 
   return (
-    <section className="panelbox">
-      <button type="button" className="panelbox-head" aria-expanded={open} onClick={toggle}>
-        <span className="panelbox-title">Namirnice za ovaj tjedan</span>
-        <span className="panelbox-sum">
-          {rows.length ? (
-            <>
-              <b>{rows.length}</b> namirnica · fali <b className={short.length ? "t-out" : "t-ok"}>{short.length}</b>
-              {total > 0 && (
-                <>
-                  {" "}
-                  · ≈ <b>{eur(total)}</b>
-                </>
-              )}
-            </>
-          ) : (
-            "plan je prazan"
-          )}
-        </span>
-        <Icon name="chev" size={18} />
-      </button>
-      {open && rows.length > 0 && (
-        <div className="tablewrap flat">
+    <div>
+      {(
+        <div className="tablewrap">
           <table className="grid">
             <thead>
               <tr>
@@ -124,9 +105,19 @@ function WeekNeeds({ data }: { data: AppData }) {
               })}
             </tbody>
           </table>
+          <div className="tblfoot">
+            <span>
+              {rows.length} namirnica · fali <b className={short.length ? "t-out" : "t-ok"}>{short.length}</b>
+            </span>
+            {total > 0 && (
+              <span className="tblsum">
+                Za dokupiti ≈ <b>{eur(total)}</b>
+              </span>
+            )}
+          </div>
         </div>
       )}
-    </section>
+    </div>
   );
 }
 
@@ -172,90 +163,140 @@ export function PlanTab() {
     omPlanned.reduce((s, o) => s + costOf(data, omUse(data, o.sel!, 1)).c, 0);
   const shop = shopping(data).length;
 
-  return (
-    <section id="plan" aria-labelledby="tab-plan">
-      <div className="toolbar">
-        <label htmlFor="cycleStart" className="inline-label">
-          Ciklus kreće od
-          <select
-            id="cycleStart"
-            value={String(plan.start || 0)}
-            onChange={(e) =>
-              update((d) => {
-                const n = clone(d);
-                n.plan.start = Number(e.target.value);
-                return n;
-              })
-            }
-          >
-            {CYCLE.map((c, i) => (
-              <option key={i} value={i}>
-                {i + 1}. {c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button className="btn" type="button" onClick={() => apply(autoFillPlan(data), "Prazni dani su popunjeni.")}>
-          Popuni prazne dane
-        </button>
-        <button className="btn ghost" type="button" onClick={() => apply(newWeek(data), "Novi tjedan, ciklus pomaknut.")}>
-          Novi tjedan
-        </button>
-        <span className="grow" />
-        <button className="btn ghost" type="button" onClick={() => open({ t: "newRecipe" })}>
-          <Icon name="plus" size={18} /> Novi recept
-        </button>
-      </div>
+  const tab = data.ui.planView ?? "cal";
+  const setView = (v: "cal" | "needs") =>
+    update((d) => {
+      const n = clone(d);
+      n.ui.planView = v;
+      return n;
+    });
+  const needs = weekNeeds(data);
+  const needShort = needs.filter((r) => r.short > 0.0001).length;
+  const goShop = () =>
+    update((d) => {
+      const n = clone(d);
+      n.ui.tab = "kupovina";
+      return n;
+    });
 
-      <div className="weekstats">
-        <div>
-          <span className="lbl">Ručak i večera</span>
-          <b>
-            {cooked}
-            <small>/{planned}</small>
-          </b>
-          <span>{planned ? `skuhano${planned < 7 ? `, ${7 - planned} prazno` : ""}` : "ništa nije planirano"}</span>
-        </div>
-        <div>
-          <span className="lbl">Omleti</span>
-          <b>
-            {eaten}
-            <small>/{omPlanned.length}</small>
-          </b>
-          <span>{omPlanned.length ? `pojedeno${omPlanned.length < 7 ? `, ${7 - omPlanned.length} prazno` : ""}` : "nema omleta"}</span>
-        </div>
-        <div>
-          <span className="lbl">Protein u omletu</span>
-          <b>
-            {omPlanned.length ? avgProt : "–"}
-            <small> g</small>
-          </b>
-          <span>prosjek planiranih</span>
-        </div>
-        <div>
-          <span className="lbl">Tjedan košta</span>
-          <b>{weekCost > 0 ? eur(weekCost) : "–"}</b>
-          <span>{weekCost > 0 ? "po cijenama iz zalihe" : "upiši cijene u Zalihi"}</span>
-        </div>
-        <button
-          type="button"
-          className="statlink"
-          onClick={() =>
+  const side = (
+    <>
+      <div className="fblock">
+        <label htmlFor="cycleStart" className="flabel">
+          Ciklus kreće od
+        </label>
+        <select
+          id="cycleStart"
+          value={String(plan.start || 0)}
+          onChange={(e) =>
             update((d) => {
               const n = clone(d);
-              n.ui.tab = "kupovina";
+              n.plan.start = Number(e.target.value);
               return n;
             })
           }
         >
-          <span className="lbl">Za kupiti</span>
-          <b>{shop}</b>
-          <span>{shop ? `${stavki(shop).replace(/^\d+ /, "")} na popisu →` : "ništa ne fali"}</span>
+          {CYCLE.map((c, i) => (
+            <option key={i} value={i}>
+              {i + 1}. {c}
+            </option>
+          ))}
+        </select>
+        <button className="btn wide" type="button" onClick={() => apply(autoFillPlan(data), "Prazni dani su popunjeni.")}>
+          Popuni prazne dane
         </button>
+        <button className="btn ghost wide" type="button" onClick={() => apply(newWeek(data), "Novi tjedan, ciklus pomaknut.")}>
+          Novi tjedan
+        </button>
+        <p className="fhint">
+          Sljedeći tjedan kreće od {next + 1}. dana ciklusa ({CYCLE[next].toLowerCase()}).
+        </p>
       </div>
 
-      <WeekNeeds data={data} />
+      <FGroup title="Ovaj tjedan">
+        <dl className="kv">
+          <div>
+            <dt>Ručak i večera</dt>
+            <dd>
+              <b>{cooked}</b>/{planned} skuhano
+              {planned < 7 && <small> · {7 - planned} prazno</small>}
+            </dd>
+          </div>
+          <div>
+            <dt>Omleti</dt>
+            <dd>
+              <b>{eaten}</b>/{omPlanned.length} pojedeno
+              {omPlanned.length < 7 && <small> · {7 - omPlanned.length} prazno</small>}
+            </dd>
+          </div>
+          <div>
+            <dt>Protein u omletu</dt>
+            <dd>{omPlanned.length ? <b>{avgProt} g</b> : "–"}</dd>
+          </div>
+          <div>
+            <dt>Tjedan košta</dt>
+            <dd>{weekCost > 0 ? <b>{eur(weekCost)}</b> : <small>upiši cijene u Zalihi</small>}</dd>
+          </div>
+          <div>
+            <dt>Za kupiti</dt>
+            <dd>
+              <button type="button" className="linkbtn" onClick={goShop}>
+                {shop ? `${stavki(shop)} →` : "ništa ne fali"}
+              </button>
+            </dd>
+          </div>
+        </dl>
+      </FGroup>
 
+      <FGroup title="Zadnje skuhano" open={false}>
+        {data.hist.length ? (
+          <ul className="hist">
+            {data.hist.slice(0, 8).map((h, i) => (
+              <li key={i}>
+                <b>{recipeName(data, h.r)}</b>
+                <span>{new Date(h.t).toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" })}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="fhint">Još ništa. Kad skuhaš, pojavit će se ovdje.</p>
+        )}
+      </FGroup>
+    </>
+  );
+
+  return (
+    <Page
+      id="plan"
+      title="Plan"
+      count={
+        <>
+          {dateOf(0)} – {dateOf(6)}
+        </>
+      }
+      filters={side}
+      filterTitle="Tjedan"
+      tabs={
+        <div className="seg" role="tablist" aria-label="Prikaz plana">
+          <button type="button" role="tab" aria-selected={tab === "cal"} aria-pressed={tab === "cal"} onClick={() => setView("cal")}>
+            Kalendar
+          </button>
+          <button type="button" role="tab" aria-selected={tab === "needs"} aria-pressed={tab === "needs"} onClick={() => setView("needs")}>
+            Namirnice za tjedan <small>{needs.length}</small>
+            {needShort > 0 && <span className="badge">{needShort}</span>}
+          </button>
+        </div>
+      }
+      actions={
+        <button className="btn" type="button" onClick={() => open({ t: "newRecipe" })}>
+          <Icon name="plus" size={18} /> Novi recept
+        </button>
+      }
+    >
+      {tab === "needs" ? (
+        <WeekNeeds data={data} />
+      ) : (
+        <>
       <div className="calwrap">
         <div className="cal" role="grid" aria-label="Tjedni kalendar obroka">
           <div className="corner" />
@@ -304,7 +345,7 @@ export function PlanTab() {
                   </span>
                   <div className="crow">
                     <span className={"flag " + (o.done ? "done" : miss.length ? "miss" : "ready")}>
-                      {o.done ? "pojedeno" : miss.length ? `fali ${miss.length}` : "imaš sve"}
+                      {o.done ? "" : miss.length ? `fali ${miss.length}` : "imaš sve"}
                     </span>
                     {!o.done && (
                       <button type="button" className="mini" aria-label={`Zamijeni omlet: ${DAYS[ix]}`} onClick={() => open({ t: "pickOm", day: ix })}>
@@ -370,7 +411,7 @@ export function PlanTab() {
                   )}
                   <div className="crow">
                     <span className={"flag " + (d.done ? "done" : m.length ? "miss" : "ready")}>
-                      {d.done ? "skuhano" : m.length ? `fali ${m.length}` : "imaš sve"}
+                      {d.done ? "" : m.length ? `fali ${m.length}` : "imaš sve"}
                     </span>
                     {!d.done && (
                       <button type="button" className="mini" aria-label={`Zamijeni recept: ${DAYS[ix]}`} onClick={() => open({ t: "pickMeal", day: ix })}>
@@ -395,27 +436,10 @@ export function PlanTab() {
       </div>
       <p className="sub">
         Kvačica znači skuhano ili pojedeno i skida sastojke sa zalihe. <Icon name="info" size={14} /> otvara recept,{" "}
-        <Icon name="swap" size={14} /> mijenja jelo, <Icon name="close" size={14} /> ga miče s dana. Sljedeći tjedan kreće
-        od {next + 1}. dana ciklusa ({CYCLE[next].toLowerCase()}).
+        <Icon name="swap" size={14} /> mijenja jelo, <Icon name="close" size={14} /> ga miče s dana.
       </p>
-
-      <div className="group">
-        <h2>Zadnje skuhano</h2>
-        {data.hist.length ? (
-          <ul className="hist">
-            {data.hist.slice(0, 8).map((h, i) => (
-              <li key={i}>
-                <b>{recipeName(data, h.r)}</b>
-                <span>
-                  {new Date(h.t).toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" })}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="sub">Još ništa. Kad skuhaš, pojavit će se ovdje.</p>
-        )}
-      </div>
-    </section>
+        </>
+      )}
+    </Page>
   );
 }

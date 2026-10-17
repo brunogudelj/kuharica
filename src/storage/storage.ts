@@ -209,6 +209,8 @@ export function migrate(raw: unknown): AppData {
   if (typeof ui.omDay === "number" && ui.omDay >= 0 && ui.omDay < 7) d.ui.omDay = ui.omDay;
   if (typeof ui.needsOpen === "boolean") d.ui.needsOpen = ui.needsOpen;
   if (ui.kupGroup === "shop" || ui.kupGroup === "cat" || ui.kupGroup === "none") d.ui.kupGroup = ui.kupGroup;
+  if (ui.planView === "cal" || ui.planView === "needs") d.ui.planView = ui.planView;
+  if (ui.trTab === "log" || ui.trTab === "meal" || ui.trTab === "set") d.ui.trTab = ui.trTab;
   return d;
 }
 

@@ -1,7 +1,7 @@
 import { Fragment, useState } from "react";
 import { CATS, OM_FILL, PREP, PREP_INV } from "../data";
 import type { CatId, Item } from "../data";
-import { shopIndex, shopOpts } from "../logic/shops";
+import { shopIndex, shopName, shopOpts } from "../logic/shops";
 import { useApp } from "../state/AppContext";
 import { clone } from "../state/model";
 import type { AppData } from "../state/model";
@@ -11,12 +11,13 @@ import { hiddenItems, isCustom, visibleItems } from "../logic/items";
 import { buy, editItem, removeItem, resetItems, setHidden, setQty } from "../logic/actions";
 import { macDisplay } from "../logic/omlet";
 import { fmt, pfmt } from "../logic/format";
-import { Filters, Note, StatusPill } from "../components/ui";
+import { Note, StatusPill } from "../components/ui";
+import { FCheck, FGroup, FSearch, Page, toggle } from "../components/Page";
+import type { Chip } from "../components/Page";
 import { ItemForm } from "../components/ItemForm";
 import { NumCell, SelectCell, SortTh, TextCell } from "../components/Cells";
 import { Icon } from "../components/icons";
 
-type F = "sve" | "nisko" | CatId;
 type SortK = "mjesto" | "n" | "src" | "qty" | "stanje" | "min" | "pack" | "price" | "kcal" | "prot";
 
 const CAT_OPTS = Object.entries(CATS) as [CatId, string][];
@@ -39,8 +40,7 @@ function PrepStock({ data, update }: { data: AppData; update: (fn: (d: AppData) 
       return n;
     });
   return (
-    <div className="group">
-      <h2>Pripremljeno</h2>
+    <div>
       <div className="tablewrap">
         <table className="grid">
           <thead>
@@ -238,10 +238,21 @@ function Row({ i, open, onToggle }: { i: Item; open: boolean; onToggle: () => vo
   );
 }
 
+type ZTab = "items" | "prep" | "hidden";
+const ST_LABEL: [Status, string, string][] = [
+  ["out", "Nema", "st-out"],
+  ["low", "Nisko", "st-low"],
+  ["ok", "Na zalihi", "st-ok"],
+  ["none", "Bez minimuma", "st-none"],
+];
+
 export function ZalihaTab() {
   const { data, update, apply } = useApp();
-  const [f, setF] = useState<F>("sve");
+  const [tab, setTab] = useState<ZTab>("items");
   const [q, setQ] = useState("");
+  const [fSt, setFSt] = useState<Status[]>([]);
+  const [fCat, setFCat] = useState<CatId[]>([]);
+  const [fShop, setFShop] = useState<string[]>([]);
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -249,20 +260,16 @@ export function ZalihaTab() {
   const items = visibleItems(data);
   const hidden = hiddenItems(data);
   const term = q.trim().toLowerCase();
-  const counts = { out: 0, low: 0, ok: 0 };
-  items.forEach((i) => {
-    const s = status(data, i);
-    if (s === "out") counts.out++;
-    else if (s === "low") counts.low++;
-    else if (s === "ok") counts.ok++;
-  });
+  const prepHave = PREP.filter((p) => pc(data, p.id) > 0);
 
-  let rows = items.filter((i) => {
-    if (term) return i.n.toLowerCase().includes(term);
-    if (f === "nisko") return ["low", "out"].includes(status(data, i));
-    if (f !== "sve") return i.cat === f;
-    return true;
-  });
+  const pass = (i: Item, skip?: "st" | "cat" | "shop") =>
+    (!term || i.n.toLowerCase().includes(term)) &&
+    (skip === "st" || !fSt.length || fSt.includes(status(data, i))) &&
+    (skip === "cat" || !fCat.length || fCat.includes(i.cat)) &&
+    (skip === "shop" || !fShop.length || fShop.includes(i.src));
+  const cnt = (skip: "st" | "cat" | "shop", ok: (i: Item) => boolean) => items.filter((i) => pass(i, skip) && ok(i)).length;
+
+  let rows = items.filter((i) => pass(i));
   const val = (i: Item): number | string => {
     switch (sort.k) {
       case "n":
@@ -295,252 +302,292 @@ export function ZalihaTab() {
   });
   const grouped = sort.k === "mjesto";
   const hiddenMatches = term ? hidden.filter((i) => i.n.toLowerCase().includes(term)) : [];
+  const nOut = items.filter((i) => status(data, i) === "out").length;
+  const nLow = items.filter((i) => status(data, i) === "low").length;
+
+  const chips: Chip[] = [
+    ...fSt.map((x): Chip => [ST_LABEL.find(([k]) => k === x)![1], () => setFSt(toggle(fSt, x))]),
+    ...fCat.map((x): Chip => [CATS[x], () => setFCat(toggle(fCat, x))]),
+    ...fShop.map((x): Chip => [shopName(data, x), () => setFShop(toggle(fShop, x))]),
+  ];
+  const clear = () => {
+    setFSt([]);
+    setFCat([]);
+    setFShop([]);
+  };
+
+  const filters = (
+    <>
+      <FSearch id="itemSearch" value={q} onChange={setQ} placeholder="Traži namirnicu" />
+      <FGroup title="Stanje" count={fSt.length}>
+        {ST_LABEL.map(([k, l, cls]) => (
+          <FCheck key={k} on={fSt.includes(k)} label={l} dot={cls} count={cnt("st", (i) => status(data, i) === k)} onChange={() => setFSt(toggle(fSt, k))} />
+        ))}
+      </FGroup>
+      <FGroup title="Mjesto" count={fCat.length}>
+        {CAT_OPTS.map(([k, l]) => (
+          <FCheck key={k} on={fCat.includes(k)} label={l} dot={`l-${k}`} count={cnt("cat", (i) => i.cat === k)} onChange={() => setFCat(toggle(fCat, k))} />
+        ))}
+      </FGroup>
+      <FGroup title="Dućan" count={fShop.length}>
+        {data.shops.map((sh) => (
+          <FCheck key={sh.id} on={fShop.includes(sh.id)} label={sh.n} count={cnt("shop", (i) => i.src === sh.id)} onChange={() => setFShop(toggle(fShop, sh.id))} />
+        ))}
+      </FGroup>
+    </>
+  );
 
   return (
-    <section id="zaliha" aria-labelledby="tab-zaliha">
-      <div className="weekstats">
-        <div>
-          <b>{items.length}</b>
-          <span>namirnica u popisu</span>
-        </div>
-        <div>
-          <b style={{ color: "var(--ok)" }}>{counts.ok}</b>
-          <span>na zalihi</span>
-        </div>
-        <div>
-          <b style={{ color: "var(--low)" }}>{counts.low}</b>
-          <span>nisko</span>
-        </div>
-        <div>
-          <b style={{ color: "var(--out)" }}>{counts.out}</b>
-          <span>nema</span>
-        </div>
-      </div>
-
-      <PrepStock data={data} update={update} />
-
-      <div className="toolbar">
-        <input id="itemSearch" className="search" type="search" placeholder="Traži namirnicu" aria-label="Traži namirnicu" value={q} onChange={(e) => setQ(e.target.value)} />
-        {!adding && (
-          <button type="button" className="btn" onClick={() => setAdding(true)}>
-            + Dodaj namirnicu
-          </button>
-        )}
-      </div>
-      {adding && <ItemForm initialName={q.trim()} onDone={() => setAdding(false)} />}
-      {!term && (
-        <Filters<F>
-          label="Filtriraj zalihu"
-          value={f}
-          onChange={setF}
-          options={[["sve", "Sve"], ["nisko", "Nisko i nema"], ...CAT_OPTS]}
-        />
-      )}
-
-      {rows.length > 0 ? (
-        <div className="tablewrap">
-          <table className="grid" aria-label="Zaliha namirnica">
-            <thead>
-              <tr>
-                <SortTh k="n" sort={sort} setSort={setSort} className="sticky">
-                  Naziv
-                </SortTh>
-                <SortTh k="mjesto" sort={sort} setSort={setSort}>
-                  Mjesto
-                </SortTh>
-                <SortTh k="src" sort={sort} setSort={setSort}>
-                  Dućan
-                </SortTh>
-                <SortTh k="qty" sort={sort} setSort={setSort} className="num">
-                  Imam
-                </SortTh>
-                <th>Jed.</th>
-                <th>±</th>
-                <SortTh k="stanje" sort={sort} setSort={setSort}>
-                  Stanje
-                </SortTh>
-                <SortTh k="min" sort={sort} setSort={setSort} className="num">
-                  Min.
-                </SortTh>
-                <SortTh k="pack" sort={sort} setSort={setSort} className="num">
-                  Pakiranje
-                </SortTh>
-                <SortTh k="price" sort={sort} setSort={setSort} className="num">
-                  €/pak.
-                </SortTh>
-                <SortTh k="kcal" sort={sort} setSort={setSort} className="num">
-                  kcal
-                </SortTh>
-                <SortTh k="prot" sort={sort} setSort={setSort} className="num">
-                  Prot. g
-                </SortTh>
-                <th>Omlet</th>
-                <th className="num">U omletu</th>
-                <th>
-                  <span className="sr-only">Opcije</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((i, k) => (
-                <Fragment key={i.id}>
-                  {grouped && (k === 0 || rows[k - 1].cat !== i.cat) && (
-                    <tr className="grouprow">
-                      <td className="sticky">{CATS[i.cat]}</td>
-                      <td colSpan={14} />
-                    </tr>
-                  )}
-                  <Row i={i} open={open === i.id} onToggle={() => setOpen(open === i.id ? null : i.id)} />
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-          <div className="tblfoot">
-            <span>
-              {rows.length} od {items.length} namirnica
-            </span>
-            <span>Klikni ćeliju i piši. Enter sprema, Esc odustaje. Klik na naslov kolone sortira.</span>
-          </div>
-        </div>
-      ) : term ? (
-        !hiddenMatches.length && (
-          <Note>
-            Nema namirnice „{q.trim()}”.{" "}
-            <button type="button" className="linkbtn" onClick={() => setAdding(true)}>
-              Dodaj je
+    <Page
+      id="zaliha"
+      title="Zaliha"
+      count={
+        <>
+          <b>{rows.length}</b> od {items.length} · <span className="t-out">{nOut} nema</span> · <span className="t-low">{nLow} nisko</span>
+        </>
+      }
+      filters={filters}
+      active={chips.length}
+      onClear={clear}
+      chips={chips}
+      tabs={
+        <div className="seg" role="tablist" aria-label="Prikaz zalihe">
+          {(
+            [
+              ["items", "Namirnice", items.length],
+              ["prep", "Pripremljeno", prepHave.length],
+              ["hidden", "Skrivene", hidden.length],
+            ] as [ZTab, string, number][]
+          ).map(([k, l, c]) => (
+            <button key={k} type="button" role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>
+              {l} <small>{c}</small>
             </button>
-          </Note>
+          ))}
+        </div>
+      }
+      actions={
+        !adding && (
+          <button type="button" className="btn" onClick={() => setAdding(true)}>
+            <Icon name="plus" size={18} /> Dodaj namirnicu
+          </button>
         )
-      ) : items.length === 0 ? (
-        <Note>
-          <strong>Zaliha je prazna.</strong> U tražilicu upiši što imaš, npr. „jaja”. Ako je to u katalogu, vratiš ga
-          jednim klikom, a ako nije, dodaš novu namirnicu.
-        </Note>
-      ) : (
-        <Note>Ništa nije nisko. Sve je na zalihi.</Note>
-      )}
+      }
+    >
+      {adding && <ItemForm initialName={q.trim()} onDone={() => setAdding(false)} />}
 
-      {hiddenMatches.length > 0 && (
-        <div className="group">
-          <div className="ghead">
-            <h2>Iz kataloga</h2>
-            <span className="count">skriveno, vrati jednim klikom</span>
-          </div>
+      {tab === "prep" && (prepHave.length ? <PrepStock data={data} update={update} /> : <Note>Nemaš ništa pripremljeno. Recepte za prep nađeš u Receptima.</Note>)}
+
+      {tab === "hidden" &&
+        (hidden.length ? (
           <div className="tablewrap">
-            <table className="grid">
+            <table className="grid rows">
+              <thead>
+                <tr>
+                  <th className="sticky">Namirnica</th>
+                  <th>Mjesto</th>
+                  <th>Dućan</th>
+                  <th />
+                </tr>
+              </thead>
               <tbody>
-                {hiddenMatches.map((i) => (
-                  <tr key={i.id}>
-                    <td className="sticky txt">
-                      <b>{i.n}</b>
-                    </td>
-                    <td className="txt">{CATS[i.cat]}</td>
-                    <td className="txt">
-                      {i.u} · pakiranje {fmt(i.pack, i.u)}
-                    </td>
-                    <td className="c" style={{ width: 90 }}>
-                      <button
-                        type="button"
-                        className="cookbtn"
-                        onClick={() => {
-                          const r = setHidden(data, i.id, false);
-                          apply(r.data, r.msg);
-                          setQ("");
-                        }}
-                      >
-                        Vrati
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {hidden
+                  .filter((i) => pass(i))
+                  .map((i) => (
+                    <tr key={i.id}>
+                      <td className="sticky">
+                        <span className="iname">{i.n}</span>
+                      </td>
+                      <td>
+                        <span className={`label l-${i.cat}`}>{CATS[i.cat]}</span>
+                      </td>
+                      <td className="muted">{shopName(data, i.src)}</td>
+                      <td className="c" style={{ width: 90 }}>
+                        <button
+                          type="button"
+                          className="btn small ghost"
+                          onClick={() => {
+                            const r = setHidden(data, i.id, false);
+                            apply(r.data, r.msg);
+                          }}
+                        >
+                          Vrati
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
-          </div>
-          <p className="sub">
-            Nije to što tražiš?{" "}
-            <button type="button" className="linkbtn" onClick={() => setAdding(true)}>
-              Dodaj novu namirnicu „{q.trim()}”
-            </button>
-          </p>
-        </div>
-      )}
-
-      {hidden.length > 0 && !term && (
-        <details className="rec">
-          <summary>
-            <div className="rtitle">
-              <h3>Skrivene namirnice</h3>
-              <div className="meta">
-                <span>{hidden.length} skriveno</span>
-              </div>
-            </div>
-            <span className="chev" aria-hidden="true">
-              ›
-            </span>
-          </summary>
-          <div className="rbody">
-            <p className="sub">Skrivene ne dolaze na popis za kupovinu, osim ako ih traži recept ili omlet koji si isplanirao.</p>
-            <div className="list">
-              {hidden.map((i) => (
-                <div key={i.id} className="lrow">
-                  <div className="ln">
-                    <b>{i.n}</b>
-                    <small>{CATS[i.cat]}</small>
-                  </div>
-                  <button
-                    type="button"
-                    className="cookbtn"
-                    onClick={() => {
-                      const r = setHidden(data, i.id, false);
-                      apply(r.data, r.msg);
-                    }}
-                  >
-                    Vrati
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </details>
-      )}
-
-      <div className="group">
-        <h2>Kreni od nule</h2>
-        {confirmReset ? (
-          <div className="confirm" role="alertdialog" aria-label="Potvrda brisanja zalihe">
-            <b>Obrisati sve namirnice?</b>
-            <span className="sub">
-              Sakrit će se sve ugrađene namirnice, obrisat će se tvoje dodane namirnice te sve količine, cijene i
-              pripremljeno. Recepti, plan, omleti i troškovi ostaju. Ugrađene namirnice uvijek možeš vratiti preko tražilice.
-            </span>
-            <div className="btnrow">
-              <button
-                type="button"
-                className="btn danger"
-                onClick={() => {
-                  const r = resetItems(data);
-                  apply(r.data, r.msg);
-                  setConfirmReset(false);
-                  setQ("");
-                  window.scrollTo({ top: 0 });
-                }}
-              >
-                Da, obriši sve
-              </button>
-              <button type="button" className="btn ghost" onClick={() => setConfirmReset(false)}>
-                Odustani
-              </button>
+            <div className="tblfoot">
+              <span>Skrivene ne dolaze na popis za kupovinu, osim ako ih traži recept ili omlet koji si isplanirao.</span>
             </div>
           </div>
         ) : (
-          <div className="btnrow">
-            <button type="button" className="btn ghost danger" onClick={() => setConfirmReset(true)}>
-              Obriši sve namirnice
-            </button>
-            <span className="count">prazna zaliha, popunjavaš sam</span>
-          </div>
-        )}
-      </div>
-    </section>
+          <Note>Nema skrivenih namirnica.</Note>
+        ))}
+
+      {tab === "items" && (
+        <>
+          {rows.length > 0 ? (
+            <div className="tablewrap">
+              <table className="grid" aria-label="Zaliha namirnica">
+                <thead>
+                  <tr>
+                    <SortTh k="n" sort={sort} setSort={setSort} className="sticky">
+                      Naziv
+                    </SortTh>
+                    <SortTh k="mjesto" sort={sort} setSort={setSort}>
+                      Mjesto
+                    </SortTh>
+                    <SortTh k="src" sort={sort} setSort={setSort}>
+                      Dućan
+                    </SortTh>
+                    <SortTh k="qty" sort={sort} setSort={setSort} className="num">
+                      Imam
+                    </SortTh>
+                    <th>Jed.</th>
+                    <th>±</th>
+                    <SortTh k="stanje" sort={sort} setSort={setSort}>
+                      Stanje
+                    </SortTh>
+                    <SortTh k="min" sort={sort} setSort={setSort} className="num">
+                      Min.
+                    </SortTh>
+                    <SortTh k="pack" sort={sort} setSort={setSort} className="num">
+                      Pakiranje
+                    </SortTh>
+                    <SortTh k="price" sort={sort} setSort={setSort} className="num">
+                      €/pak.
+                    </SortTh>
+                    <SortTh k="kcal" sort={sort} setSort={setSort} className="num">
+                      kcal
+                    </SortTh>
+                    <SortTh k="prot" sort={sort} setSort={setSort} className="num">
+                      Prot. g
+                    </SortTh>
+                    <th>Omlet</th>
+                    <th className="num">U omletu</th>
+                    <th>
+                      <span className="sr-only">Opcije</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((i, k) => (
+                    <Fragment key={i.id}>
+                      {grouped && (k === 0 || rows[k - 1].cat !== i.cat) && (
+                        <tr className="grouprow">
+                          <td className="sticky">{CATS[i.cat]}</td>
+                          <td colSpan={14} />
+                        </tr>
+                      )}
+                      <Row i={i} open={open === i.id} onToggle={() => setOpen(open === i.id ? null : i.id)} />
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+              <div className="tblfoot">
+                <span>Klikni ćeliju i piši. Enter sprema, Esc odustaje. Klik na naslov kolone sortira.</span>
+                {!confirmReset && (
+                  <button type="button" className="linkbtn danger" onClick={() => setConfirmReset(true)}>
+                    Obriši sve namirnice
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : term ? (
+            !hiddenMatches.length && (
+              <Note>
+                Nema namirnice „{q.trim()}”.{" "}
+                <button type="button" className="linkbtn" onClick={() => setAdding(true)}>
+                  Dodaj je
+                </button>
+              </Note>
+            )
+          ) : items.length === 0 ? (
+            <Note>
+              <strong>Zaliha je prazna.</strong> U tražilicu lijevo upiši što imaš, npr. „jaja”. Ako je to u katalogu, vratiš
+              ga jednim klikom, a ako nije, dodaš novu namirnicu.
+            </Note>
+          ) : (
+            <Note>Nijedna namirnica ne odgovara filterima.</Note>
+          )}
+
+          {hiddenMatches.length > 0 && (
+            <div className="group">
+              <div className="ghead">
+                <h2>Iz kataloga</h2>
+                <span className="count">skriveno, vrati jednim klikom</span>
+              </div>
+              <div className="tablewrap">
+                <table className="grid rows">
+                  <tbody>
+                    {hiddenMatches.map((i) => (
+                      <tr key={i.id}>
+                        <td className="sticky">
+                          <span className="iname">{i.n}</span>
+                        </td>
+                        <td className="txt">{CATS[i.cat]}</td>
+                        <td className="txt">
+                          {i.u} · pakiranje {fmt(i.pack, i.u)}
+                        </td>
+                        <td className="c" style={{ width: 90 }}>
+                          <button
+                            type="button"
+                            className="btn small ghost"
+                            onClick={() => {
+                              const r = setHidden(data, i.id, false);
+                              apply(r.data, r.msg);
+                              setQ("");
+                            }}
+                          >
+                            Vrati
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="sub">
+                Nije to što tražiš?{" "}
+                <button type="button" className="linkbtn" onClick={() => setAdding(true)}>
+                  Dodaj novu namirnicu „{q.trim()}”
+                </button>
+              </p>
+            </div>
+          )}
+
+          {confirmReset && (
+            <div className="confirm" role="alertdialog" aria-label="Potvrda brisanja zalihe">
+              <b>Obrisati sve namirnice?</b>
+              <span className="sub">
+                Sakrit će se sve ugrađene namirnice, obrisat će se tvoje dodane namirnice te sve količine, cijene i
+                pripremljeno. Recepti, plan, omleti i troškovi ostaju. Ugrađene namirnice uvijek možeš vratiti preko
+                tražilice.
+              </span>
+              <div className="btnrow">
+                <button
+                  type="button"
+                  className="btn danger"
+                  onClick={() => {
+                    const r = resetItems(data);
+                    apply(r.data, r.msg);
+                    setConfirmReset(false);
+                    setQ("");
+                    clear();
+                    window.scrollTo({ top: 0 });
+                  }}
+                >
+                  Da, obriši sve
+                </button>
+                <button type="button" className="btn ghost" onClick={() => setConfirmReset(false)}>
+                  Odustani
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </Page>
   );
 }

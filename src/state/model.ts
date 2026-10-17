@@ -48,8 +48,12 @@ export interface UiState {
   tab: string;
   /** odabrani dan u kartici Omlet (0 = ponedjeljak) */
   omDay?: number;
-  /** tablica namirnica za tjedan u Planu je otvorena */
+  /** tablica namirnica za tjedan u Planu je otvorena (staro) */
   needsOpen?: boolean;
+  /** prikaz u Planu: kalendar ili namirnice za tjedan */
+  planView?: "cal" | "needs";
+  /** kartica u Troškovima */
+  trTab?: "log" | "meal" | "set";
   /** grupiranje popisa za kupovinu */
   kupGroup?: "shop" | "cat" | "none";
 }
