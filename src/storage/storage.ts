@@ -67,6 +67,8 @@ export function migrate(raw: unknown): AppData {
       amount: num(e.amount, 0),
       note: String(e.note ?? ""),
       est: !!e.est,
+      ...(typeof e.item === "string" ? { item: e.item } : {}),
+      ...(typeof e.qty === "number" ? { qty: e.qty } : {}),
     }));
   }
 

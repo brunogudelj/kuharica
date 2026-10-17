@@ -25,8 +25,11 @@ export interface CostEntry {
   shop: string;
   amount: number;
   note: string;
-  /** procjena iz "Kupio", zamjenjuje je pravi račun */
+  /** zapis s popisa za kupovinu (ili iz "Kupio"); zamjenjuje ga ukupni iznos s računa */
   est: boolean;
+  /** namirnica i kupljena količina, za poništavanje kupnje */
+  item?: string;
+  qty?: number;
 }
 /** Vlastite namirnice, skrivene namirnice i promjene pakiranja ili minimuma */
 export interface ItemsState {

@@ -212,3 +212,36 @@ export function restoreItem(src: AppData, id: string, startQty = 0): Result {
   if (startQty > 0) setQty(r.data, id, startQty);
   return r;
 }
+
+/**
+ * Kupljeno s popisa: točna količina ide u zalihu (skrivena namirnica se vraća),
+ * a trošak se bilježi po upisanoj cijeni ili procjeni iz cijene pakiranja.
+ * Upisana cijena se pamti kao nova cijena pakiranja. Ukupni iznos s računa kasnije zamjenjuje ove zapise.
+ */
+export function purchase(src: AppData, id: string, amount: number, paid: number | null, now = Date.now()): Result {
+  const d = clone(src);
+  const i = itemOf(d, id);
+  if (!i || !(amount > 0)) return { data: src, msg: "Upiši količinu veću od 0." };
+  d.items.hidden = d.items.hidden.filter((x) => x !== id);
+  const known = price(d, id);
+  setQty(d, id, qty(d, id) + amount);
+  if (paid != null && paid >= 0) d.stock[id].price = round((paid / amount) * i.pack);
+  const cost = paid != null ? paid : known != null ? (known / i.pack) * amount : null;
+  // i bez cijene se zapisuje (0 €), da se kupnja može poništiti s popisa
+  const mk = monthKey(now);
+  d.costs[mk] = [
+    ...(d.costs[mk] || []),
+    { id: newId(), t: now, shop: i.src, amount: round(cost ?? 0), note: i.n, est: true, item: id, qty: round(amount) },
+  ];
+  return { data: d, msg: `${i.n}: +${fmt(amount, i.u)} u zalihi${cost != null ? `, ${eur(cost)}` : ""}.` };
+}
+
+/** Vrati kupnju s popisa: makni količinu iz zalihe i obriši zapis troška */
+export function undoPurchase(src: AppData, mk: string, entryId: string): Result {
+  const d = clone(src);
+  const e = (d.costs[mk] || []).find((x) => x.id === entryId);
+  if (!e) return { data: src, msg: "" };
+  if (e.item && e.qty) setQty(d, e.item, qty(d, e.item) - e.qty);
+  d.costs[mk] = d.costs[mk].filter((x) => x.id !== entryId);
+  return { data: d, msg: `${e.note} je vraćen na popis.` };
+}

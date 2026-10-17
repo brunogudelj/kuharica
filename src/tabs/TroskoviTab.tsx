@@ -197,7 +197,7 @@ export function TroskoviTab() {
             Iznos (€)
             <input
               id="rcAmount"
-              type="number"
+              type="text"
               inputMode="decimal"
               min="0"
               step="0.01"
@@ -226,8 +226,7 @@ export function TroskoviTab() {
           </button>
         </form>
         <p className="sub">
-          Račun zamjenjuje procjene koje je <strong>Kupio</strong> zabilježio za taj dućan i dan, pa se ništa ne broji
-          dvaput.
+          Ukupni iznos s računa zamjenjuje zapise s popisa za kupovinu za taj dućan i dan, pa se ništa ne broji dvaput.
         </p>
       </div>
 
@@ -249,7 +248,7 @@ export function TroskoviTab() {
                 </div>
               ))
           ) : (
-            <div className="empty">Ovaj mjesec još nema zapisa. Upiši račun ili stisni Kupio u Kupovini.</div>
+            <div className="empty">Ovaj mjesec još nema zapisa. Upiši račun ili otkvači kupljeno u Kupovini.</div>
           )}
         </div>
       </div>
@@ -283,7 +282,7 @@ export function TroskoviTab() {
             Prosječna dostava po obroku (€)
             <input
               id="setDostava"
-              type="number"
+              type="text"
               inputMode="decimal"
               min="0"
               step="0.5"
@@ -332,7 +331,7 @@ export function TroskoviTab() {
                   <small>
                     {new Date(e.t).toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" })}{" "}
                     · {shopName(e.shop)}
-                    {e.est ? " · procjena iz Kupio" : " · račun"}
+                    {e.est ? " · s popisa za kupovinu" : " · račun"}
                   </small>
                 </div>
                 <span className="num">{eur(e.amount || 0)}</span>

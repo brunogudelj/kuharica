@@ -147,7 +147,7 @@ export function RecipeForm({ existing, onDone }: { existing?: CustomRecipe; onDo
                 </select>
                 <input
                   aria-label="Količina"
-                  type="number"
+                  type="text"
                   inputMode="decimal"
                   min="0"
                   step="any"

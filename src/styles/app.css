@@ -1127,3 +1127,108 @@ code {
   border-color: var(--out);
   color: var(--paper);
 }
+.shoprow {
+  border-top: 1px solid var(--line);
+}
+.shoprow:first-child {
+  border-top: 0;
+}
+.shoprow .srow {
+  border-top: 0;
+}
+.check {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 2px solid var(--accent);
+  background: var(--card);
+  cursor: pointer;
+  position: relative;
+}
+.check:hover {
+  background: var(--ok-bg);
+}
+.check:active::after {
+  content: "✓";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  font-weight: 700;
+}
+.srow button.sn {
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.buyform {
+  padding: 0 12px 12px 52px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.buyfields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 8px;
+}
+.buyfields label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  min-width: 0;
+}
+.buyfields input {
+  font: 500 0.95rem var(--mono);
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+.amtrow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.unitsw {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  flex: none;
+}
+.unitsw button {
+  border: 0;
+  background: var(--card);
+  color: var(--muted);
+  font: 500 0.8rem var(--mono);
+  padding: 7px 8px;
+  cursor: pointer;
+}
+.unitsw button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.tick {
+  color: var(--ok);
+  font-weight: 700;
+  width: 20px;
+  text-align: center;
+}
+@media (max-width: 420px) {
+  .buyform {
+    padding-left: 12px;
+  }
+}

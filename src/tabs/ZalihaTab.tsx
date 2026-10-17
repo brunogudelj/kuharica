@@ -71,7 +71,7 @@ function NumField({
       {label}
       <input
         id={id}
-        type="number"
+        type="text"
         inputMode="decimal"
         min="0"
         step="any"

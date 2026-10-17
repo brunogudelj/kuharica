@@ -62,7 +62,7 @@ export function OmFields({
             Količina po omletu ({u})
             <input
               id={`${idp}-amt`}
-              type="number"
+              type="text"
               inputMode="decimal"
               min="0"
               step="any"
@@ -89,7 +89,7 @@ export function OmFields({
         kcal {per(u)} (s deklaracije)
         <input
           id={`${idp}-kcal`}
-          type="number"
+          type="text"
           inputMode="decimal"
           min="0"
           step="any"
@@ -102,7 +102,7 @@ export function OmFields({
         Proteini (g) {per(u)}
         <input
           id={`${idp}-prot`}
-          type="number"
+          type="text"
           inputMode="decimal"
           min="0"
           step="any"
@@ -211,7 +211,7 @@ export function ItemForm({ onDone, initialName = "" }: { onDone: (item?: Item) =
           Jedno pakiranje ({u})
           <input
             id="niPack"
-            type="number"
+            type="text"
             inputMode="decimal"
             min="0"
             step="any"
@@ -224,7 +224,7 @@ export function ItemForm({ onDone, initialName = "" }: { onDone: (item?: Item) =
           Trenutno imam ({u})
           <input
             id="niHave"
-            type="number"
+            type="text"
             inputMode="decimal"
             min="0"
             step="any"
@@ -237,7 +237,7 @@ export function ItemForm({ onDone, initialName = "" }: { onDone: (item?: Item) =
           Uvijek želim imati barem ({u})
           <input
             id="niMin"
-            type="number"
+            type="text"
             inputMode="decimal"
             min="0"
             step="any"

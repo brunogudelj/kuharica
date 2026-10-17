@@ -91,3 +91,11 @@ export const monthKey = (t = Date.now()) => {
 export const sameDay = (a: number, b: number) => new Date(a).toDateString() === new Date(b).toDateString();
 export const todayIx = (t = Date.now()) => (new Date(t).getDay() + 6) % 7;
 export const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+/** "1 stavka", "2 stavke", "5 stavki" */
+export function stavki(n: number): string {
+  const a = Math.abs(n);
+  if (a % 10 === 1 && a % 100 !== 11) return `${n} stavka`;
+  if (a % 10 >= 2 && a % 10 <= 4 && (a % 100 < 12 || a % 100 > 14)) return `${n} stavke`;
+  return `${n} stavki`;
+}
