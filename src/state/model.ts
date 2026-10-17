@@ -1,5 +1,5 @@
 import { DAYS, OM_PRESETS } from "../data";
-import type { OmSel } from "../data";
+import type { Item, OmSel } from "../data";
 
 export interface StockEntry {
   qty: number;
@@ -28,6 +28,12 @@ export interface CostEntry {
   /** procjena iz "Kupio", zamjenjuje je pravi račun */
   est: boolean;
 }
+/** Vlastite namirnice, skrivene namirnice i promjene pakiranja ili minimuma */
+export interface ItemsState {
+  custom: Item[];
+  hidden: string[];
+  over: Record<string, { min?: number; pack?: number }>;
+}
 export interface Settings {
   dostava: number;
 }
@@ -47,6 +53,7 @@ export interface AppData {
   /** ključ "YYYY-MM" */
   costs: Record<string, CostEntry[]>;
   settings: Settings;
+  items: ItemsState;
   ui: UiState;
 }
 
@@ -66,6 +73,7 @@ export function defaultData(): AppData {
     hist: [],
     costs: {},
     settings: { dostava: 12 },
+    items: { custom: [], hidden: [], over: {} },
     ui: { servings: {}, ture: {}, tab: "plan" },
   };
 }

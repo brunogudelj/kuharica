@@ -1,8 +1,9 @@
-import { BY, DEFAULT_OM, MAC, OFBY, OM_BASE, OM_CARB, OM_PRESETS, OM_PROT, OM_VEG, PREP_INV } from "../data";
+import { DEFAULT_OM, MAC, OFBY, OM_BASE, OM_CARB, OM_PRESETS, OM_PROT, OM_VEG, PREP_INV } from "../data";
 import type { OmSel, Use } from "../data";
 import type { AppData, OmDay } from "../state/model";
 import { clone, defaultOmWeek } from "../state/model";
 import { qty } from "./inventory";
+import { itemName } from "./items";
 
 export function validOm(v: unknown): OmSel {
   const s = v as Partial<OmSel> | null | undefined;
@@ -70,7 +71,7 @@ export function omName(sel: OmSel): string {
 export function omMissing(data: AppData, sel: OmSel, f = 1): string[] {
   return Object.entries(omEff(sel, f, { ...data.prepStock }).use)
     .filter(([id, a]) => qty(data, id) + 1e-9 < a)
-    .map(([id]) => BY[id].n);
+    .map(([id]) => itemName(data, id));
 }
 
 export function shuffle<T>(a: T[], rng: () => number = Math.random): T[] {

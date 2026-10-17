@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
-import { BY, DAYS, OFBY, OM_BASE, OM_CARB, OM_PRESETS, OM_PROT, OM_VEG, PBY, PREP_INV } from "../data";
+import { DAYS, OFBY, OM_BASE, OM_CARB, OM_PRESETS, OM_PROT, OM_VEG, PBY, PREP_INV } from "../data";
 import type { OmSel } from "../data";
 import { useApp } from "../state/AppContext";
+import { itemName } from "../logic/items";
 import { clone } from "../state/model";
 import { costOf, pc, qty } from "../logic/inventory";
 import {
@@ -51,7 +52,7 @@ export function OmletTab() {
   const eff = omEff(sel, serv, { ...data.prepStock });
   const miss = Object.entries(eff.use)
     .filter(([id, a]) => qty(data, id) + 1e-9 < a)
-    .map(([id]) => BY[id].n);
+    .map(([id]) => itemName(data, id));
   const cost = costOf(data, omUse(sel, serv));
   const pu = eff.consumed.map(([p, k]) => `${pfmt(k, PREP_INV[p].unit)} ${PBY[p].n.toLowerCase()}`);
   const mf = pc(data, "egg-muffini");

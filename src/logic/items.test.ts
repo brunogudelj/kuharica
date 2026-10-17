@@ -1,0 +1,67 @@
+import { describe, expect, it } from "vitest";
+import { defaultData } from "../state/model";
+import { migrate } from "../storage/storage";
+import { addItem, buy, editItem, removeItem, setHidden } from "./actions";
+import { defaultStep, hiddenItems, itemOf, newCustomItem, visibleItems } from "./items";
+import { costOf, qty, shopping } from "./inventory";
+
+const kobasice = () =>
+  newCustomItem({ n: "Pileće kobasice Gavrilović", cat: "fri", src: "K", u: "g", pack: 400, min: 200 });
+
+describe("vlastite namirnice", () => {
+  it("dodaj s početnom količinom i pojavi se u zalihi", () => {
+    const i = kobasice();
+    expect(i.id.startsWith("c-pilece-kobasice")).toBe(true);
+    const d = addItem(defaultData(), i, 100).data;
+    expect(visibleItems(d).some((x) => x.id === i.id)).toBe(true);
+    expect(qty(d, i.id)).toBe(100);
+  });
+  it("ispod minimuma dolazi na popis za kupovinu u svom dućanu", () => {
+    const i = kobasice();
+    const d = addItem(defaultData(), i, 100).data;
+    const row = shopping(d).find((r) => r.i.id === i.id)!;
+    expect(row.packs).toBe(1);
+    expect(row.i.src).toBe("K");
+  });
+  it("Kupio i cijena rade kao za ugrađene", () => {
+    const i = kobasice();
+    let d = addItem(defaultData(), i).data;
+    d.stock[i.id] = { qty: 0, price: 3.2 };
+    d = buy(d, i.id, 1).data;
+    expect(qty(d, i.id)).toBe(400);
+    expect(costOf(d, { [i.id]: 200 }).c).toBeCloseTo(1.6);
+  });
+  it("uredi i obriši", () => {
+    const i = kobasice();
+    let d = addItem(defaultData(), i, 50).data;
+    d = editItem(d, i.id, { n: "Kobasice", pack: 1000 });
+    expect(itemOf(d, i.id)!.n).toBe("Kobasice");
+    expect(itemOf(d, i.id)!.step).toBe(defaultStep("g", 1000));
+    d = removeItem(d, i.id).data;
+    expect(itemOf(d, i.id)).toBeUndefined();
+    expect(d.stock[i.id]).toBeUndefined();
+  });
+  it("preživi spremanje i sinkronizaciju (migrate)", () => {
+    const i = kobasice();
+    const d = addItem(defaultData(), i, 50).data;
+    const back = migrate(JSON.parse(JSON.stringify(d)));
+    expect(itemOf(back, i.id)!.n).toBe(i.n);
+  });
+});
+
+describe("ugrađene namirnice", () => {
+  it("skrivena nema minimum, ali ulazi u kupovinu ako je traži plan", () => {
+    let d = setHidden(defaultData(), "piletina", true).data;
+    expect(hiddenItems(d).map((x) => x.id)).toContain("piletina");
+    expect(shopping(d).some((r) => r.i.id === "piletina")).toBe(false);
+    d.plan.days[0] = { r: "teriyaki", done: false };
+    expect(shopping(d).find((r) => r.i.id === "piletina")!.short).toBeCloseTo(250);
+    d = setHidden(d, "piletina", false).data;
+    expect(visibleItems(d).some((x) => x.id === "piletina")).toBe(true);
+  });
+  it("promjena pakiranja i minimuma", () => {
+    const d = editItem(defaultData(), "piletina", { pack: 500, min: 0 });
+    expect(itemOf(d, "piletina")!.pack).toBe(500);
+    expect(shopping(d).some((r) => r.i.id === "piletina")).toBe(false);
+  });
+});

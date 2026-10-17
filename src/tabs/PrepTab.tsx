@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { BY, PREP, PREP_INV, PREP_K, PREP_TIMELINE } from "../data";
+import { PREP, PREP_INV, PREP_K, PREP_TIMELINE } from "../data";
 import type { PrepCat, PrepRecipe } from "../data";
 import { useApp } from "../state/AppContext";
+import { itemName } from "../logic/items";
 import { clone } from "../state/model";
 import { pc, qty } from "../logic/inventory";
 import { makePrep } from "../logic/actions";
@@ -16,7 +17,7 @@ function PrepCard({ p }: { p: PrepRecipe }) {
   const inv = PREP_INV[p.id];
   const miss = Object.entries(p.use)
     .filter(([id, a]) => qty(data, id) + 1e-9 < a * t)
-    .map(([id]) => BY[id].n);
+    .map(([id]) => itemName(data, id));
   const have = pc(data, p.id);
   const change = (fn: (n: typeof data) => void) =>
     update((d) => {

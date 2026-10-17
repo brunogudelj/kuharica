@@ -1,7 +1,8 @@
-import { BY, DAILY, DAILY_PREP, ITEMS, PREP_INV, RBY, REC_USE_PREP } from "../data";
+import { DAILY, DAILY_PREP, PREP_INV, RBY, REC_USE_PREP } from "../data";
 import type { Item, Use } from "../data";
 import type { AppData } from "../state/model";
 import { omEff, omUse } from "./omlet";
+import { allItems, itemName, itemOf } from "./items";
 
 export const qty = (d: AppData, id: string) => {
   const s = d.stock[id];
@@ -67,17 +68,21 @@ export interface ShopRow {
   forPlan: boolean;
 }
 
-/** Popis za kupovinu: potreba + minimum − zaliha, zaokruženo na cijela pakiranja */
+/** Popis za kupovinu: potreba + minimum − zaliha, zaokruženo na cijela pakiranja.
+ * Skrivene namirnice nemaju minimum, ali ulaze u popis ako ih traži planirani recept ili omlet. */
 export function shopping(d: AppData): ShopRow[] {
   const pn = planNeeds(d);
-  return ITEMS.map((i): ShopRow | null => {
-    const want = (pn[i.id] || 0) + i.min;
-    const short = want - qty(d, i.id);
-    if (short <= 0.0001) return null;
-    const packs = Math.max(1, Math.ceil(short / i.pack - 1e-9));
-    const p = price(d, i.id);
-    return { i, short, packs, cost: p != null ? packs * p : null, forPlan: (pn[i.id] || 0) > qty(d, i.id) };
-  }).filter((x): x is ShopRow => x !== null);
+  return allItems(d)
+    .map((i): ShopRow | null => {
+      const min = d.items.hidden.includes(i.id) ? 0 : i.min;
+      const want = (pn[i.id] || 0) + min;
+      const short = want - qty(d, i.id);
+      if (short <= 0.0001) return null;
+      const packs = Math.max(1, Math.ceil(short / i.pack - 1e-9));
+      const p = price(d, i.id);
+      return { i, short, packs, cost: p != null ? packs * p : null, forPlan: (pn[i.id] || 0) > qty(d, i.id) };
+    })
+    .filter((x): x is ShopRow => x !== null);
 }
 
 export type Status = "ok" | "low" | "out" | "none";
@@ -91,7 +96,7 @@ export function status(d: AppData, i: Item): Status {
 export function missingFor(d: AppData, rid: string, f = 1): string[] {
   return Object.entries(effUse(rid, { ...d.prepStock }, false, f).use)
     .filter(([id, a]) => qty(d, id) + 1e-9 < a)
-    .map(([id]) => BY[id].n);
+    .map(([id]) => itemName(d, id));
 }
 
 export const prepUsed = (d: AppData, rid: string, f = 1) => effUse(rid, { ...d.prepStock }, false, f).consumed;
@@ -102,11 +107,12 @@ export function costOf(d: AppData, use: Use) {
   let known = 0;
   let total = 0;
   for (const [id, a] of Object.entries(use)) {
-    if (!BY[id] || a <= 0) continue;
+    const it = itemOf(d, id);
+    if (!it || a <= 0) continue;
     total++;
     const p = price(d, id);
     if (p != null) {
-      c += (p / BY[id].pack) * a;
+      c += (p / it.pack) * a;
       known++;
     }
   }

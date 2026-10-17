@@ -1,9 +1,11 @@
 /* Čiste funkcije koje iz stanja rade novo stanje. Poništavanje = povratak prethodnog stanja. */
-import { BY, CYCLE, PBY, PREP_INV, RBY, RECIPES } from "../data";
+import { CYCLE, PBY, PREP_INV, RBY, RECIPES } from "../data";
+import type { Item } from "../data";
 import type { AppData, CostEntry } from "../state/model";
 import { clone, emptyPlanDays } from "../state/model";
 import { effUse, missingFor, pc, price, qty } from "./inventory";
 import { autoOmWeek, omEff, omName } from "./omlet";
+import { defaultStep, isCustom, itemOf } from "./items";
 import { eur, fmt, monthKey, newId, pfmt, round, sameDay } from "./format";
 
 export interface Result {
@@ -62,7 +64,8 @@ export function eatMuffins(src: AppData, ix: number): Result {
 /** Kupio: povećaj zalihu i zabilježi procjenu troška ako je cijena poznata */
 export function buy(src: AppData, id: string, packs = 1, now = Date.now()): Result {
   const d = clone(src);
-  const i = BY[id];
+  const i = itemOf(d, id);
+  if (!i) return { data: src, msg: "Namirnica ne postoji." };
   setQty(d, id, qty(d, id) + packs * i.pack);
   const p = price(d, id);
   let extra = "";
@@ -123,4 +126,50 @@ export function newWeek(src: AppData, rng: () => number = Math.random): AppData 
   };
   d.plan.om = autoOmWeek(d, false, rng);
   return d;
+}
+
+/** Dodaj vlastitu namirnicu, po želji s početnom količinom */
+export function addItem(src: AppData, item: Item, startQty = 0): Result {
+  const d = clone(src);
+  d.items.custom.push(item);
+  if (startQty > 0) setQty(d, item.id, startQty);
+  return { data: d, msg: `${item.n} dodana u zalihu.` };
+}
+
+/** Promijeni namirnicu: vlastitu u cijelosti (osim jedinice), ugrađenoj samo pakiranje i minimum */
+export function editItem(
+  src: AppData,
+  id: string,
+  patch: Partial<Pick<Item, "n" | "cat" | "src" | "pack" | "min">>,
+): AppData {
+  const d = clone(src);
+  if (isCustom(id)) {
+    d.items.custom = d.items.custom.map((i) => {
+      if (i.id !== id) return i;
+      const n = { ...i, ...patch };
+      return { ...n, step: patch.pack != null ? defaultStep(n.u, n.pack) : n.step };
+    });
+  } else {
+    const o = { ...(d.items.over[id] || {}) };
+    if (patch.pack != null) o.pack = patch.pack;
+    if (patch.min != null) o.min = patch.min;
+    d.items.over[id] = o;
+  }
+  return d;
+}
+
+/** Obriši vlastitu namirnicu i njezinu zalihu */
+export function removeItem(src: AppData, id: string): Result {
+  const d = clone(src);
+  const i = itemOf(src, id);
+  d.items.custom = d.items.custom.filter((x) => x.id !== id);
+  delete d.stock[id];
+  return { data: d, msg: `${i?.n ?? "Namirnica"} obrisana.` };
+}
+
+export function setHidden(src: AppData, id: string, hidden: boolean): Result {
+  const d = clone(src);
+  d.items.hidden = hidden ? [...new Set([...d.items.hidden, id])] : d.items.hidden.filter((x) => x !== id);
+  const n = itemOf(src, id)?.n ?? "Namirnica";
+  return { data: d, msg: hidden ? `${n} je skrivena. Vratiti je možeš na dnu Zalihe.` : `${n} je vraćena u zalihu.` };
 }

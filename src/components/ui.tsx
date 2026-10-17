@@ -42,6 +42,7 @@ export function StatusPill({ s }: { s: Status }) {
 export function SrcTag({ s }: { s: string }) {
   if (s === "AZ") return <span className="src a">AZ</span>;
   if (s === "BIO") return <span className="src b">BIO</span>;
+  if (s === "O") return <span className="src">OST</span>;
   return <span className="src">K</span>;
 }
 

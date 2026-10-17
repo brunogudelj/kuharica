@@ -1,5 +1,6 @@
 import { get, set } from "idb-keyval";
-import { DAYS } from "../data";
+import { CATS, DAYS, SHOPS } from "../data";
+import type { CatId, ShopId, Unit } from "../data";
 import type { AppData } from "../state/model";
 import { defaultData, defaultOmWeek } from "../state/model";
 import { validOm } from "../logic/omlet";
@@ -71,6 +72,39 @@ export function migrate(raw: unknown): AppData {
 
   d.settings.dostava = num(obj(r.settings).dostava, 12);
   d.updatedAt = num(r.updatedAt, 0);
+
+  const it = obj(r.items);
+  if (Array.isArray(it.custom))
+    d.items.custom = it.custom
+      .map(obj)
+      .filter(
+        (x) =>
+          typeof x.id === "string" &&
+          x.id.startsWith("c-") &&
+          typeof x.n === "string" &&
+          (x.cat as string) in CATS &&
+          (x.src as string) in SHOPS &&
+          ["g", "ml", "kom"].includes(x.u as string),
+      )
+      .map((x) => ({
+        id: x.id as string,
+        n: x.n as string,
+        cat: x.cat as CatId,
+        src: x.src as ShopId,
+        u: x.u as Unit,
+        pack: Math.max(0.01, num(x.pack, 1)),
+        min: Math.max(0, num(x.min, 0)),
+        step: Math.max(0.01, num(x.step, 1)),
+        hint: typeof x.hint === "string" ? x.hint : "",
+      }));
+  if (Array.isArray(it.hidden)) d.items.hidden = it.hidden.filter((x): x is string => typeof x === "string");
+  for (const [id, v] of Object.entries(obj(it.over))) {
+    const o = obj(v);
+    d.items.over[id] = {
+      ...(typeof o.min === "number" ? { min: Math.max(0, o.min) } : {}),
+      ...(typeof o.pack === "number" && o.pack > 0 ? { pack: o.pack } : {}),
+    };
+  }
   const ui = obj(r.ui);
   for (const [k, v] of Object.entries(obj(ui.servings))) d.ui.servings[k] = num(v, 1);
   for (const [k, v] of Object.entries(obj(ui.ture))) d.ui.ture[k] = num(v, 1);

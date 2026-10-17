@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import { SHOP_LINKS, SRC } from "../data";
+import { SHOP_LINKS, SHOPS } from "../data";
+import type { ShopId } from "../data";
 import { useApp } from "../state/AppContext";
 import { shopping } from "../logic/inventory";
 import type { ShopRow } from "../logic/inventory";
@@ -12,7 +13,7 @@ export function KupovinaTab() {
   const [copyMsg, setCopyMsg] = useState("");
   const ta = useRef<HTMLTextAreaElement>(null);
   const list = shopping(data);
-  const groups: Record<keyof typeof SRC, ShopRow[]> = { K: [], BIO: [], AZ: [] };
+  const groups: Record<ShopId, ShopRow[]> = { K: [], BIO: [], AZ: [], O: [] };
   list.forEach((x) => groups[x.i.src].push(x));
   let total = 0;
   let priced = 0;
@@ -23,11 +24,11 @@ export function KupovinaTab() {
     }
   });
   const txt =
-    (Object.entries(groups) as [keyof typeof SRC, ShopRow[]][])
+    (Object.entries(groups) as [ShopId, ShopRow[]][])
       .filter(([, a]) => a.length)
       .map(
         ([s, a]) =>
-          SRC[s].toUpperCase() + "\n" + a.map((x) => `- ${x.i.n}: ${x.packs} × ${fmt(x.i.pack, x.i.u)}`).join("\n"),
+          SHOPS[s].toUpperCase() + "\n" + a.map((x) => `- ${x.i.n}: ${x.packs} × ${fmt(x.i.pack, x.i.u)}`).join("\n"),
       )
       .join("\n\n") || "Ništa ne fali.";
 
@@ -53,14 +54,14 @@ export function KupovinaTab() {
 
       {list.length ? (
         <div className="group">
-          {(Object.entries(groups) as [keyof typeof SRC, ShopRow[]][])
+          {(Object.entries(groups) as [ShopId, ShopRow[]][])
             .filter(([, a]) => a.length)
             .map(([s, arr]) => {
               const sub = arr.reduce((t, x) => t + (x.cost ?? 0), 0);
               return (
                 <div key={s} className="group">
                   <div className="ghead">
-                    <h2>{SRC[s]}</h2>
+                    <h2>{SHOPS[s]}</h2>
                     <span className="count">
                       {arr.length} stavki{sub ? ` · ${eur(sub)}` : ""}
                     </span>

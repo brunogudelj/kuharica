@@ -1059,3 +1059,30 @@ code {
   font-family: var(--mono);
   font-size: 0.88em;
 }
+.search {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+}
+.itemedit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.btn.danger {
+  border-color: var(--out);
+  color: var(--out);
+}
+.confirm .edit {
+  background: transparent;
+  padding: 0;
+}
+.edit input[type="text"] {
+  font-family: var(--body);
+}

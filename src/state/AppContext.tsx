@@ -80,17 +80,36 @@ export function AppProvider({ storage, children }: { storage: Storage; children:
     };
   }, [storage]);
 
-  // Spremanje na uređaj s odgodom od 500 ms
+  // Spremanje na uređaj s odgodom od 300 ms
+  const dirty = useRef(false);
   useEffect(() => {
     if (!loaded) return;
+    dirty.current = true;
     const h = window.setTimeout(() => {
+      dirty.current = false;
       storage
         .save(data)
         .then(() => setSaveError(false))
         .catch(() => setSaveError(true));
-    }, 500);
+    }, 300);
     return () => window.clearTimeout(h);
   }, [data, loaded, storage]);
+
+  // Kad se aplikacija zatvori ili skloni, spremi odmah
+  useEffect(() => {
+    const flush = () => {
+      if (!dirty.current || !loaded) return;
+      dirty.current = false;
+      storage.save(dataRef.current).catch(() => setSaveError(true));
+    };
+    const onVis = () => document.visibilityState === "hidden" && flush();
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [loaded, storage]);
 
   const fail = useCallback((e: unknown) => {
     setSync({

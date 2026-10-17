@@ -11,7 +11,7 @@ export interface Item {
   /** naziv */
   n: string;
   cat: CatId;
-  src: Exclude<ShopId, "O">;
+  src: ShopId;
   u: Unit;
   /** minimalna zaliha */
   min: number;
