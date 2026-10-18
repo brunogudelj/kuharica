@@ -215,15 +215,15 @@ function Other() {
         </p>
       </div>
       <div className="group">
-        <h2>Kreni od nule</h2>
+        <h2>Namirnice od nule</h2>
         <p className="sub">
-          Sakrij sve ugrađene namirnice i recepte te isprazni zalihu, pripremljeno i plan. Tvoje dodane namirnice,
-          recepti i prep, dućani i troškovi ostaju.
+          Sakrij sve ugrađene namirnice i isprazni zalihu i pripremljeno. Recepti, omleti, prep, plan, tvoje dodane
+          namirnice, dućani i troškovi ostaju.
         </p>
         {confirm ? (
           <div className="confirm" role="alertdialog" aria-label="Potvrda">
-            <b>Krenuti od nule?</b>
-            <span className="sub">Količine i plan se brišu. Prije toga možeš spremiti backup.</span>
+            <b>Namirnice od nule?</b>
+            <span className="sub">Sve količine se brišu. Prije toga možeš spremiti backup.</span>
             <div className="btnrow">
               <button
                 type="button"
@@ -234,7 +234,7 @@ function Other() {
                   setConfirm(false);
                 }}
               >
-                Da, kreni od nule
+                Da, isprazni namirnice
               </button>
               <button type="button" className="btn ghost" onClick={() => setConfirm(false)}>
                 Odustani
@@ -243,7 +243,7 @@ function Other() {
           </div>
         ) : (
           <button type="button" className="btn ghost" onClick={() => setConfirm(true)}>
-            Kreni od nule…
+            Namirnice od nule…
           </button>
         )}
       </div>

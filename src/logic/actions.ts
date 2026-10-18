@@ -316,9 +316,9 @@ export function removeRecipe(src: AppData, id: string): Result {
   return { data: d, msg: `${r?.n ?? "Recept"} je obrisan.` };
 }
 
-/** Kreni od nule: sve namirnice skrivene, bez ugrađenih recepata, omleta i prepa, prazna zaliha i plan */
-export function cleanStart(src: AppData, now = Date.now()): Result {
-  return { data: cleanState(src, now), msg: "Krećeš od nule. Dodaj svoje namirnice i recepte." };
+/** Namirnice od nule: sve ugrađene namirnice skrivene, prazna zaliha; recepti i plan ostaju */
+export function cleanStart(src: AppData): Result {
+  return { data: cleanState(src), msg: "Namirnice kreću od nule. Recepti i plan su ostali." };
 }
 
 /** Uključi ili isključi ugrađene recepte, omlete i prep */

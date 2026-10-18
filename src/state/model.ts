@@ -159,18 +159,15 @@ export const emptyPlan = (now = Date.now()): Plan => ({
 });
 
 /**
- * Čisto stanje: sve ugrađene namirnice skrivene, bez ugrađenih recepata, omleta i prepa,
- * prazna zaliha, pripremljeno, plan i povijest kuhanja.
- * Ostaje ono što je korisnik sam dodao (namirnice, recepti, prep), dućani, troškovi i postavke.
+ * Namirnice od nule: sve ugrađene namirnice skrivene, prazna zaliha i pripremljeno.
+ * Recepti, omleti, prep, plan, dućani, troškovi i vlastite namirnice ostaju.
  */
-export function cleanState(src: AppData, now = Date.now()): AppData {
+export function cleanState(src: AppData): AppData {
   const d = clone(src);
   d.items.hidden = ITEMS.map((i) => i.id);
   d.stock = {};
   d.prepStock = {};
-  d.plan = emptyPlan(now);
-  d.hist = [];
-  d.settings.builtin = false;
+  d.settings.builtin = true;
   return d;
 }
 

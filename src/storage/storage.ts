@@ -69,8 +69,8 @@ const obj = (v: unknown): Record<string, unknown> =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 
 /**
- * Podaci s uređaja ili s GitHuba. Stariji podaci (prije postavke "builtin") jednom kreću od nule:
- * sve namirnice skrivene, bez ugrađenih recepata, prazna zaliha i plan. Vlastito ostaje.
+ * Podaci s uređaja ili s GitHuba. Stariji podaci (prije postavke "builtin") jednom kreću od nule s namirnicama:
+ * sve ugrađene namirnice skrivene i prazna zaliha. Recepti, plan i vlastite namirnice ostaju.
  */
 export function fromStored(raw: unknown, bump = false): AppData {
   const d = migrate(raw);
