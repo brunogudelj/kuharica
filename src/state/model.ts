@@ -1,29 +1,18 @@
 import { CATS, DEFAULT_SHOPS, GROUPS, ITEMS, OM_PRESETS, omPresetId } from "../data";
 import { diffDays, todayKey, windowKeys } from "../logic/dates";
-import type { CustomPrep, CustomRecipe, Item, OmSel, Shop } from "../data";
+import type { CustomPrep, CustomRecipe, Item, Shop } from "../data";
 
 export interface StockEntry {
   qty: number;
   price: number | null;
 }
-export interface PlanDay {
-  r: string;
-  done: boolean;
-}
-export interface OmDay {
-  /** omlet; null = nema omleta (prazan doručak ili doručak je recept `r`) */
-  sel: OmSel | null;
-  done: boolean;
-  /** doručak je recept (1 porcija) umjesto omleta */
-  r?: string;
-}
-/** Dodatni slotovi u danu: juha prije ručka, salata poslije, dva voća */
-export type SlotKey = "juha" | "salata" | "voce1" | "voce2";
-export const SLOT_KEYS: SlotKey[] = ["juha", "salata", "voce1", "voce2"];
+/** Jedan obrok u planu: bilo koji recept (u porcijama) ili namirnica (npr. voće). Svi slotovi su isti. */
 export interface Slot {
-  /** recept (juha, salata ili bilo koji recept kao 1 porcija) */
+  id: string;
   r?: string;
-  /** namirnica (voće) i količina */
+  /** porcije recepta; 1 ako nije upisano */
+  s?: number;
+  /** namirnica i količina */
   item?: string;
   qty?: number;
   done: boolean;
@@ -32,13 +21,11 @@ export interface Slot {
 export interface Plan {
   /** datum koji je 1. dan ciklusa riža → krumpir → tjestenina → riža → krumpir */
   anchor: string;
-  days: Record<string, PlanDay>;
-  om: Record<string, OmDay>;
-  extra: Record<SlotKey, Record<string, Slot>>;
+  /** obroci dana, redom */
+  slots: Record<string, Slot[]>;
 }
-export const getDay = (p: Plan, k: string): PlanDay => p.days[k] ?? { r: "", done: false };
-export const getOm = (p: Plan, k: string): OmDay => p.om[k] ?? { sel: null, done: false };
-export const getSlot = (p: Plan, s: SlotKey, k: string): Slot => p.extra[s]?.[k] ?? { done: false };
+export const daySlots = (p: Plan, k: string): Slot[] => p.slots[k] ?? [];
+export const slotId = () => Math.random().toString(36).slice(2, 9);
 /** Dan ciklusa (0–4) za datum */
 export const cycleIx = (p: Plan, k: string) => ((diffDays(p.anchor, k) % 5) + 5) % 5;
 export interface CostEntry {
@@ -168,25 +155,23 @@ export const defaultLists = (): Lists => ({
 
 export const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
-/** Početni plan: omleti i juha/salata od danas za 14 dana */
+/** Početni plan: doručak (omlet), juha i salata od danas za 14 dana */
 export function defaultPlan(now = Date.now()): Plan {
-  const keys = windowKeys(now).slice(1);
-  const plan: Plan = { anchor: todayKey(now), days: {}, om: {}, extra: { juha: {}, salata: {}, voce1: {}, voce2: {} } };
-  keys.forEach((k, i) => {
-    plan.om[k] = { sel: null, r: omPresetId(OM_PRESETS[i % OM_PRESETS.length]), done: false };
-    plan.extra.juha[k] = { r: "dod-miso", done: false };
-    plan.extra.salata[k] = { r: "dod-salata", done: false };
-  });
+  const plan = emptyPlan(now);
+  windowKeys(now)
+    .slice(1)
+    .forEach((k, i) => {
+      plan.slots[k] = [
+        { id: slotId(), r: omPresetId(OM_PRESETS[i % OM_PRESETS.length]), done: false },
+        { id: slotId(), r: "dod-miso", done: false },
+        { id: slotId(), r: "dod-salata", done: false },
+      ];
+    });
   return plan;
 }
 
 /** Prazan plan od danas */
-export const emptyPlan = (now = Date.now()): Plan => ({
-  anchor: todayKey(now),
-  days: {},
-  om: {},
-  extra: { juha: {}, salata: {}, voce1: {}, voce2: {} },
-});
+export const emptyPlan = (now = Date.now()): Plan => ({ anchor: todayKey(now), slots: {} });
 
 /**
  * Namirnice od nule: sve ugrađene namirnice skrivene, prazna zaliha i pripremljeno.

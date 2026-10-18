@@ -2,8 +2,8 @@ import { del, get, set } from "idb-keyval";
 import { ITEMS, NEW_ITEMS, OM_PRESETS, PBY, RBY, UNITS, omPresetId } from "../data";
 import { isBuiltin } from "../logic/lists";
 import type { Carb, CatId, GrpId, PrepCat, Shop, Unit, UnitId } from "../data";
-import type { AppData, OmDay, PlanDay, Slot } from "../state/model";
-import { SLOT_KEYS, cleanState, defaultData } from "../state/model";
+import type { AppData, Plan, Slot } from "../state/model";
+import { cleanState, defaultData, slotId } from "../state/model";
 import { addDays, dkey } from "../logic/dates";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -98,6 +98,81 @@ function itemInfo(x: Record<string, unknown>) {
   };
 }
 
+/** Plan: novi oblik (obroci po danu) ili stari (doručak, juha, ručak, salata, voće po danu) */
+function parsePlan(p: Record<string, unknown>, updatedAt: number): Plan {
+  // zapisi stariji od 60 dana se ne čuvaju
+  const old = addDays(dkey(Date.now()), -60);
+  const fresh = (k: string) => DATE.test(k) && k >= old;
+  const plan: Plan = {
+    anchor: typeof p.anchor === "string" && DATE.test(p.anchor) ? p.anchor : dkey(Date.now()),
+    slots: {},
+  };
+  const slotOf = (x: unknown, s?: number): Slot | null => {
+    const o = obj(x);
+    const id = typeof o.id === "string" && o.id ? o.id : slotId();
+    const done = !!o.done;
+    if (typeof o.r === "string" && o.r) {
+      const sv = num(o.s, s ?? 1);
+      return { id, r: o.r, ...(sv !== 1 && sv > 0 ? { s: Math.min(6, sv) } : {}), done };
+    }
+    if (typeof o.item === "string" && o.item) return { id, item: o.item, qty: Math.max(0, num(o.qty, 1)), done };
+    // stari omlet: ugrađeni je sada recept
+    if (o.sel) {
+      const sel = validOm(o.sel);
+      const preset = OM_PRESETS.find((y) => omNorm(y.sel) === omNorm(sel));
+      if (preset) return { id, r: omPresetId(preset), done };
+    }
+    return null;
+  };
+  if (p.slots && typeof p.slots === "object") {
+    for (const [k, v] of Object.entries(obj(p.slots)))
+      if (fresh(k) && Array.isArray(v)) {
+        const list = v.map((x) => slotOf(x)).filter((x): x is Slot => !!x);
+        if (list.length) plan.slots[k] = list;
+      }
+    return plan;
+  }
+  // stari oblik
+  const days: Record<string, unknown> = {};
+  const om: Record<string, unknown> = {};
+  const extra: Record<string, Record<string, unknown>> = {};
+  if (Array.isArray(p.days) || Array.isArray(p.om)) {
+    // pon–ned tjedna u kojem je zadnja promjena → datumi
+    const t = new Date(updatedAt || Date.now());
+    t.setDate(t.getDate() - ((t.getDay() + 6) % 7));
+    const mon = dkey(t);
+    plan.anchor = addDays(mon, -(num(p.start, 0) % 5));
+    if (Array.isArray(p.days)) p.days.slice(0, 7).forEach((x, i) => (days[addDays(mon, i)] = x));
+    if (Array.isArray(p.om)) p.om.slice(0, 7).forEach((x, i) => (om[addDays(mon, i)] = x));
+    const ex = obj(p.extra);
+    for (const k of OLD_SLOTS) {
+      extra[k] = {};
+      if (Array.isArray(ex[k])) (ex[k] as unknown[]).slice(0, 7).forEach((x, i) => (extra[k][addDays(mon, i)] = x));
+    }
+  } else {
+    Object.assign(days, obj(p.days));
+    Object.assign(om, obj(p.om));
+    const ex = obj(p.extra);
+    for (const k of OLD_SLOTS) extra[k] = obj(ex[k]);
+  }
+  const keys = new Set([...Object.keys(days), ...Object.keys(om), ...OLD_SLOTS.flatMap((k) => Object.keys(extra[k]))]);
+  for (const k of keys) {
+    if (!fresh(k)) continue;
+    // redoslijed dana: doručak, juha, ručak i večera (1,5 porcija), salata, voće
+    const list = [
+      slotOf(om[k]),
+      slotOf(extra.juha[k]),
+      slotOf(days[k], 1.5),
+      slotOf(extra.salata[k]),
+      slotOf(extra.voce1[k]),
+      slotOf(extra.voce2[k]),
+    ].filter((x): x is Slot => !!x);
+    if (list.length) plan.slots[k] = list;
+  }
+  return plan;
+}
+const OLD_SLOTS = ["juha", "salata", "voce1", "voce2"];
+
 /** Provjeri i dopuni podatke (iz spremišta ili uvoza). Nepoznata polja se odbacuju. */
 export function migrate(raw: unknown): AppData {
   const r = obj(raw);
@@ -110,57 +185,7 @@ export function migrate(raw: unknown): AppData {
   }
   for (const [id, v] of Object.entries(obj(r.prepStock))) d.prepStock[id] = Math.max(0, num(v, 0));
 
-  const p = obj(r.plan);
-  const parseOm = (x: unknown): OmDay => {
-    const o = obj(x);
-    if (typeof o.r === "string" && o.r) return { sel: null, r: o.r, done: !!o.done };
-    const sel = o.sel === null || o.sel === undefined ? null : validOm(o.sel);
-    // ugrađeni omlet je sada recept
-    const preset = sel && OM_PRESETS.find((x) => omNorm(x.sel) === omNorm(sel));
-    if (preset) return { sel: null, r: omPresetId(preset), done: !!o.done };
-    return { sel, done: !!o.done };
-  };
-  const parseSlot = (x: unknown): Slot => {
-    const o = obj(x);
-    return {
-      ...(typeof o.r === "string" && o.r ? { r: o.r } : {}),
-      ...(typeof o.item === "string" && o.item ? { item: o.item, qty: Math.max(0, num(o.qty, 1)) } : {}),
-      done: !!o.done,
-    };
-  };
-  const parseDay = (x: unknown): PlanDay => ({
-    r: typeof obj(x).r === "string" ? (obj(x).r as string) : "",
-    done: !!obj(x).done,
-  });
-  if (Array.isArray(p.days) || Array.isArray(p.om)) {
-    // stari format: pon–ned tjedna u kojem je zadnja promjena → datumi
-    const t = new Date(num(r.updatedAt, 0) || Date.now());
-    t.setDate(t.getDate() - ((t.getDay() + 6) % 7));
-    const mon = dkey(t);
-    const keyOf = (i: number) => addDays(mon, i);
-    d.plan = {
-      anchor: addDays(mon, -(num(p.start, 0) % 5)),
-      days: {},
-      om: {},
-      extra: { juha: {}, salata: {}, voce1: {}, voce2: {} },
-    };
-    if (Array.isArray(p.days)) p.days.slice(0, 7).forEach((x, i) => (d.plan.days[keyOf(i)] = parseDay(x)));
-    if (Array.isArray(p.om)) p.om.slice(0, 7).forEach((x, i) => (d.plan.om[keyOf(i)] = parseOm(x)));
-    const ex = obj(p.extra);
-    for (const k of SLOT_KEYS)
-      if (Array.isArray(ex[k]))
-        (ex[k] as unknown[]).slice(0, 7).forEach((x, i) => (d.plan.extra[k][keyOf(i)] = parseSlot(x)));
-  } else if (typeof p.anchor === "string" && DATE.test(p.anchor)) {
-    // zapisi stariji od 60 dana se ne čuvaju
-    const old = addDays(dkey(Date.now()), -60);
-    const fresh = (k: string) => DATE.test(k) && k >= old;
-    d.plan = { anchor: p.anchor, days: {}, om: {}, extra: { juha: {}, salata: {}, voce1: {}, voce2: {} } };
-    for (const [k, x] of Object.entries(obj(p.days))) if (fresh(k)) d.plan.days[k] = parseDay(x);
-    for (const [k, x] of Object.entries(obj(p.om))) if (fresh(k)) d.plan.om[k] = parseOm(x);
-    const ex = obj(p.extra);
-    for (const s of SLOT_KEYS)
-      for (const [k, x] of Object.entries(obj(ex[s]))) if (fresh(k)) d.plan.extra[s][k] = parseSlot(x);
-  }
+  d.plan = parsePlan(obj(r.plan), num(r.updatedAt, 0));
 
   if (Array.isArray(r.hist))
     d.hist = r.hist

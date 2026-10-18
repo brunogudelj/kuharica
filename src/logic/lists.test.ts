@@ -55,9 +55,11 @@ describe("stari tjedni plan → datumi", () => {
     };
     const d = migrate(old);
     const mon = "2026-10-12";
-    expect(d.plan.days[mon]).toEqual({ r: "teriyaki", done: true });
-    expect(d.plan.days[addDays(mon, 1)].r).toBe("losos");
-    expect(d.plan.extra.juha[addDays(mon, 6)].r).toBe("dod-miso");
+    // stari ručak i večera postaje obrok od 1,5 porcija, juha obrok prije njega
+    expect(d.plan.slots[mon].map((x) => x.r)).toEqual(["dod-miso", "teriyaki"]);
+    expect(d.plan.slots[mon][1]).toMatchObject({ r: "teriyaki", s: 1.5, done: true });
+    expect(d.plan.slots[addDays(mon, 1)].map((x) => x.r)).toContain("losos");
+    expect(d.plan.slots[addDays(mon, 6)].map((x) => x.r)).toEqual(["dod-miso"]);
     // ponedjeljak je bio 2. dan ciklusa (start 1)
     expect(cycleIx(d.plan, mon)).toBe(1);
     expect(dkey(new Date(2026, 9, 12))).toBe(mon);

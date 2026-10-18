@@ -5,40 +5,18 @@ import { fetchPage, parseIngredient, parseRecipeHtml, parseRecipeText } from "..
 import { ImportReview } from "./ImportReview";
 import { CLAUDE_MODEL, claudeRecipe, loadClaudeKey } from "../logic/claude";
 import type { IngLine, ParsedRecipe } from "../logic/importRecipe";
-import { DEFAULT_OM, OM_BASE, OM_CARB, OM_PRESETS, REC_PREP } from "../data";
-import type { CustomRecipe, OmSel } from "../data";
+import { REC_PREP } from "../data";
+import type { CustomRecipe } from "../data";
 import { useApp } from "../state/AppContext";
-import { clone, getDay, getOm } from "../state/model";
+import { clone, daySlots } from "../state/model";
 import { dayDate, dayLabel, dayName, todayKey, windowKeys } from "../logic/dates";
 import type { AppData } from "../state/model";
-import { BASE_SERVINGS, effUse, pc, prepEff, prepUsedIn, qty } from "../logic/inventory";
+import { effUse, pc, portionF, prepEff, prepUsedIn, qty } from "../logic/inventory";
 import type { EffUse } from "../logic/inventory";
-import {
-  cook,
-  eatMuffins,
-  eatOmlet,
-  makePrep,
-  removeRecipe,
-  setBreakfastRecipe,
-  setOmDay,
-  setPlanDay,
-} from "../logic/actions";
-import { newRecipeId, recipeName, recipeOf, toCustom, usedIn } from "../logic/recipes";
+import { addSlot, cook, makePrep, removeRecipe, removeSlot } from "../logic/actions";
+import { recipeName, recipeOf, toCustom, usedIn } from "../logic/recipes";
 import { itemOf } from "../logic/items";
-import {
-  fillOf,
-  omEff,
-  omIngredients,
-  omName,
-  omNorm,
-  omProt,
-  omSteps,
-  omUse,
-  omVeg,
-  surpriseSel,
-  validOm,
-} from "../logic/omlet";
-import { KIND_LABEL, mealEntry, omEntry, prepEntry } from "../logic/feed";
+import { KIND_LABEL, mealEntry, prepEntry } from "../logic/feed";
 import type { FeedEntry } from "../logic/feed";
 import { eur, fmt, pfmt, porcTxt, round, scaleText } from "../logic/format";
 import { shopName } from "../logic/shops";
@@ -81,9 +59,7 @@ export function Stats({ e, per = true }: { e: FeedEntry; per?: boolean }) {
         <dd>{e.time == null ? "–" : e.time + " min"}</dd>
       </div>
       {per && (
-        <p className="stats-note">
-          {e.kind === "om" ? "po omletu" : e.kind === "prep" ? "cijela tura" : e.portion ? "po porciji" : "po obroku"}
-        </p>
+        <p className="stats-note">{e.kind === "om" ? "po omletu" : e.kind === "prep" ? "cijela tura" : "po porciji"}</p>
       )}
     </dl>
   );
@@ -258,13 +234,11 @@ export function MealView({ id, day }: { id: string; day?: string }) {
   const r = recipeOf(data, id);
   const e = mealEntry(data, id);
   if (!r || !e) return <p className="sub">Recept više ne postoji.</p>;
-  // doručak (omlet) se jede kao 1 porcija i ide u red Doručak u planu
-  const bf = !!r.kinds?.some((k) => k === "omlet" || k === "dorucak");
-  const s = data.ui.servings[r.id] ?? (bf ? 1 : BASE_SERVINGS);
-  const f = s / BASE_SERVINGS;
+  // sve se računa za 1 porciju; 1,5 porcija = ručak i večera iz jednog kuhanja
+  const s = data.ui.servings[r.id] ?? 1;
+  const f = portionF(r, s);
   const eff = effUse(r, { ...data.prepStock }, false, f, data);
   const edited = !!r.edited;
-  const bfDay = day != null && getOm(data.plan, day).r === id && !getOm(data.plan, day).done ? day : null;
   const users = usedIn(data, r.id);
   const setS = (v: number) =>
     update((d) => {
@@ -272,7 +246,6 @@ export function MealView({ id, day }: { id: string; day?: string }) {
       n.ui.servings[r.id] = Math.min(6, Math.max(0.5, v));
       return n;
     });
-  const planIx = day != null && data.plan.days[day]?.r === id ? day : null;
 
   return (
     <div className="pbody">
@@ -280,43 +253,27 @@ export function MealView({ id, day }: { id: string; day?: string }) {
       <Stats e={e} />
       <section className="psec">
         <h3>U planu</h3>
-        {bf ? (
-          <DayPicker
-            label="Stavi za doručak"
-            on={(k) => getOm(data.plan, k).r === id}
-            onPick={(k) =>
-              getOm(data.plan, k).r === id
-                ? update((d) => {
-                    const n = clone(d);
-                    delete n.plan.om[k];
-                    return n;
-                  })
-                : apply(setBreakfastRecipe(data, k, id), `Doručak za ${dayLabel(k)}: ${r.n}.`)
-            }
-          />
-        ) : (
-          <DayPicker
-            label="Stavi recept na dan"
-            on={(k) => getDay(data.plan, k).r === id}
-            onPick={(k) =>
-              getDay(data.plan, k).r === id
-                ? update((d) => setPlanDay(d, k, ""))
-                : apply(setPlanDay(data, k, id), `${r.n} je na planu za ${dayLabel(k)}.`)
-            }
-          />
-        )}
-        <p className="sub">{bf ? "U planu ide u red Doručak." : "U planu ide u red Ručak i večera."}</p>
+        <DayPicker
+          label="Dodaj u plan"
+          on={(k) => daySlots(data.plan, k).some((x) => x.r === id)}
+          onPick={(k) => {
+            const x = daySlots(data.plan, k).find((y) => y.r === id && !y.done);
+            if (x) apply(removeSlot(data, k, x.id), `${r.n} maknut s plana za ${dayLabel(k)}.`);
+            else
+              apply(
+                addSlot(data, k, { r: id, ...(s !== 1 ? { s } : {}) }),
+                `${r.n} (${porcTxt(s)}) je na planu za ${dayLabel(k)}.`,
+              );
+          }}
+        />
+        <p className="sub">Dodaje se kao obrok tog dana, {porcTxt(s)}. Ponovni klik ga miče.</p>
       </section>
       <section className="psec">
         <div className="rowspread">
           <h3>Porcije</h3>
           <Stepper label="porcije" value={porcTxt(s)} onDec={() => setS(s - 0.5)} onInc={() => setS(s + 0.5)} />
         </div>
-        {!bf && (
-          <p className="sub">
-            1,5 porcija je ručak i večera iz jednog kuhanja. Uz to idu salata, miso juha i posni sir.
-          </p>
-        )}
+        <p className="sub">Sve je za 1 porciju. 1,5 porcija je ručak i večera iz jednog kuhanja.</p>
       </section>
       {r.split && (
         <div className="split">
@@ -374,15 +331,15 @@ export function MealView({ id, day }: { id: string; day?: string }) {
           type="button"
           className="btn"
           onClick={() => {
-            const res = bfDay ? eatOmlet(data, bfDay) : cook(data, r.id, planIx, f);
+            const res = cook(data, r.id, day ?? null, s);
             apply(res.data, res.msg);
             close();
           }}
         >
-          <Icon name="check" size={18} /> {bfDay ? "Pojeo sam" : "Skuhao sam"}
+          <Icon name="check" size={18} /> Skuhao sam
         </button>
         <span className="count">
-          {bfDay ? "skida 1 porciju sa zalihe" : `skida ${porcTxt(s)}${bf ? "" : ", prep i posni sir"} sa zalihe`}
+          skida {porcTxt(s)} sa zalihe{day != null ? `, obrok ${dayLabel(day)} dobiva kvačicu` : ""}
         </span>
       </div>
       {users.length > 0 && (
@@ -427,204 +384,6 @@ export function MealView({ id, day }: { id: string; day?: string }) {
           )}
         </div>
       }
-    </div>
-  );
-}
-
-export function OmView({ sel: initSel, day, n }: { sel?: OmSel; day?: string; n?: string }) {
-  const { data, apply, update } = useApp();
-  const { open, close } = usePanel();
-  const [local, setLocal] = useState<OmSel>(() => clone(initSel ?? DEFAULT_OM));
-  const [serv, setServ] = useState(1);
-  const [method, setMethod] = useState<"wok" | "af">("wok");
-  const planDay = day != null ? data.plan.om[day] : undefined;
-  const sel = planDay?.sel ?? local;
-  const setSel = (s: OmSel) => {
-    const v = validOm(s);
-    if (day != null && planDay?.sel)
-      update((d) => {
-        const x = clone(d);
-        x.plan.om[day] = { sel: v, done: getOm(x.plan, day).done };
-        return x;
-      });
-    else setLocal(v);
-  };
-  const preset = OM_PRESETS.find((p) => omNorm(p.sel) === omNorm(sel));
-  const e = omEntry(data, sel, "om", n && preset ? preset.n : omName(data, sel), preset?.d ?? "vlastita kombinacija");
-  const eff = omEff(data, sel, serv, { ...data.prepStock });
-  const mf = pc(data, "egg-muffini");
-  const chip = (x: string) => (
-    <button
-      key={x}
-      type="button"
-      aria-pressed={sel.fill.includes(x)}
-      onClick={() =>
-        setSel({ ...sel, fill: sel.fill.includes(x) ? sel.fill.filter((y) => y !== x) : [...sel.fill, x] })
-      }
-    >
-      {fillOf(data, x)?.n}
-    </button>
-  );
-
-  return (
-    <div className="pbody">
-      <Head e={e} kicker={day != null ? `doručak, ${dayLabel(day)}` : undefined} />
-      <Stats e={e} />
-      <section className="psec">
-        <h3>U planu</h3>
-        <DayPicker
-          label="Stavi omlet na dan"
-          on={(k) => !!getOm(data.plan, k).sel && omNorm(getOm(data.plan, k).sel!) === omNorm(sel)}
-          onPick={(k) => apply(setOmDay(data, k, sel), `${e.n} je doručak za ${dayLabel(k)}.`)}
-        />
-      </section>
-      <details className="psec builder" open={day != null && !planDay?.sel}>
-        <summary>
-          <h3>Prilagodi sastojke</h3>
-          <Icon name="chev" size={18} />
-        </summary>
-        <h4>Baza</h4>
-        <div className="filters">
-          {Object.entries(OM_BASE).map(([k, b]) => (
-            <button key={k} type="button" aria-pressed={sel.base === k} onClick={() => setSel({ ...sel, base: k })}>
-              {b.n}
-            </button>
-          ))}
-        </div>
-        <h4>Protein</h4>
-        <div className="filters">{omProt(data).map(chip)}</div>
-        <h4>Povrće</h4>
-        <div className="filters">{omVeg(data).map(chip)}</div>
-        <h4>Prilog</h4>
-        <div className="filters">
-          {Object.entries(OM_CARB).map(([k, c]) => (
-            <button key={k} type="button" aria-pressed={sel.carb === k} onClick={() => setSel({ ...sel, carb: k })}>
-              {c.n}
-            </button>
-          ))}
-        </div>
-        <button type="button" className="btn ghost" onClick={() => setSel(surpriseSel(data))}>
-          Iznenadi me
-        </button>
-      </details>
-      <section className="psec">
-        <div className="rowspread">
-          <h3>Porcije</h3>
-          <Stepper
-            label="porcije"
-            value={porcTxt(serv)}
-            onDec={() => setServ(Math.max(0.5, serv - 0.5))}
-            onInc={() => setServ(Math.min(4, serv + 0.5))}
-          />
-        </div>
-      </section>
-      <section className="psec">
-        <h3>Iz zalihe</h3>
-        <StockList data={data} use={eff.use} />
-      </section>
-      <section className="psec">
-        <h3>Sastojci za {porcTxt(serv)}</h3>
-        <ul className="ing">
-          {omIngredients(data, sel).map((i, k) => (
-            <Html key={k} as="li" html={scaleText(i, serv)} />
-          ))}
-        </ul>
-      </section>
-      <section className="psec">
-        <div className="rowspread">
-          <h3>Priprema</h3>
-          <div className="seg" role="group" aria-label="Način pripreme">
-            <button type="button" aria-pressed={method === "wok"} onClick={() => setMethod("wok")}>
-              Wok · 8 min
-            </button>
-            <button type="button" aria-pressed={method === "af"} onClick={() => setMethod("af")}>
-              Air fryer · 15 min
-            </button>
-          </div>
-        </div>
-        <ol className="steps">
-          {omSteps(data, sel, method).map((x, k) => (
-            <li key={k}>{x}</li>
-          ))}
-        </ol>
-        <div className="tip">
-          Bjelanjci daju proteine skoro bez masti, pa su proteinska i lagana baza najbolji izbor za mršavljenje. Špek i
-          kobasice koristi u malim količinama, za okus.
-        </div>
-      </section>
-      <div className="btnrow">
-        <button
-          type="button"
-          className="btn ghost"
-          onClick={() => {
-            // 1 omlet = 1 porcija; recepti se spremaju za 1,5 porcija
-            const use = Object.fromEntries(
-              Object.entries(omUse(data, sel, BASE_SERVINGS)).map(([k, a]) => [k, round(a)]),
-            );
-            open({
-              t: "newRecipe",
-              draft: {
-                id: newRecipeId(e.n),
-                n: e.n,
-                c: "Ostalo",
-                d: method === "wok" ? "Wok · 8 min" : "Air fryer · 15 min",
-                use,
-                extra: [],
-                st: omSteps(data, sel, method),
-                kinds: ["omlet", "dorucak"].filter((k) => data.lists.kinds.some((x) => x.id === k)),
-              },
-            });
-          }}
-        >
-          <Icon name="edit" size={16} /> Uredi namirnice i spremi kao recept
-        </button>
-      </div>
-      {day != null && planDay?.sel && (
-        <div className="pactions">
-          {planDay.done ? (
-            <button
-              type="button"
-              className="btn ghost"
-              onClick={() =>
-                update((d) => {
-                  const x = clone(d);
-                  x.plan.om[day] = { sel, done: false };
-                  return x;
-                })
-              }
-            >
-              Označi kao nepojeden
-            </button>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => {
-                  const r = eatOmlet(data, day, serv);
-                  apply(r.data, r.msg);
-                  close();
-                }}
-              >
-                <Icon name="check" size={18} /> Pojeo sam
-              </button>
-              {mf >= 4 && (
-                <button
-                  type="button"
-                  className="btn ghost"
-                  onClick={() => {
-                    const r = eatMuffins(data, day);
-                    apply(r.data, r.msg);
-                    close();
-                  }}
-                >
-                  Umjesto toga 4 egg muffina
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -799,8 +558,6 @@ export function renderView(v: View) {
   switch (v.t) {
     case "meal":
       return <MealView key={v.id} id={v.id} day={v.day} />;
-    case "om":
-      return <OmView key={(v.day ?? "x") + (v.sel ? omNorm(v.sel) : "")} sel={v.sel} day={v.day} n={v.n} />;
     case "prep":
       return <PrepView key={v.id} id={v.id} />;
     case "newRecipe":
@@ -974,7 +731,7 @@ function NewRecipe({ day, draft }: { day?: string; draft?: CustomRecipe }) {
   return (
     <div className="pbody">
       <header className="phead">
-        <p className="kicker">{day != null ? `Ručak i večera · ${dayLabel(day)}` : "Recepti"}</p>
+        <p className="kicker">{day != null ? `Plan · ${dayLabel(day)}` : "Recepti"}</p>
         <h2 className="pname">Novi recept</h2>
         <p className="sub">Namirnice biraš iz zalihe, pa recept zna što skinuti kad ga skuhaš.</p>
       </header>

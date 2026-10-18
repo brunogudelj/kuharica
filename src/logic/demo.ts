@@ -2,7 +2,7 @@
  * Spremaju se odvojeno od pravih podataka i ne sinkroniziraju se. */
 import { ITEMS, MAC } from "../data";
 import type { AppData } from "../state/model";
-import { SLOT_KEYS, clone, defaultData } from "../state/model";
+import { clone, daySlots, defaultData } from "../state/model";
 import { autoFillPlan } from "./actions";
 import { monthKey, round } from "./format";
 import { windowKeys } from "./dates";
@@ -233,18 +233,18 @@ export function makeDemo(now = Date.now()): AppData {
   }
   d.prepStock = { riza: 2, krumpir: 1, "teriyaki-umak": 3, "miso-paketi": 4, "egg-muffini": 6, "dumbir-kocke": 10 };
 
-  // plan: 14 dana od jučer, jučer sve pojedeno, jedan prazan ručak i jedan doručak kao recept
+  // plan: 14 dana od jučer, jučer sve pojedeno, jedan dan prazan, a jedan s tunom za doručak
   const day = 86400000;
+  d.plan.slots = {};
   let filled = autoFillPlan(d, now - day, r);
   filled = autoFillPlan(filled, now, r);
   d.plan = clone(filled.plan);
-  const y = windowKeys(now)[0];
-  if (d.plan.days[y]) d.plan.days[y].done = true;
-  if (d.plan.om[y]) d.plan.om[y].done = true;
-  for (const k of SLOT_KEYS) if (d.plan.extra[k][y]) d.plan.extra[k][y].done = true;
   const keys = windowKeys(now);
-  delete d.plan.days[keys[4]];
-  d.plan.om[keys[3]] = { sel: null, r: "tuna", done: false };
+  const y = keys[0];
+  for (const x of daySlots(d.plan, y)) x.done = true;
+  delete d.plan.slots[keys[4]];
+  const t = daySlots(d.plan, keys[3]);
+  if (t[0]) t[0] = { ...t[0], r: "tuna", done: false };
 
   // troškovi ovaj i prošli mjesec
   const shops = ["K", "K", "K", "s-lidl", "s-dolac", "BIO", "AZ"];
@@ -262,7 +262,9 @@ export function makeDemo(now = Date.now()): AppData {
     const amount = round(shop === "K" ? 35 + r() * 30 : 6 + r() * 18);
     (d.costs[mk] ||= []).push({ id: "demo" + k, t: tt, shop, amount, note: notes[shop], est: false });
   }
-  d.hist = d.plan.days[y]?.r ? [{ r: d.plan.days[y].r, t: now - day }] : [];
+  d.hist = daySlots(d.plan, y)
+    .filter((x) => x.r)
+    .map((x) => ({ r: x.r!, t: now - day }));
   d.updatedAt = now;
   return d;
 }

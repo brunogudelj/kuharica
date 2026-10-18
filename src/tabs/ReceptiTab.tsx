@@ -240,9 +240,8 @@ export function RecipeList({
   };
 
   const openEntry = (e: FeedEntry) => {
-    if (e.kind === "meal") open({ t: "meal", id: e.id });
-    else if (e.kind === "om") open({ t: "om", sel: e.sel, n: e.n });
-    else open({ t: "prep", id: e.id });
+    if (e.kind === "prep") open({ t: "prep", id: e.id });
+    else open({ t: "meal", id: e.id });
   };
 
   const search = (

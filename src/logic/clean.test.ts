@@ -29,8 +29,12 @@ describe("kreni od nule", () => {
     expect(allPreps(d)).toEqual([]);
     expect(feed(d).map((e) => e.id)).toEqual(["r-moj"]);
     const f = autoFillPlan(d);
-    expect(Object.keys(f.plan.om)).toEqual([]);
-    expect(Object.keys(f.plan.extra.juha)).toEqual([]);
+    // bez ugrađenih recepata: nema omleta ni juhe, samo vlastiti recept
+    expect(
+      Object.values(f.plan.slots)
+        .flat()
+        .every((x) => x.r === "r-moj"),
+    ).toBe(true);
   });
 
   it("stari podaci se jednom očiste, novi ostaju kakvi jesu", () => {

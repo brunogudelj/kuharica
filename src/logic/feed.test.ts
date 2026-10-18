@@ -21,7 +21,7 @@ describe("feed recepata", () => {
   });
 
   it("vrsta jela: omleti su omlet, a juha, salata, wok i varivo se prepoznaju iz ugrađenih recepata", () => {
-    expect(all.filter((e) => e.id.startsWith("om-")).every((e) => e.kinds.includes("omlet") && e.portion)).toBe(true);
+    expect(all.filter((e) => e.id.startsWith("om-")).every((e) => e.kinds.includes("omlet"))).toBe(true);
     for (const k of ["juha", "salata", "wok", "varivo", "curry", "rezanci", "pasta"])
       expect(all.some((e) => e.kind === "meal" && e.kinds.includes(k))).toBe(true);
     const f = { ...emptyFilter(), kinds: ["juha"] };

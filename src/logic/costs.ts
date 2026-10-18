@@ -1,6 +1,7 @@
 import type { AppData } from "../state/model";
-import { dayCost } from "./inventory";
-import { allRecipes, recipeOf } from "./recipes";
+import { dayCost, portionCost } from "./inventory";
+import { daySlots } from "../state/model";
+import { allRecipes } from "./recipes";
 import { monthKey } from "./format";
 import { windowKeys } from "./dates";
 
@@ -13,23 +14,21 @@ export function costSummary(d: AppData, now = Date.now()) {
   const entries = d.costs[mk] || [];
   const spent = entries.reduce((s, e) => s + (e.amount || 0), 0);
 
-  // Procjena iz plana: prosjek planiranih dana (ili svih recepata ako plan nije složen)
-  const planned = windowKeys(now)
-    .map((k) => d.plan.days[k]?.r)
-    .filter((r): r is string => !!r && !!recipeOf(d, r));
-  const pool = planned.length
-    ? planned
-    : allRecipes(d)
-        .filter((r) => !r.side)
-        .map((r) => r.id);
-  const dcs = pool.map((r) => dayCost(d, r));
-  const avgFull = dcs.reduce((s, x) => s + x.full, 0) / dcs.length;
-  const avgMeal = dcs.reduce((s, x) => s + x.perMeal, 0) / dcs.length;
+  // Procjena iz plana: prosjek planiranih dana; ako plan nije složen, 4 porcije prosječnog recepta na dan
+  const days = windowKeys(now)
+    .filter((k) => daySlots(d.plan, k).length)
+    .map((k) => dayCost(d, k));
+  const pcs = allRecipes(d)
+    .filter((r) => !r.side)
+    .map((r) => portionCost(d, r.id));
+  const avgMeal = pcs.length ? pcs.reduce((s, x) => s + x.c, 0) / pcs.length : 0;
+  const avgFull = days.length ? days.reduce((s, x) => s + x.c, 0) / days.length : avgMeal * 4;
+  const src = days.length ? days : pcs;
   const cover =
-    dcs.reduce((s, x) => s + x.known, 0) /
+    src.reduce((s, x) => s + x.known, 0) /
     Math.max(
       1,
-      dcs.reduce((s, x) => s + x.total, 0),
+      src.reduce((s, x) => s + x.total, 0),
     );
   const planMonth = avgFull * daysIn;
   const pace = spent > 0 && dom >= 7 ? (spent / dom) * daysIn : null;

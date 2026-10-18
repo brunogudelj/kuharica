@@ -1,13 +1,13 @@
 /* Čiste funkcije koje iz stanja rade novo stanje. Poništavanje = povratak prethodnog stanja. */
 import { CYCLE, ITEMS } from "../data";
 import { prepInv, prepOf } from "./preps";
-import type { CustomRecipe, Item, OmSel } from "../data";
+import type { CustomRecipe, Item } from "../data";
 import { allRecipes, isBuiltinRecipe, recipeOf } from "./recipes";
-import type { AppData, CostEntry, Slot, SlotKey } from "../state/model";
-import { SLOT_KEYS, cleanState, clone, cycleIx, getOm, getSlot } from "../state/model";
+import type { AppData, CostEntry, Slot } from "../state/model";
+import { cleanState, clone, cycleIx, daySlots, slotId } from "../state/model";
 import { todayKey, windowKeys } from "./dates";
-import { effUse, missingFor, pc, prepEff, price, qty, slotUse } from "./inventory";
-import { omEff, omName, shuffle } from "./omlet";
+import { effUse, missingFor, pc, portionF, prepEff, price, qty, slotUse } from "./inventory";
+import { shuffle } from "./omlet";
 import { allItems, defaultStep, isCustom, itemOf } from "./items";
 import { eur, fmt, monthKey, newId, pfmt, round, sameDay } from "./format";
 
@@ -25,18 +25,22 @@ function consume(d: AppData, use: Record<string, number>, consumed: [string, num
   for (const [p, k] of consumed) d.prepStock[p] = Math.max(0, round(pc(d, p) - k));
 }
 
-/** Skuhaj recept: skida sastojke × f (osnova 1,5 porcija), dnevne dodatke i prvo troši pripremljeno */
-export function cook(src: AppData, rid: string, day: string | null, f = 1, now = Date.now()): Result {
+/** Skuhaj ili pojedi recept: skida `porc` porcija sa zalihe (prvo pripremljeno). Ako je recept u planu
+ * (na danom danu ili prvi nepojedeni), taj obrok dobiva kvačicu. */
+export function cook(src: AppData, rid: string, day: string | null, porc = 1, now = Date.now()): Result {
   const d = clone(src);
   const r = recipeOf(src, rid);
   if (!r) return { data: src, msg: "Recept ne postoji." };
-  // posni sir za užinu ide uz ručak, ne uz doručak ili dodatak
-  const portion = !!r.side || !!r.kinds?.some((x) => x === "omlet" || x === "dorucak");
-  const eff = effUse(r, { ...d.prepStock }, !portion, f, src);
+  const eff = effUse(r, { ...d.prepStock }, false, portionF(r, porc), src);
   consume(d, eff.use, eff.consumed);
-  // bez dana: prvi neskuhani dan s tim receptom u prozoru plana
-  const k = day ?? windowKeys(now).find((x) => d.plan.days[x]?.r === rid && !d.plan.days[x]?.done);
-  if (k) d.plan.days[k] = { r: rid, done: true };
+  const keys = day ? [day] : windowKeys(now).filter((k) => k >= todayKey(now));
+  for (const k of keys) {
+    const x = daySlots(d.plan, k).find((y) => y.r === rid && !y.done);
+    if (x) {
+      x.done = true;
+      break;
+    }
+  }
   d.hist = [{ r: rid, t: now }, ...d.hist].slice(0, 30);
   const np = eff.consumed.length;
   return { data: d, msg: `${r.n}: skinuto sa zalihe${np ? `, iskorišteno ${np} iz prepa` : ""}.` };
@@ -52,32 +56,6 @@ export function makePrep(src: AppData, pid: string, t = 1): Result {
   consume(d, eff.use, eff.consumed);
   d.prepStock[pid] = round(pc(d, pid) + inv.make * t);
   return { data: d, msg: `${p.n}: +${pfmt(inv.make * t, inv.unit)} u pripremljenom.` };
-}
-
-/** Pojedi doručak: omlet ili recept (1 porcija) */
-export function eatOmlet(src: AppData, ix: string, f = 1): Result {
-  const d = clone(src);
-  const day = getOm(d.plan, ix);
-  if (day.r) {
-    const r = recipeOf(src, day.r);
-    if (!r) return { data: src, msg: "Recept ne postoji." };
-    const eff = slotUse(src, { r: day.r, done: false }, { ...d.prepStock });
-    consume(d, eff.use, eff.consumed);
-    d.plan.om[ix] = { sel: null, r: day.r, done: true };
-    return { data: d, msg: `${r.n}: sastojci skinuti sa zalihe.` };
-  }
-  if (!day.sel) return { data: src, msg: "Za taj dan nema doručka." };
-  const eff = omEff(src, day.sel, f, { ...d.prepStock });
-  consume(d, eff.use, eff.consumed);
-  d.plan.om[ix] = { sel: day.sel, done: true };
-  return { data: d, msg: `${omName(src, day.sel)}: sastojci skinuti sa zalihe.` };
-}
-
-export function eatMuffins(src: AppData, ix: string): Result {
-  const d = clone(src);
-  d.prepStock["egg-muffini"] = Math.max(0, pc(d, "egg-muffini") - 4);
-  d.plan.om[ix] = { ...getOm(d.plan, ix), done: true };
-  return { data: d, msg: "4 egg muffina pojedena." };
 }
 
 /** Kupio: povećaj zalihu i zabilježi procjenu troška ako je cijena poznata */
@@ -117,51 +95,58 @@ export function removeCost(src: AppData, mk: string, id: string): AppData {
   return d;
 }
 
-/** Popuni prazne dane od danas do kraja prozora: ručak po ciklusu (prednost recepti za koje ima sastojaka),
- * doručak omletom, juha i salata, voće koje imaš doma. Ručno odabrano ostaje. */
+/** Popuni plan od danas do kraja prozora: svakom danu doda ono što mu fali od doručka (omlet), juhe,
+ * ručka po ciklusu (prednost recepti za koje ima sastojaka), salate, večere (isto jelo kao ručak) i voća koje
+ * imaš doma. Ono što je već na danu ostaje. */
 export function autoFillPlan(src: AppData, now = Date.now(), rng: () => number = Math.random): AppData {
   const d = clone(src);
   const keys = windowKeys(now).filter((k) => k >= todayKey(now));
   const used: Record<string, number> = {};
-  for (const k of windowKeys(now)) {
-    const r = d.plan.days[k]?.r;
-    if (r) used[r] = (used[r] || 0) + 1;
-  }
-  const builtin = d.settings.builtin !== false;
+  for (const k of windowKeys(now)) for (const x of daySlots(d.plan, k)) if (x.r) used[x.r] = (used[x.r] || 0) + 1;
+  const all = allRecipes(d);
+  const byId = new Map(all.map((r) => [r.id, r]));
   const oms = omPool(d, rng);
   let oi = 0;
   const fruits = fruitPool(d);
   let fi = 0;
-  const empty = (s?: Slot) => !s || (!s.r && !s.item && !s.done);
+  type R = (typeof all)[number];
+  const isBf = (r?: R) => !!r?.kinds?.some((k) => k === "omlet" || k === "dorucak");
+  const isSoup = (r?: R) => !!r && (r.side === "juha" || !!r.kinds?.includes("juha"));
+  const isSalad = (r?: R) => !!r && (r.side === "salata" || !!r.kinds?.includes("salata"));
+  const isMain = (r?: R) => !!r && !isBf(r) && !isSoup(r) && !isSalad(r);
+  const soup = byId.get("dod-miso") ?? all.find((r) => isSoup(r));
+  const salad = byId.get("dod-salata") ?? all.find((r) => isSalad(r));
+  const mk = (x: Omit<Slot, "id" | "done">): Slot => ({ id: slotId(), ...x, done: false });
   for (const k of keys) {
-    const day = d.plan.days[k];
-    if (!day?.r && !day?.done) {
+    const list = [...daySlots(d.plan, k)];
+    const rs = list.map((x) => (x.r ? byId.get(x.r) : undefined));
+    if (!rs.some(isBf) && oms.length) list.unshift(mk({ r: oms[oi++ % oms.length] }));
+    if (!rs.some(isSoup) && soup) list.splice(rs.some(isBf) || oms.length ? 1 : 0, 0, mk({ r: soup.id }));
+    if (!rs.some(isMain)) {
       const c = CYCLE[cycleIx(d.plan, k)];
-      const pool = allRecipes(d).filter((r) => r.c === c && !r.side);
+      const pool = all.filter((r) => r.c === c && isMain(r));
       pool.sort(
         (a, b) => (used[a.id] || 0) - (used[b.id] || 0) || missingFor(d, a.id).length - missingFor(d, b.id).length,
       );
-      if (pool[0]) {
-        used[pool[0].id] = (used[pool[0].id] || 0) + 1;
-        d.plan.days[k] = { r: pool[0].id, done: false };
+      const main = pool[0];
+      if (main) {
+        used[main.id] = (used[main.id] || 0) + 1;
+        list.push(mk({ r: main.id }));
+        if (!rs.some(isSalad) && salad) list.push(mk({ r: salad.id }));
+        list.push(mk({ r: main.id }));
       }
-    }
-    const o = d.plan.om[k];
-    if (oms.length && (!o || (!o.sel && !o.r && !o.done)))
-      d.plan.om[k] = { sel: null, r: oms[oi++ % oms.length], done: false };
-    if (builtin && empty(d.plan.extra.juha[k])) d.plan.extra.juha[k] = { r: "dod-miso", done: false };
-    if (builtin && empty(d.plan.extra.salata[k])) d.plan.extra.salata[k] = { r: "dod-salata", done: false };
-    if (fruits.length)
-      for (const s of ["voce1", "voce2"] as SlotKey[])
-        if (empty(d.plan.extra[s][k])) {
-          const i = fruits[fi++ % fruits.length];
-          d.plan.extra[s][k] = { item: i.id, qty: defaultFruitQty(i), done: false };
-        }
+    } else if (!rs.some(isSalad) && salad) list.push(mk({ r: salad.id }));
+    if (!list.some((x) => x.item))
+      for (let n = 0; n < 2 && fruits.length; n++) {
+        const i = fruits[fi++ % fruits.length];
+        list.push(mk({ item: i.id, qty: defaultFruitQty(i) }));
+      }
+    if (list.length) d.plan.slots[k] = list;
   }
   return d;
 }
 
-/** Doručci za popunjavanje: recepti s vrstom Omlet ili Doručak, svaki drugi, prednost oni za koje imaš sastojke */
+/** Doručci za popunjavanje: recepti s vrstom Omlet ili Doručak, prednost oni za koje imaš sastojke */
 function omPool(d: AppData, rng: () => number): string[] {
   return shuffle(
     allRecipes(d).filter((r) => r.kinds?.some((k) => k === "omlet" || k === "dorucak")),
@@ -172,13 +157,13 @@ function omPool(d: AppData, rng: () => number): string[] {
     .map((x) => x.r.id);
 }
 
-/** Očisti plan od danas nadalje (ono što je pojedeno ili skuhano ostaje) */
+/** Očisti plan od danas nadalje (ono što je pojedeno ostaje) */
 export function clearAhead(src: AppData, now = Date.now()): AppData {
   const d = clone(src);
   for (const k of windowKeys(now).filter((x) => x >= todayKey(now))) {
-    if (!d.plan.days[k]?.done) delete d.plan.days[k];
-    if (!d.plan.om[k]?.done) delete d.plan.om[k];
-    for (const s of SLOT_KEYS) if (!d.plan.extra[s][k]?.done) delete d.plan.extra[s][k];
+    const left = daySlots(d.plan, k).filter((x) => x.done);
+    if (left.length) d.plan.slots[k] = left;
+    else delete d.plan.slots[k];
   }
   return d;
 }
@@ -192,55 +177,67 @@ export function setCycleToday(src: AppData, ix: number, now = Date.now()): AppDa
   return d;
 }
 
-/** Stavi recept na dan (ili makni s r = "") */
-export function setPlanDay(src: AppData, ix: string, r: string): AppData {
+/** Dodaj obrok na dan: recept (porcije) ili namirnicu */
+export function addSlot(src: AppData, k: string, x: Omit<Slot, "id" | "done">): AppData {
   const d = clone(src);
-  d.plan.days[ix] = { r, done: false };
+  d.plan.slots[k] = [...daySlots(d.plan, k), { id: slotId(), ...x, done: false }];
   return d;
 }
 
-/** Stavi omlet na dan (ili makni sa sel = null) */
-export function setOmDay(src: AppData, ix: string, sel: OmSel | null): AppData {
+/** Zamijeni sadržaj obroka (kvačica se miče) ili promijeni porcije */
+export function setSlot(src: AppData, k: string, id: string, x: Partial<Omit<Slot, "id">>): AppData {
   const d = clone(src);
-  d.plan.om[ix] = { sel: sel ? clone(sel) : null, done: false };
+  d.plan.slots[k] = daySlots(d.plan, k).map((y) => {
+    if (y.id !== id) return y;
+    const swap = "r" in x || "item" in x;
+    const n: Slot = swap ? { id, done: false, ...x } : { ...y, ...x };
+    if (n.s === 1) delete n.s;
+    return n;
+  });
   return d;
 }
 
-/** Doručak je recept (1 porcija) */
-export function setBreakfastRecipe(src: AppData, ix: string, r: string): AppData {
+/** Makni obrok s dana */
+export function removeSlot(src: AppData, k: string, id: string): AppData {
   const d = clone(src);
-  d.plan.om[ix] = r ? { sel: null, r, done: false } : { sel: null, done: false };
+  const list = daySlots(d.plan, k).filter((y) => y.id !== id);
+  if (list.length) d.plan.slots[k] = list;
+  else delete d.plan.slots[k];
   return d;
 }
 
-const SLOT_NAME: Record<SlotKey, string> = { juha: "Juha", salata: "Salata", voce1: "Voće", voce2: "Voće" };
-
-/** Postavi slot (juha, salata, voće) ili ga isprazni */
-export function setSlot(src: AppData, k: SlotKey, ix: string, slot: Omit<Slot, "done"> | null): AppData {
+/** Pomakni obrok gore ili dolje unutar dana */
+export function moveSlot(src: AppData, k: string, id: string, dir: -1 | 1): AppData {
   const d = clone(src);
-  d.plan.extra[k][ix] = slot ? { ...slot, done: false } : { done: false };
+  const list = daySlots(d.plan, k);
+  const i = list.findIndex((y) => y.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= list.length) return src;
+  [list[i], list[j]] = [list[j], list[i]];
+  d.plan.slots[k] = list;
   return d;
 }
 
-/** Naziv sadržaja slota */
-export function slotLabel(d: AppData, s: Slot): string {
+/** Naziv sadržaja obroka */
+export function slotLabel(d: AppData, s: Pick<Slot, "r" | "item">): string {
   if (s.item) return itemOf(d, s.item)?.n ?? "Obrisana namirnica";
   if (s.r) return recipeOf(d, s.r)?.n ?? "Obrisani recept";
   return "";
 }
 
-/** Pojedi slot: skida sastojke ili namirnicu sa zalihe. Ponovni klik samo vraća kvačicu. */
-export function toggleSlot(src: AppData, k: SlotKey, ix: string): Result {
+/** Pojedi obrok: skida sastojke ili namirnicu sa zalihe. Ponovni klik samo vraća kvačicu. */
+export function toggleSlot(src: AppData, k: string, id: string, now = Date.now()): Result {
   const d = clone(src);
-  const s = getSlot(d.plan, k, ix);
-  if (!s.r && !s.item) return { data: src, msg: "" };
+  const s = daySlots(d.plan, k).find((y) => y.id === id);
+  if (!s || (!s.r && !s.item)) return { data: src, msg: "" };
   if (s.done) {
-    d.plan.extra[k][ix] = { ...s, done: false };
-    return { data: d, msg: `${SLOT_NAME[k]}: kvačica maknuta, sastojci se ne vraćaju.` };
+    s.done = false;
+    return { data: d, msg: `${slotLabel(src, s)}: kvačica maknuta, sastojci se ne vraćaju.` };
   }
   const eff = slotUse(src, s, { ...d.prepStock });
   consume(d, eff.use, eff.consumed);
-  d.plan.extra[k][ix] = { ...s, done: true };
+  s.done = true;
+  if (s.r) d.hist = [{ r: s.r, t: now }, ...d.hist].slice(0, 30);
   return { data: d, msg: `${slotLabel(src, s)}: skinuto sa zalihe.` };
 }
 
@@ -337,10 +334,11 @@ export function removeRecipe(src: AppData, id: string): Result {
     delete parts[id];
     return { ...x, parts };
   });
-  for (const [k, x] of Object.entries(d.plan.days)) if (x.r === id && !x.done) delete d.plan.days[k];
-  for (const [k, x] of Object.entries(d.plan.om)) if (x.r === id && !x.done) delete d.plan.om[k];
-  for (const s of SLOT_KEYS)
-    for (const [k, x] of Object.entries(d.plan.extra[s])) if (x.r === id && !x.done) delete d.plan.extra[s][k];
+  for (const [k, list] of Object.entries(d.plan.slots)) {
+    const left = list.filter((x) => x.r !== id || x.done);
+    if (left.length) d.plan.slots[k] = left;
+    else delete d.plan.slots[k];
+  }
   return { data: d, msg: `${r?.n ?? "Recept"} je obrisan.` };
 }
 

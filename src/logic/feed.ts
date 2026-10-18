@@ -3,20 +3,13 @@ import { OM_CARB, PREP_K } from "../data";
 import { allPreps, isCustomPrep, prepOf } from "./preps";
 import type { OmSel, Use } from "../data";
 import type { AppData } from "../state/model";
-import { BASE_SERVINGS, costOf, effUse, prepEff, qty } from "./inventory";
+import { costOf, effUse, portionF, prepEff, qty, recipeBase } from "./inventory";
 import { allRecipes } from "./recipes";
 import { allItems } from "./items";
 import { macOf, omEff, omMacros, omUse } from "./omlet";
 
-/** Jedno kuhanje (1,5 porcija) daje 2 obroka: ručak i večeru */
-export const MEALS_PER_COOK = 2;
-
 export type Kind = "meal" | "om" | "prep";
 export const KIND_LABEL: Record<Kind, string> = { meal: "Recept", om: "Omlet", prep: "Prep" };
-
-/** Recept koji se jede kao jedna porcija (doručak, omlet, juha, salata), a ne kao ručak i večera */
-export const isPortion = (r: { kinds?: string[]; side?: string }) =>
-  !!r.side || !!r.kinds?.some((k) => k === "omlet" || k === "dorucak");
 
 /** Skupine proteina po namirnicama iz kataloga */
 export const PROT_GROUPS: [string, string[]][] = [
@@ -66,8 +59,6 @@ export interface FeedEntry {
   kinds: string[];
   /** složen od drugih recepata */
   parts: number;
-  /** brojke su po porciji (doručak, omlet), a ne po obroku */
-  portion?: boolean;
   sel?: OmSel;
 }
 
@@ -125,13 +116,14 @@ const minutes = (s: string) => {
 export function mealEntry(d: AppData, id: string): FeedEntry | null {
   const r = allRecipes(d).find((x) => x.id === id);
   if (!r) return null;
-  const use = effUse(r, { ...d.prepStock }, false, 1, d).use;
+  const use = effUse(r, { ...d.prepStock }, false, portionF(r), d).use;
   const mac = macrosOf(d, r.use);
   const c = costOf(d, r.use);
   const av = availability(d, use);
   // doručak (omlet) i dodaci jedu se kao 1 porcija, ručak i večera kao 2 obroka iz jednog kuhanja
   // dodatak (juha, salata) ima količine za cijeli dan = 1 porcija
-  const div = r.side ? 1 : isPortion(r) ? BASE_SERVINGS : MEALS_PER_COOK;
+  // sve brojke su za 1 porciju
+  const div = recipeBase(r);
   return {
     key: "m:" + r.id,
     kind: "meal",
@@ -154,7 +146,6 @@ export function mealEntry(d: AppData, id: string): FeedEntry | null {
     tags: [...methodTags(r.d), ...(r.two ? ["2 u 1"] : []), ...(r.parts ? ["Složeni"] : [])],
     kinds: (r.kinds ?? []).filter((k) => d.lists.kinds.some((x) => x.id === k)),
     parts: r.parts?.length ?? 0,
-    portion: isPortion(r),
   };
 }
 

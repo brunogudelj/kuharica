@@ -1,16 +1,17 @@
 import { recipeOf } from "./recipes";
 import { describe, expect, it } from "vitest";
-import { DAILY, DAILY_COOK, ITEMS, OM_PRESETS, PREP_INV, RBY, RECIPES, REC_USE_PREP } from "../data";
-import { defaultData } from "../state/model";
+import { ITEMS, OM_PRESETS, PREP_INV, RBY, RECIPES, REC_USE_PREP } from "../data";
+import { daySlots, defaultData } from "../state/model";
 import type { AppData } from "../state/model";
 import {
   addReceipt,
+  addSlot,
   autoFillPlan,
   buy,
   cook,
-  eatOmlet,
   makePrep,
-  setBreakfastRecipe,
+  moveSlot,
+  removeSlot,
   setCycleToday,
   setSlot,
   toggleSlot,
@@ -31,47 +32,56 @@ function full(): AppData {
 // zaliha se sprema zaokružena na 2 decimale
 const close = (a: number, b: number) => expect(a).toBeCloseTo(b, 1);
 
-describe("pravilo 1: osnova je 1,5 porcija", () => {
-  it("brojač 1 porcija skida 2/3 recepta", () => {
+describe("pravilo 1: sve je za 1 porciju, recept je napisan za 1,5", () => {
+  it("1 porcija skida 2/3 recepta, 1,5 porcija cijeli", () => {
     const d = full();
-    const r = cook(d, "teriyaki", null, 1 / 1.5).data;
-    close(qty(d, "piletina") - qty(r, "piletina"), (250 * 1) / 1.5);
+    const r = cook(d, "teriyaki", null, 1).data;
+    close(qty(d, "piletina") - qty(r, "piletina"), 250 / 1.5);
     close(qty(d, "basmati") - qty(r, "basmati"), 70 / 1.5);
+    const r2 = cook(d, "teriyaki", null, 1.5).data;
+    close(qty(d, "piletina") - qty(r2, "piletina"), 250);
   });
-  it("plan (faktor 1) skida cijeli recept od 1,5 porcija", () => {
-    const d = full();
-    d.plan.days[todayKey()] = { r: "teriyaki", done: false };
-    const r = cook(d, "teriyaki", todayKey()).data;
-    close(qty(d, "piletina") - qty(r, "piletina"), 250);
-    expect(r.plan.days[todayKey()].done).toBe(true);
+  it("skuhao sam označi obrok tog dana", () => {
+    let d = full();
+    d.plan.slots = {};
+    d = addSlot(d, todayKey(), { r: "teriyaki" });
+    const r = cook(d, "teriyaki", todayKey(), 1).data;
+    close(qty(d, "piletina") - qty(r, "piletina"), 250 / 1.5);
+    expect(daySlots(r.plan, todayKey())[0].done).toBe(true);
+    // posni sir se više ne skida sam
+    close(qty(d, "posni") - qty(r, "posni"), 0);
   });
 });
 
-describe("pravilo 2: dnevni dodaci se ne skaliraju", () => {
-  it("posni sir se skida jednom bez obzira na porcije; miso ide preko slota za juhu", () => {
-    const d = full();
-    const a = cook(d, "teriyaki", null, 1).data;
-    const b = cook(d, "teriyaki", null, 3).data;
-    close(qty(d, "posni") - qty(a, "posni"), DAILY_COOK.posni);
-    close(qty(d, "posni") - qty(b, "posni"), DAILY_COOK.posni);
-    close(qty(d, "miso") - qty(b, "miso"), 0);
-    const j = toggleSlot(d, "juha", todayKey()).data;
-    close(qty(d, "miso") - qty(j, "miso"), DAILY.miso);
-    expect(j.plan.extra.juha[todayKey()].done).toBe(true);
+describe("pravilo 2: svaki obrok je isti", () => {
+  it("juha je obrok kao i svaki drugi: 1 porcija", () => {
+    let d = full();
+    d.plan.slots = {};
+    d = addSlot(d, todayKey(), { r: "dod-miso" });
+    const id = daySlots(d.plan, todayKey())[0].id;
+    const j = toggleSlot(d, todayKey(), id).data;
+    close(qty(d, "miso") - qty(j, "miso"), RBY["dod-miso"].use.miso);
+    expect(daySlots(j.plan, todayKey())[0].done).toBe(true);
   });
 
-  it("voće u slotu skida komad sa zalihe, doručak može biti recept", () => {
+  it("voće skida komad, bilo koji recept može biti bilo gdje, porcije se mijenjaju", () => {
     let d = full();
+    d.plan.slots = {};
     d.stock.banana = { qty: 3, price: null };
-    d = setSlot(d, "voce1", addDays(todayKey(), 2), { item: "banana", qty: 1 });
+    const k = addDays(todayKey(), 2);
+    d = addSlot(d, k, { item: "banana", qty: 1 });
     expect(planNeeds(d).banana).toBe(1);
-    const r = toggleSlot(d, "voce1", addDays(todayKey(), 2)).data;
+    const r = toggleSlot(d, k, daySlots(d.plan, k)[0].id).data;
     expect(qty(r, "banana")).toBe(2);
-    d = setBreakfastRecipe(d, todayKey(), "teriyaki");
-    const e = eatOmlet(d, todayKey()).data;
-    // 1 porcija od recepta za 1,5 porcija
-    close(qty(d, "piletina") - qty(e, "piletina"), 250 / 1.5);
-    expect(e.plan.om[todayKey()].done).toBe(true);
+    d = addSlot(d, todayKey(), { r: "teriyaki" });
+    close(planNeeds(d).piletina, 250 / 1.5);
+    const sid = daySlots(d.plan, todayKey())[0].id;
+    d = setSlot(d, todayKey(), sid, { s: 1.5 });
+    close(planNeeds(d).piletina, 250);
+    d = moveSlot(addSlot(d, todayKey(), { r: "losos" }), todayKey(), sid, 1);
+    expect(daySlots(d.plan, todayKey()).map((x) => x.r)).toEqual(["losos", "teriyaki"]);
+    d = removeSlot(d, todayKey(), sid);
+    expect(daySlots(d.plan, todayKey()).map((x) => x.r)).toEqual(["losos"]);
   });
 });
 
@@ -88,7 +98,7 @@ describe("pravilo 3: pripremljeno se ne oduzima dvaput", () => {
   it("2 vrećice tandoorija + 1 kutija krumpira → skuhaj tandoori", () => {
     const d = full();
     d.prepStock = { "tandoori-mar": 2, krumpir: 1 };
-    const r = cook(d, "tandoori", null, 1).data;
+    const r = cook(d, "tandoori", null, 1.5).data;
     // piletina i krumpir se ne skidaju sa sirove zalihe
     close(qty(r, "piletina"), qty(d, "piletina"));
     close(qty(r, "krumpir"), qty(d, "krumpir"));
@@ -118,20 +128,22 @@ describe("pravilo 3: pripremljeno se ne oduzima dvaput", () => {
 });
 
 describe("pravilo 4: kupovina", () => {
-  it("zbraja neskuhane dane, omlete i minimum pa zaokružuje na pakiranja", () => {
-    const d = defaultData();
-    d.plan.days[todayKey()] = { r: "teriyaki", done: false };
-    d.plan.days[addDays(todayKey(), 1)] = { r: "teriyaki", done: true };
+  it("zbraja nepojedene obroke u razdoblju i minimum pa zaokružuje na pakiranja", () => {
+    let d = defaultData();
+    d = addSlot(d, todayKey(), { r: "teriyaki", s: 1.5 });
+    d = addSlot(d, addDays(todayKey(), 1), { r: "teriyaki", s: 1.5 });
+    const t1 = daySlots(d.plan, addDays(todayKey(), 1));
+    t1[t1.length - 1].done = true;
     // izvan razdoblja popisa (7 dana) ne ulazi
-    d.plan.days[addDays(todayKey(), 9)] = { r: "teriyaki", done: false };
+    d = addSlot(d, addDays(todayKey(), 9), { r: "teriyaki", s: 1.5 });
     const need = planNeeds(d);
-    // jedan neskuhan teriyaki = 250 g piletine
+    // jedan nepojeden teriyaki od 1,5 porcija = 250 g piletine
     close(need.piletina, 250);
-    // nepojedeni omleti u sljedećih 7 dana traže jaja
+    // nepojedeni omleti (1 porcija) u sljedećih 7 dana traže jaja
     const eggs = aheadKeys(Date.now(), 7)
-      .map((k) => d.plan.om[k])
-      // omlet je recept: 1 porcija doručka = količine recepta / 1,5
-      .reduce((s, o) => s + (recipeOf(d, o.r!)!.use.jaja ?? 0) / 1.5, 0);
+      .flatMap((k) => daySlots(d.plan, k))
+      .filter((x) => x.r?.startsWith("om-"))
+      .reduce((s, x) => s + (recipeOf(d, x.r!)!.use.jaja ?? 0) / 1.5, 0);
     close(need.jaja, eggs);
     const row = shopping(d).find((x) => x.i.id === "piletina")!;
     // potreba 250 + minimum 500 = 750 → 1 pakiranje od 1000 g
@@ -139,9 +151,9 @@ describe("pravilo 4: kupovina", () => {
     expect(row.forPlan).toBe(true);
   });
 
-  it("pojedeni omleti i skuhani dani ne ulaze u kupovinu", () => {
+  it("pojedeni obroci ne ulaze u kupovinu", () => {
     const d = defaultData();
-    for (const k of Object.keys(d.plan.om)) d.plan.om[k].done = true;
+    for (const l of Object.values(d.plan.slots)) for (const x of l) x.done = true;
     expect(planNeeds(d).jaja ?? 0).toBe(0);
   });
 
@@ -223,25 +235,25 @@ describe("pravilo 10: hrvatska množina", () => {
 });
 
 describe("omleti", () => {
-  it("popuni prazne dane: 14 dana od jučer, ručno odabrano i pojedeno ostaje", () => {
-    const d = defaultData();
-    d.plan.om = {};
-    d.plan.om[todayKey()] = { sel: OM_PRESETS[3].sel, done: true };
-    d.plan.days[addDays(todayKey(), 1)] = { r: "losos", done: false };
+  it("popuni plan: od danas, postojeći obroci ostaju, dodaje se ono što fali, jučer se ne dira", () => {
+    let d = defaultData();
+    d.plan.slots = {};
+    d = addSlot(d, addDays(todayKey(), 1), { r: "losos" });
     const f = autoFillPlan(d);
     const ahead = windowKeys().slice(1);
-    expect(ahead.filter((k) => k !== todayKey()).every((k) => f.plan.om[k]?.r)).toBe(true);
-    expect(ahead.every((k) => f.plan.days[k]?.r)).toBe(true);
-    expect(f.plan.om[todayKey()]).toEqual(d.plan.om[todayKey()]);
-    expect(f.plan.days[addDays(todayKey(), 1)].r).toBe("losos");
-    // jučer se ne popunjava
-    expect(f.plan.days[windowKeys()[0]]).toBeUndefined();
-  });
-  it("pojeo sam skida sastojke i označi dan", () => {
-    const d = full();
-    const r = eatOmlet(d, todayKey()).data;
-    expect(r.plan.om[todayKey()].done).toBe(true);
-    expect(qty(r, "jaja")).toBeLessThan(qty(d, "jaja"));
+    // doručak, juha, ručak, salata, večera
+    for (const k of ahead.filter((x) => x !== addDays(todayKey(), 1) && x >= todayKey())) {
+      const l = daySlots(f.plan, k);
+      expect(l[0].r?.startsWith("om-")).toBe(true);
+      expect(l.map((x) => x.r)).toContain("dod-miso");
+      expect(l.length).toBeGreaterThanOrEqual(5);
+    }
+    // losos je već ručak: dodaju se doručak, juha i salata, ali ne još jedan ručak
+    const t = daySlots(f.plan, addDays(todayKey(), 1)).map((x) => x.r);
+    expect(t.filter((x) => x === "losos").length).toBe(1);
+    expect(t).toContain("dod-salata");
+    expect(t[0]?.startsWith("om-")).toBe(true);
+    expect(daySlots(f.plan, windowKeys()[0])).toEqual([]);
   });
   it("gotove kombinacije imaju smislene proteine", () => {
     for (const p of OM_PRESETS) {

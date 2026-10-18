@@ -11,7 +11,7 @@ import { useApp } from "../state/AppContext";
 import { allItems, itemOf } from "../logic/items";
 import { catOpts, kindOpts } from "../logic/lists";
 import { allRecipes, newRecipeId, recipeName } from "../logic/recipes";
-import { saveRecipe, setPlanDay } from "../logic/actions";
+import { addSlot, saveRecipe } from "../logic/actions";
 import { BASE_SERVINGS } from "../logic/inventory";
 import { ItemForm } from "./ItemForm";
 
@@ -62,7 +62,7 @@ export function RecipeForm(props: Props) {
   const meal = (isPrep ? undefined : init) as CustomRecipe | undefined;
   const prepInit = (isPrep ? init : undefined) as CustomPrep | undefined;
   // recept: količine za 1 porciju (sprema se za 1,5); prep: za jednu turu
-  const f = isPrep ? 1 : BASE_SERVINGS;
+  const f = isPrep || meal?.side ? 1 : BASE_SERVINGS;
 
   const [n, setN] = useState(init?.n ?? "");
   const [c, setC] = useState<Carb>(meal?.c ?? "Riža");
@@ -178,7 +178,7 @@ export function RecipeForm(props: Props) {
     };
     const res = saveRecipe(data, r);
     if (planDay != null && !existing)
-      apply(setPlanDay(res.data, planDay, r.id), `${r.n} je dodan i stavljen na ${dayLabel(planDay)}.`);
+      apply(addSlot(res.data, planDay, { r: r.id }), `${r.n} je dodan i stavljen na ${dayLabel(planDay)}.`);
     else apply(res.data, res.msg);
     onDone(r.id);
   };
@@ -445,7 +445,7 @@ export function RecipeForm(props: Props) {
         <p className="sub">
           {isPrep
             ? "Prep radiš unaprijed: „Napravio sam” skida namirnice i dodaje pripremljeno. Recepti koji ga imaju kao dio troše pripremljeno, a kad ga nema, njegove namirnice."
-            : "Količine upisuješ za 1 porciju, a brojač porcija na receptu ih poslije mijenja. U tjednom planu recept se računa za 1,5 porcija, kao i ostali."}
+            : "Količine upisuješ za 1 porciju, a brojač porcija na receptu ih poslije mijenja. U planu je svaki obrok 1 porcija, a možeš odabrati i 1,5 (ručak i večera iz jednog kuhanja)."}
         </p>
         {err && <p className="miss">{err}</p>}
         <div className="btnrow">

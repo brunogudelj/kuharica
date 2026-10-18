@@ -5,7 +5,7 @@ import { shopName, shopOpts } from "../logic/shops";
 import { clone } from "../state/model";
 import type { AppData } from "../state/model";
 import { costSummary } from "../logic/costs";
-import { dayCost } from "../logic/inventory";
+import { portionCost } from "../logic/inventory";
 import { editCost, removeCost } from "../logic/actions";
 import { itemOf } from "../logic/items";
 import { NumCell, SelectCell, TextCell } from "../components/Cells";
@@ -136,8 +136,8 @@ export function TroskoviTab() {
 
   const meals = allRecipes(data)
     .filter((r) => !r.side && (!fCarb.length || fCarb.includes(r.c)))
-    .map((r) => ({ r, c: dayCost(data, r.id) }))
-    .sort((a, b) => a.c.perMeal - b.c.perMeal);
+    .map((r) => ({ r, c: portionCost(data, r.id) }))
+    .sort((a, b) => a.c.c - b.c.c);
   const carbs = [
     ...new Set(
       allRecipes(data)
@@ -421,9 +421,9 @@ export function TroskoviTab() {
                     <td className="txt">
                       <span className={`chip carb-chip cc-${r.c}`}>{r.c}</span>
                     </td>
-                    <td className="txt num strong">{c.known ? eur(c.perMeal) : "–"}</td>
+                    <td className="txt num strong">{c.known ? eur(c.c) : "–"}</td>
                     <td className="txt num muted">{eur(s.dost)}</td>
-                    <td className="txt num save">{c.known ? eur(Math.max(0, s.dost - c.perMeal)) : "–"}</td>
+                    <td className="txt num save">{c.known ? eur(Math.max(0, s.dost - c.c)) : "–"}</td>
                     <td className="txt num muted">
                       {c.known}/{c.total}
                     </td>

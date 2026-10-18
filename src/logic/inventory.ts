@@ -1,11 +1,10 @@
-import { DAILY, DAILY_COOK, REC_USE_PREP } from "../data";
+import { DAILY_COOK, REC_USE_PREP } from "../data";
 import { prepInv } from "./preps";
 import type { Item, PrepRecipe, Recipe, Use } from "../data";
 import { allRecipes, recipeOf } from "./recipes";
 import type { AppData, Slot } from "../state/model";
-import { SLOT_KEYS } from "../state/model";
+import { daySlots } from "../state/model";
 import { aheadKeys, windowKeys } from "./dates";
-import { omEff, omUse } from "./omlet";
 import { allItems, itemName, itemOf } from "./items";
 
 export const qty = (d: AppData, id: string) => {
@@ -98,57 +97,34 @@ export function prepEff(d: AppData, p: PrepRecipe, t: number, pcopy: Record<stri
 export const prepUsedIn = (d: AppData, id: string) =>
   allRecipes(d).filter((r) => prepListOf(r).some(([p]) => p === id));
 
-/** Recept kao jedna porcija u slotu (doručak, juha, salata): dodaci (juha, salata) su već za cijeli dan */
-export const slotFactor = (r: Recipe) => (r.side ? 1 : 1 / BASE_SERVINGS);
+/** Za koliko porcija su upisane količine recepta: dodatak (juha, salata) za 1, ostali za 1,5 */
+export const recipeBase = (r: Recipe) => (r.side ? 1 : BASE_SERVINGS);
+/** Množitelj količina recepta za `s` porcija */
+export const portionF = (r: Recipe, s = 1) => s / recipeBase(r);
 
-/** Što troši slot (recept ili namirnica), s pripremljenim iz `pcopy` */
-export function slotUse(d: AppData, s: Slot, pcopy: Record<string, number>): EffUse {
+/** Što troši obrok u planu (recept u porcijama ili namirnica), s pripremljenim iz `pcopy` */
+export function slotUse(d: AppData, s: Pick<Slot, "r" | "s" | "item" | "qty">, pcopy: Record<string, number>): EffUse {
   if (s.item) return { use: { [s.item]: s.qty ?? 1 }, consumed: [], prep: [] };
   const r = s.r ? recipeOf(d, s.r) : undefined;
-  return r ? effUse(r, pcopy, false, slotFactor(r), d) : { use: {}, consumed: [], prep: [] };
+  return r ? effUse(r, pcopy, false, portionF(r, s.s ?? 1), d) : { use: {}, consumed: [], prep: [] };
 }
 
-/** Potreba za tjedan: neskuhani dani (s posnim sirom i prepom), nepojedeni doručci i dodatni slotovi */
+/** Potreba za razdoblje popisa za kupovinu: svi nepojedeni obroci u planu */
 export function planNeeds(d: AppData, now = Date.now()): Use {
   const need: Use = {};
-  const add = (u: Use) => {
-    for (const [id, a] of Object.entries(u)) need[id] = (need[id] || 0) + a;
-  };
   const pcopy = { ...d.prepStock };
-  for (const k of aheadKeys(now, d.settings.shopDays || 7)) {
-    const day = d.plan.days[k];
-    const r = day?.r && !day.done ? recipeOf(d, day.r) : undefined;
-    if (r) add(effUse(r, pcopy, true, 1, d).use);
-    const o = d.plan.om[k];
-    if (o && !o.done) {
-      if (o.r) add(slotUse(d, { r: o.r, done: false }, pcopy).use);
-      else if (o.sel) add(omEff(d, o.sel, 1, pcopy).use);
-    }
-    for (const s of SLOT_KEYS) {
-      const x = d.plan.extra[s]?.[k];
-      if (x && !x.done) add(slotUse(d, x, pcopy).use);
-    }
-  }
+  for (const k of aheadKeys(now, d.settings.shopDays || 7))
+    for (const x of daySlots(d.plan, k))
+      if (!x.done) for (const [id, a] of Object.entries(slotUse(d, x, pcopy).use)) need[id] = (need[id] || 0) + a;
   return need;
 }
 
 /** Prep koji traži tekući plan (od danas do kraja prozora): id → potrebne jedinice */
 export function planPreps(d: AppData, now = Date.now()): Record<string, number> {
   const out: Record<string, number> = {};
-  const add = (e: EffUse) => {
-    for (const p of e.prep) out[p.id] = (out[p.id] || 0) + p.need;
-  };
-  for (const k of windowKeys(now).slice(1)) {
-    const day = d.plan.days[k];
-    const r = day?.r && !day.done ? recipeOf(d, day.r) : undefined;
-    if (r) add(effUse(r, {}, false, 1, d));
-    const o = d.plan.om[k];
-    if (o?.r && !o.done) add(slotUse(d, { r: o.r, done: false }, {}));
-    for (const s of SLOT_KEYS) {
-      const x = d.plan.extra[s]?.[k];
-      if (x?.r && !x.done) add(slotUse(d, x, {}));
-    }
-  }
+  for (const k of windowKeys(now).slice(1))
+    for (const x of daySlots(d.plan, k))
+      if (x.r && !x.done) for (const p of slotUse(d, x, {}).prep) out[p.id] = (out[p.id] || 0) + p.need;
   return out;
 }
 
@@ -213,10 +189,11 @@ export function status(d: AppData, i: Item): Status {
   return "ok";
 }
 
-export function missingFor(d: AppData, rid: string, f = 1): string[] {
+/** Što fali za `porc` porcija recepta */
+export function missingFor(d: AppData, rid: string, porc = 1): string[] {
   const r = recipeOf(d, rid);
   if (!r) return [];
-  return Object.entries(effUse(r, { ...d.prepStock }, false, f, d).use)
+  return Object.entries(effUse(r, { ...d.prepStock }, false, portionF(r, porc), d).use)
     .filter(([id, a]) => qty(d, id) + 1e-9 < a)
     .map(([id]) => itemName(d, id));
 }
@@ -244,19 +221,25 @@ export function costOf(d: AppData, use: Use) {
   return { c, known, total };
 }
 
-/** Trošak dana s receptom: obroci (recept + dodaci), po obroku, cijeli dan s omletom */
-export function dayCost(d: AppData, rid: string) {
-  const r = costOf(d, recipeOf(d, rid)?.use ?? {});
-  const dl = costOf(d, d.settings.builtin === false ? {} : DAILY);
-  const oms = windowKeys()
-    .map((k) => d.plan.om[k])
-    .filter((o) => o?.sel && !o.r);
-  const om = oms.length ? oms.reduce((s, o) => s + costOf(d, omUse(d, o.sel!, 1)).c, 0) / oms.length : 0;
-  return {
-    meals: r.c + dl.c,
-    perMeal: (r.c + dl.c) / 2,
-    full: r.c + dl.c + om,
-    known: r.known + dl.known,
-    total: r.total + dl.total,
-  };
+/** Trošak recepta po porciji */
+export function portionCost(d: AppData, rid: string) {
+  const r = recipeOf(d, rid);
+  const c = costOf(d, r?.use ?? {});
+  const f = r ? portionF(r) : 1;
+  return { c: c.c * f, known: c.known, total: c.total };
+}
+
+/** Trošak dana u planu: zbroj obroka */
+export function dayCost(d: AppData, k: string) {
+  let c = 0;
+  let known = 0;
+  let total = 0;
+  for (const x of daySlots(d.plan, k)) {
+    const u = slotUse(d, x, {}).use;
+    const r = costOf(d, u);
+    c += r.c;
+    known += r.known;
+    total += r.total;
+  }
+  return { c, known, total };
 }

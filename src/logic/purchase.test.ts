@@ -34,7 +34,7 @@ describe("kupovina s popisa", () => {
   });
   it("kupljeno nestaje s popisa, a ukupni račun zamjenjuje stavke tog dućana", () => {
     let d = defaultData();
-    for (const k of Object.keys(d.plan.om)) d.plan.om[k].done = true;
+    for (const l of Object.values(d.plan.slots)) for (const x of l) x.done = true;
     expect(shopping(d).some((r) => r.i.id === "piletina")).toBe(true); // minimum 500 g
     d = purchase(d, "piletina", 520, 5.7, T).data;
     expect(shopping(d).some((r) => r.i.id === "piletina")).toBe(false);
