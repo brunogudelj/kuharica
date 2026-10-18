@@ -1,5 +1,6 @@
 /* Svi recepti na jednom mjestu: ručak i večera, omleti i prep, s podacima za filtere i kartice */
-import { OM_CARB, OM_PRESETS, PREP_K } from "../data";
+import { OM_CARB, PREP_K } from "../data";
+import { omPresets } from "./omlet";
 import { allPreps, isCustomPrep, prepOf } from "./preps";
 import type { OmSel, Use } from "../data";
 import type { AppData } from "../state/model";
@@ -221,7 +222,7 @@ export function feed(d: AppData): FeedEntry[] {
   const meals = allRecipes(d)
     .map((r) => mealEntry(d, r.id))
     .filter((x): x is FeedEntry => !!x);
-  const oms = OM_PRESETS.map((p, i) => omEntry(d, p.sel, "o:" + i, p.n, p.d, String(i)));
+  const oms = omPresets(d).map((p, i) => omEntry(d, p.sel, "o:" + i, p.n, p.d, String(i)));
   const preps = allPreps(d)
     .map((p) => prepEntry(d, p.id))
     .filter((x): x is FeedEntry => !!x);

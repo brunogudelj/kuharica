@@ -1,13 +1,13 @@
 /* Čiste funkcije koje iz stanja rade novo stanje. Poništavanje = povratak prethodnog stanja. */
-import { CYCLE, ITEMS, OM_PRESETS } from "../data";
+import { CYCLE, ITEMS } from "../data";
 import { prepInv, prepOf } from "./preps";
 import type { CustomRecipe, Item, OmSel } from "../data";
 import { allRecipes, recipeOf } from "./recipes";
 import type { AppData, CostEntry, Slot, SlotKey } from "../state/model";
-import { SLOT_KEYS, clone, cycleIx, getOm, getSlot } from "../state/model";
+import { SLOT_KEYS, cleanState, clone, cycleIx, getOm, getSlot } from "../state/model";
 import { todayKey, windowKeys } from "./dates";
 import { effUse, missingFor, pc, price, qty, slotUse } from "./inventory";
-import { omEff, omMissing, omName, shuffle } from "./omlet";
+import { omEff, omMissing, omName, omPresets, shuffle } from "./omlet";
 import { allItems, defaultStep, isCustom, itemOf } from "./items";
 import { eur, fmt, monthKey, newId, pfmt, round, sameDay } from "./format";
 
@@ -124,6 +124,7 @@ export function autoFillPlan(src: AppData, now = Date.now(), rng: () => number =
     const r = d.plan.days[k]?.r;
     if (r) used[r] = (used[r] || 0) + 1;
   }
+  const builtin = d.settings.builtin !== false;
   const oms = omPool(d, rng);
   let oi = 0;
   const fruits = fruitPool(d);
@@ -143,9 +144,10 @@ export function autoFillPlan(src: AppData, now = Date.now(), rng: () => number =
       }
     }
     const o = d.plan.om[k];
-    if (!o || (!o.sel && !o.r && !o.done)) d.plan.om[k] = { sel: clone(oms[oi++ % oms.length]), done: false };
-    if (empty(d.plan.extra.juha[k])) d.plan.extra.juha[k] = { r: "dod-miso", done: false };
-    if (empty(d.plan.extra.salata[k])) d.plan.extra.salata[k] = { r: "dod-salata", done: false };
+    if (oms.length && (!o || (!o.sel && !o.r && !o.done)))
+      d.plan.om[k] = { sel: clone(oms[oi++ % oms.length]), done: false };
+    if (builtin && empty(d.plan.extra.juha[k])) d.plan.extra.juha[k] = { r: "dod-miso", done: false };
+    if (builtin && empty(d.plan.extra.salata[k])) d.plan.extra.salata[k] = { r: "dod-salata", done: false };
     if (fruits.length)
       for (const s of ["voce1", "voce2"] as SlotKey[])
         if (empty(d.plan.extra[s][k])) {
@@ -158,7 +160,7 @@ export function autoFillPlan(src: AppData, now = Date.now(), rng: () => number =
 
 /** Omleti za popunjavanje: svaki drugi, prednost oni za koje imaš sastojke */
 function omPool(d: AppData, rng: () => number): OmSel[] {
-  return shuffle(OM_PRESETS, rng)
+  return shuffle(omPresets(d), rng)
     .map((p) => ({ p, miss: omMissing(d, p.sel).length }))
     .sort((a, b) => a.miss - b.miss)
     .map((x) => x.p.sel);
@@ -312,6 +314,21 @@ export function removeRecipe(src: AppData, id: string): Result {
   for (const s of SLOT_KEYS)
     for (const [k, x] of Object.entries(d.plan.extra[s])) if (x.r === id && !x.done) delete d.plan.extra[s][k];
   return { data: d, msg: `${r?.n ?? "Recept"} je obrisan.` };
+}
+
+/** Kreni od nule: sve namirnice skrivene, bez ugrađenih recepata, omleta i prepa, prazna zaliha i plan */
+export function cleanStart(src: AppData, now = Date.now()): Result {
+  return { data: cleanState(src, now), msg: "Krećeš od nule. Dodaj svoje namirnice i recepte." };
+}
+
+/** Uključi ili isključi ugrađene recepte, omlete i prep */
+export function setBuiltin(src: AppData, on: boolean): Result {
+  const d = clone(src);
+  d.settings.builtin = on;
+  return {
+    data: d,
+    msg: on ? "Ugrađeni recepti, omleti i prep su vraćeni." : "Ugrađeni recepti, omleti i prep su skriveni.",
+  };
 }
 
 /** Kreni od nule: sakrij sve ugrađene namirnice, obriši vlastite, sve količine, cijene i pripremljeno.

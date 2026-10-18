@@ -32,14 +32,16 @@ export function toPrep(d: AppData | undefined, c: CustomPrep): PrepRecipe {
   };
 }
 
-const cache = new WeakMap<CustomPrep[], { items: unknown; all: PrepRecipe[] }>();
+const cache = new WeakMap<CustomPrep[], { items: unknown; builtin: boolean; all: PrepRecipe[] }>();
 
-/** Svi prep recepti: ugrađeni + vlastiti */
+/** Svi prep recepti: ugrađeni (ako nisu isključeni u Postavkama) + vlastiti */
 export function allPreps(d?: AppData): PrepRecipe[] {
-  if (!d?.preps?.length) return PREP;
+  const builtin = d?.settings.builtin !== false;
+  const base = builtin ? PREP : [];
+  if (!d?.preps?.length) return base;
   let c = cache.get(d.preps);
-  if (!c || c.items !== d.items) {
-    c = { items: d.items, all: [...PREP, ...d.preps.map((x) => toPrep(d, x))] };
+  if (!c || c.items !== d.items || c.builtin !== builtin) {
+    c = { items: d.items, builtin, all: [...base, ...d.preps.map((x) => toPrep(d, x))] };
     cache.set(d.preps, c);
   }
   return c.all;

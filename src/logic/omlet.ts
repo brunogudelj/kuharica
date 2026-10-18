@@ -202,3 +202,6 @@ export function omSteps(d: AppData, sel: OmSel, method: "wok" | "af"): string[] 
   if (C.step && sel.carb !== "krumpir") st.push(C.step);
   return st;
 }
+
+/** Ugrađeni omleti, ako ugrađeni recepti nisu isključeni u Postavkama */
+export const omPresets = (d: AppData) => (d.settings.builtin === false ? [] : OM_PRESETS);

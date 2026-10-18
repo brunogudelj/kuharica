@@ -137,7 +137,10 @@ export const keepOf = (p: PrepRecipe): Keep[] => {
 export function PrepTab() {
   const { data } = useApp();
   const { open } = usePanel();
-  const [tab, setTab] = useState<PTab>("list");
+  const [tabRaw, setTab] = useState<PTab>("list");
+  // nedjeljni redoslijed je za ugrađene prep recepte
+  const builtin = data.settings.builtin !== false;
+  const tab: PTab = builtin ? tabRaw : "list";
   const [q, setQ] = useState("");
   const [fK, setFK] = useState<PrepCat[]>([]);
   const [fKeep, setFKeep] = useState<Keep[]>([]);
@@ -244,25 +247,27 @@ export function PrepTab() {
         </button>
       }
       tabs={
-        <div className="seg" role="tablist" aria-label="Prikaz prepa">
-          {(
-            [
-              ["list", "Prep recepti"],
-              ["order", "Nedjeljni redoslijed"],
-            ] as [PTab, string][]
-          ).map(([k, l]) => (
-            <button
-              key={k}
-              type="button"
-              role="tab"
-              aria-selected={tab === k}
-              aria-pressed={tab === k}
-              onClick={() => setTab(k)}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
+        builtin && (
+          <div className="seg" role="tablist" aria-label="Prikaz prepa">
+            {(
+              [
+                ["list", "Prep recepti"],
+                ["order", "Nedjeljni redoslijed"],
+              ] as [PTab, string][]
+            ).map(([k, l]) => (
+              <button
+                key={k}
+                type="button"
+                role="tab"
+                aria-selected={tab === k}
+                aria-pressed={tab === k}
+                onClick={() => setTab(k)}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+        )
       }
     >
       {tab === "order" ? (

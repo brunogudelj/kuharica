@@ -1,6 +1,6 @@
 /* Sinkronizacija preko tajnog GitHub Gista: jedna datoteka kuharica.json koju čitaju i pišu svi uređaji. */
 import type { AppData } from "../state/model";
-import { migrate } from "./storage";
+import { fromStored } from "./storage";
 
 export const GIST_FILE = "kuharica.json";
 const API = "https://api.github.com";
@@ -82,7 +82,7 @@ async function readFile(token: string, f: GistFile): Promise<AppData> {
     const r = await fetch(f.raw_url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
     text = await r.text();
   }
-  return migrate(JSON.parse(text || "{}"));
+  return fromStored(JSON.parse(text || "{}"));
 }
 
 /** Pronađi postojeći gist s kuharica.json; ako ga nema, napravi novi tajni gist s trenutnim podacima. */

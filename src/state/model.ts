@@ -1,4 +1,4 @@
-import { CATS, DEFAULT_SHOPS, GROUPS, OM_PRESETS } from "../data";
+import { CATS, DEFAULT_SHOPS, GROUPS, ITEMS, OM_PRESETS } from "../data";
 import { diffDays, todayKey, windowKeys } from "../logic/dates";
 import type { CustomPrep, CustomRecipe, Item, OmSel, Shop } from "../data";
 
@@ -66,6 +66,8 @@ export interface Settings {
   dostava: number;
   /** za koliko dana unaprijed plan ide na popis za kupovinu */
   shopDays: number;
+  /** ugrađeni recepti, omleti i prep se prikazuju (false = kreće se od nule, samo vlastito) */
+  builtin: boolean;
 }
 export interface UiState {
   servings: Record<string, number>;
@@ -148,6 +150,30 @@ export function defaultPlan(now = Date.now()): Plan {
   return plan;
 }
 
+/** Prazan plan od danas */
+export const emptyPlan = (now = Date.now()): Plan => ({
+  anchor: todayKey(now),
+  days: {},
+  om: {},
+  extra: { juha: {}, salata: {}, voce1: {}, voce2: {} },
+});
+
+/**
+ * Čisto stanje: sve ugrađene namirnice skrivene, bez ugrađenih recepata, omleta i prepa,
+ * prazna zaliha, pripremljeno, plan i povijest kuhanja.
+ * Ostaje ono što je korisnik sam dodao (namirnice, recepti, prep), dućani, troškovi i postavke.
+ */
+export function cleanState(src: AppData, now = Date.now()): AppData {
+  const d = clone(src);
+  d.items.hidden = ITEMS.map((i) => i.id);
+  d.stock = {};
+  d.prepStock = {};
+  d.plan = emptyPlan(now);
+  d.hist = [];
+  d.settings.builtin = false;
+  return d;
+}
+
 export function defaultData(): AppData {
   return {
     version: 1,
@@ -157,7 +183,7 @@ export function defaultData(): AppData {
     plan: defaultPlan(),
     hist: [],
     costs: {},
-    settings: { dostava: 12, shopDays: 7 },
+    settings: { dostava: 12, shopDays: 7, builtin: true },
     items: { v: 2, custom: [], hidden: [], over: {} },
     recipes: [],
     preps: [],

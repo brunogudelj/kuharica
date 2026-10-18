@@ -38,7 +38,8 @@ export const prepListOf = (r: Recipe): [string, number][] => r.prep ?? REC_USE_P
 export function effUse(r: Recipe, pcopy: Record<string, number>, withDaily: boolean, f = 1, d?: AppData): EffUse {
   const use: Use = {};
   for (const [id, a] of Object.entries(r.use)) use[id] = a * f;
-  if (withDaily) for (const [id, a] of Object.entries(DAILY_COOK)) use[id] = (use[id] || 0) + a;
+  if (withDaily && d?.settings.builtin !== false)
+    for (const [id, a] of Object.entries(DAILY_COOK)) use[id] = (use[id] || 0) + a;
   const consumed: [string, number][] = [];
   const own = !!r.prep;
   const list: [string, number][] = prepListOf(r)
@@ -215,7 +216,7 @@ export function costOf(d: AppData, use: Use) {
 /** Trošak dana s receptom: obroci (recept + dodaci), po obroku, cijeli dan s omletom */
 export function dayCost(d: AppData, rid: string) {
   const r = costOf(d, recipeOf(d, rid)?.use ?? {});
-  const dl = costOf(d, DAILY);
+  const dl = costOf(d, d.settings.builtin === false ? {} : DAILY);
   const oms = windowKeys()
     .map((k) => d.plan.om[k])
     .filter((o) => o?.sel && !o.r);

@@ -32,13 +32,18 @@ export function toRecipe(d: AppData, r: CustomRecipe): Recipe {
   };
 }
 
-const cache = new WeakMap<CustomRecipe[], { items: unknown; all: Recipe[]; map: Map<string, Recipe> }>();
+const cache = new WeakMap<
+  CustomRecipe[],
+  { items: unknown; builtin: boolean; all: Recipe[]; map: Map<string, Recipe> }
+>();
 
+/** Ugrađeni recepti (ako nisu isključeni u Postavkama) + vlastiti */
 export function allRecipes(d: AppData): Recipe[] {
+  const builtin = d.settings.builtin !== false;
   let c = cache.get(d.recipes);
-  if (!c || c.items !== d.items) {
-    const all = RECIPES.concat(d.recipes.map((r) => toRecipe(d, r)));
-    c = { items: d.items, all, map: new Map(all.map((r) => [r.id, r])) };
+  if (!c || c.items !== d.items || c.builtin !== builtin) {
+    const all = (builtin ? RECIPES : []).concat(d.recipes.map((r) => toRecipe(d, r)));
+    c = { items: d.items, builtin, all, map: new Map(all.map((r) => [r.id, r])) };
     cache.set(d.recipes, c);
   }
   return c.all;

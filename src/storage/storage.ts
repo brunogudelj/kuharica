@@ -3,7 +3,7 @@ import { ITEMS, NEW_ITEMS, UNITS } from "../data";
 import { isBuiltin } from "../logic/lists";
 import type { Carb, CatId, GrpId, PrepCat, Shop, Unit, UnitId } from "../data";
 import type { AppData, OmDay, PlanDay, Slot } from "../state/model";
-import { SLOT_KEYS, defaultData } from "../state/model";
+import { SLOT_KEYS, cleanState, defaultData } from "../state/model";
 import { addDays, dkey } from "../logic/dates";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -20,7 +20,7 @@ const KEY = "kuharica-podaci";
 export const indexedDbStorage: Storage = {
   async load() {
     const raw = await get(KEY);
-    return raw ? migrate(raw) : null;
+    return raw ? fromStored(raw, true) : cleanState(defaultData());
   },
   async save(data) {
     await set(KEY, data);
@@ -55,7 +55,8 @@ export function demoStorage(make: () => AppData): Storage {
   return {
     async load() {
       const raw = await get(DEMO_KEY);
-      return raw ? migrate(raw) : make();
+      // demo spremljen prije postavke "builtin" se slaže ispočetka
+      return raw && obj(obj(raw).settings).builtin !== undefined ? migrate(raw) : make();
     },
     async save(data) {
       await set(DEMO_KEY, data);
@@ -66,6 +67,19 @@ export function demoStorage(make: () => AppData): Storage {
 const num = (v: unknown, d: number) => (typeof v === "number" && isFinite(v) ? v : d);
 const obj = (v: unknown): Record<string, unknown> =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+
+/**
+ * Podaci s uređaja ili s GitHuba. Stariji podaci (prije postavke "builtin") jednom kreću od nule:
+ * sve namirnice skrivene, bez ugrađenih recepata, prazna zaliha i plan. Vlastito ostaje.
+ */
+export function fromStored(raw: unknown, bump = false): AppData {
+  const d = migrate(raw);
+  if (obj(obj(raw).settings).builtin !== undefined) return d;
+  const c = cleanState(d);
+  // na uređaju: novije od starog stanja na GitHubu, da se čisto stanje pošalje dalje
+  if (bump) c.updatedAt = Date.now();
+  return c;
+}
 
 /** Provjeri i dopuni podatke (iz spremišta ili uvoza). Nepoznata polja se odbacuju. */
 export function migrate(raw: unknown): AppData {
@@ -150,6 +164,8 @@ export function migrate(raw: unknown): AppData {
 
   d.settings.dostava = num(obj(r.settings).dostava, 12);
   d.settings.shopDays = Math.min(14, Math.max(1, Math.round(num(obj(r.settings).shopDays, 7))));
+  const builtin = obj(r.settings).builtin;
+  d.settings.builtin = typeof builtin === "boolean" ? builtin : true;
   d.updatedAt = num(r.updatedAt, 0);
 
   const ls = obj(r.lists);

@@ -7,6 +7,7 @@ import { LIST_LABEL, addEntry, isBuiltin, removeEntry, renameEntry, usage } from
 import type { ListKind } from "../logic/lists";
 import { CLAUDE_MODEL, loadClaudeKey, saveClaudeKey } from "../logic/claude";
 import { round } from "../logic/format";
+import { cleanStart, setBuiltin } from "../logic/actions";
 import { Page } from "../components/Page";
 import { TextCell } from "../components/Cells";
 import { SyncPanel } from "../components/SyncPanel";
@@ -189,10 +190,63 @@ function ClaudeSettings() {
 }
 
 function Other() {
-  const { data, update } = useApp();
+  const { data, update, apply } = useApp();
   const [dost, setDost] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState(false);
+  const builtin = data.settings.builtin !== false;
   return (
     <div className="setcol">
+      <div className="group">
+        <h2>Ugrađeni recepti</h2>
+        <label className="checkrow">
+          <input
+            type="checkbox"
+            checked={builtin}
+            onChange={() => {
+              const r = setBuiltin(data, !builtin);
+              apply(r.data, r.msg);
+            }}
+          />
+          <span>Prikaži ugrađene recepte, omlete i prep</span>
+        </label>
+        <p className="sub">
+          Kad je isključeno, vidiš samo recepte i prep koje si sam dodao. Ugrađene namirnice vraćaš u Zalihi preko
+          tražilice.
+        </p>
+      </div>
+      <div className="group">
+        <h2>Kreni od nule</h2>
+        <p className="sub">
+          Sakrij sve ugrađene namirnice i recepte te isprazni zalihu, pripremljeno i plan. Tvoje dodane namirnice,
+          recepti i prep, dućani i troškovi ostaju.
+        </p>
+        {confirm ? (
+          <div className="confirm" role="alertdialog" aria-label="Potvrda">
+            <b>Krenuti od nule?</b>
+            <span className="sub">Količine i plan se brišu. Prije toga možeš spremiti backup.</span>
+            <div className="btnrow">
+              <button
+                type="button"
+                className="btn danger"
+                onClick={() => {
+                  const r = cleanStart(data);
+                  apply(r.data, r.msg);
+                  setConfirm(false);
+                }}
+              >
+                Da, kreni od nule
+              </button>
+              <button type="button" className="btn ghost" onClick={() => setConfirm(false)}>
+                Odustani
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" className="btn ghost" onClick={() => setConfirm(true)}>
+            Kreni od nule…
+          </button>
+        )}
+      </div>
       <div className="group">
         <h2>Usporedba s dostavom</h2>
         <div className="edit">

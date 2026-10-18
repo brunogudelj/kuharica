@@ -1,6 +1,6 @@
 import { Fragment, useState } from "react";
 import type { ReactNode } from "react";
-import { CYCLE, DEFAULT_OM, OM_PRESETS } from "../data";
+import { CYCLE, DEFAULT_OM } from "../data";
 import { useApp } from "../state/AppContext";
 import { SLOT_KEYS, clone, cycleIx, getDay, getOm, getSlot } from "../state/model";
 import { dayDate, dayLabel, dayName, todayKey, windowKeys } from "../logic/dates";
@@ -23,7 +23,7 @@ import {
 } from "../logic/actions";
 import { allRecipes, recipeName, recipeOf } from "../logic/recipes";
 import { allItems, itemOf } from "../logic/items";
-import { omMacros, omMissing, omName, omUse } from "../logic/omlet";
+import { omMacros, omMissing, omName, omPresets, omUse } from "../logic/omlet";
 import { mealEntry } from "../logic/feed";
 import { eur, fmt, stavki } from "../logic/format";
 import { shopIndex, shopName } from "../logic/shops";
@@ -313,10 +313,11 @@ export function PlanTab() {
       c,
       list.filter((r) => r.c === c).map((r): Opt => [r.id, r.n]),
     ]);
+  const presets = omPresets(data);
   const breakfastGroups: OptGroup[] = [
-    ["Omleti", OM_PRESETS.map((p, i): Opt => ["om:" + i, p.n])],
+    ["Omleti", presets.map((p, i): Opt => ["om:" + i, p.n])],
     ["Recepti (1 porcija)", mains.map((r): Opt => ["r:" + r.id, r.n])],
-    ["Složi sam", [["build", "Složi svoj omlet…"]]],
+    ...(presets.length ? [["Složi sam", [["build", "Složi svoj omlet…"]]] as OptGroup] : []),
   ];
   const sideGroups = (k: "juha" | "salata"): OptGroup[] => [
     [k === "juha" ? "Juhe" : "Salate", recipes.filter((r) => r.side === k).map((r): Opt => [r.id, r.n])],
@@ -336,7 +337,7 @@ export function PlanTab() {
   const pickBreakfast = (k: string, v: string) => {
     if (v === "build") return open({ t: "om", sel: DEFAULT_OM, day: k });
     if (v.startsWith("om:")) {
-      const p = OM_PRESETS[Number(v.slice(3))];
+      const p = presets[Number(v.slice(3))];
       return apply(setOmDay(data, k, p.sel), `Doručak za ${dayLabel(k)}: ${p.n}.`);
     }
     const id = v.slice(2);
@@ -736,8 +737,8 @@ export function PlanTab() {
           </div>
           <p className="sub">
             Klik na naziv otvara recept. Kvačica znači skuhano ili pojedeno i skida sastojke sa zalihe.{" "}
-            <Icon name="swap" size={14} /> mijenja jelo, <Icon name="close" size={14} /> ga miče s dana. Uz ručak se
-            skida i posni sir za užinu.
+            <Icon name="swap" size={14} /> mijenja jelo, <Icon name="close" size={14} /> ga miče s dana.
+            {data.settings.builtin !== false && " Uz ručak se skida i posni sir za užinu."}
           </p>
         </>
       )}

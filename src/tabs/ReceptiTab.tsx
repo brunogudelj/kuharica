@@ -313,8 +313,17 @@ export function ReceptiTab() {
         </div>
       ) : (
         <div className="empty">
-          <b>Nijedan recept ne odgovara.</b>
-          <span>Makni neki filter ili dodaj svoj recept.</span>
+          {all.length ? (
+            <>
+              <b>Nijedan recept ne odgovara.</b>
+              <span>Makni neki filter ili dodaj svoj recept.</span>
+            </>
+          ) : (
+            <>
+              <b>Još nemaš recepata.</b>
+              <span>Dodaj prvi s „Novi recept” ili ga uvezi s „Recept iz linka”.</span>
+            </>
+          )}
         </div>
       )}
     </Page>
