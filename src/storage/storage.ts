@@ -1,5 +1,5 @@
 import { del, get, set } from "idb-keyval";
-import { ITEMS, NEW_ITEMS, RBY, UNITS } from "../data";
+import { ITEMS, NEW_ITEMS, PBY, RBY, UNITS } from "../data";
 import { isBuiltin } from "../logic/lists";
 import type { Carb, CatId, GrpId, PrepCat, Shop, Unit, UnitId } from "../data";
 import type { AppData, OmDay, PlanDay, Slot } from "../state/model";
@@ -282,7 +282,7 @@ export function migrate(raw: unknown): AppData {
   if (Array.isArray(r.preps))
     d.preps = r.preps
       .map(obj)
-      .filter((x) => typeof x.id === "string" && x.id.startsWith("pp-") && typeof x.n === "string")
+      .filter((x) => typeof x.id === "string" && (x.id.startsWith("pp-") || x.id in PBY) && typeof x.n === "string")
       .map((x) => ({
         id: x.id as string,
         n: x.n as string,
@@ -296,6 +296,15 @@ export function migrate(raw: unknown): AppData {
         ),
         extra: Array.isArray(x.extra) ? x.extra.filter((v): v is string => typeof v === "string") : [],
         st: Array.isArray(x.st) ? x.st.filter((v): v is string => typeof v === "string") : [],
+        ...(Array.isArray(x.kinds) ? { kinds: x.kinds.filter((v): v is string => typeof v === "string") } : {}),
+        ...(x.prep && typeof x.prep === "object"
+          ? {
+              prep: Object.fromEntries(
+                Object.entries(obj(x.prep)).filter(([, a]) => typeof a === "number" && a > 0) as [string, number][],
+              ),
+            }
+          : {}),
+        ...(typeof x.tip === "string" && x.tip ? { tip: x.tip } : {}),
       }));
   if (Array.isArray(it.hidden)) {
     d.items.hidden = it.hidden.filter((x): x is string => typeof x === "string");

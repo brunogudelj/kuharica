@@ -2,8 +2,8 @@
    Recept može biti složen od drugih recepata ("tuna steak s krumpirom" = tuna steak + hrskavi krumpir + miso juha):
    dijelovi se razlažu na namirnice i prep, pa kuhanje, kupovina, cijena i kalorije rade kao za običan recept. */
 import { RBY, RECIPES, REC_USE_PREP } from "../data";
-import { prepInv, prepName } from "./preps";
-import { plural, round } from "./format";
+import { prepInv } from "./preps";
+import { round } from "./format";
 import type { CustomRecipe, Recipe, Use } from "../data";
 import type { AppData } from "../state/model";
 import { itemOf } from "./items";
@@ -70,22 +70,14 @@ function toRecipeDeep(d: AppData, r: CustomRecipe, seen: Set<string>): Recipe {
     return `<span class=g>${num(a)} ${it.u === "kom" ? "kom" : it.u}</span> ${it.n}`;
   });
   const prepList = Object.entries(prep).filter(([p, n]) => prepInv(d, p) && n > 0);
-  const ownPrep = Object.entries(r.prep ?? {}).filter(([p, n]) => prepInv(d, p) && n > 0);
-  const ingPrep = ownPrep.map(
-    ([p, n]) => `<span class=g>${num(n)} ${plural(n, prepInv(d, p)!.unit)}</span> ${prepName(d, p)} (prep)`,
-  );
-  // dijelovi u sastojcima: količina je za 1,5 porcija, kao i ostalo
-  const ingParts = parts.map(([pid, k]) => {
-    const n = k * 1.5;
-    return `<span class=g>${num(n)} ${plural(n, "porcija")}</span> ${resolve(d, pid, next)?.n ?? "recept"} (recept)`;
-  });
   return {
     id: r.id,
     n: r.n,
     c: r.c,
     d: r.d,
     use,
-    ing: [...ingParts, ...ingPrep, ...ownIng, ...r.extra],
+    // prep i drugi recepti nisu sastojci nego dijelovi (prikazuju se zasebno)
+    ing: [...ownIng, ...r.extra],
     st: r.st,
     custom: true,
     // vlastiti recept uvijek ima prep popis (i prazan), da se ne miješa s ugrađenim REC_USE_PREP

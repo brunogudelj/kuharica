@@ -4,7 +4,7 @@ import { omPresets } from "./omlet";
 import { allPreps, isCustomPrep, prepOf } from "./preps";
 import type { OmSel, Use } from "../data";
 import type { AppData } from "../state/model";
-import { costOf, effUse, qty } from "./inventory";
+import { costOf, effUse, prepEff, qty } from "./inventory";
 import { allRecipes } from "./recipes";
 import { allItems } from "./items";
 import { macOf, omEff, omMacros, omUse } from "./omlet";
@@ -200,14 +200,14 @@ export function prepEntry(d: AppData, id: string): FeedEntry | null {
     macKnown: mac.known,
     cost: c.known ? c.c : null,
     costKnown: c.known,
-    ...availability(d, p.use),
+    ...availability(d, prepEff(d, p, 1, { ...d.prepStock }).use),
     time: minutes(p.time),
     method: PREP_K[p.k],
     custom: isCustomPrep(p.id),
     two: false,
-    tags: ["Prep"],
-    kinds: [],
-    parts: 0,
+    tags: methodTags(`${p.time} ${p.st.join(" ")}`),
+    kinds: (p.kinds ?? []).filter((k) => d.lists.kinds.some((x) => x.id === k)),
+    parts: p.prep?.length ?? 0,
   };
 }
 
@@ -217,10 +217,14 @@ export function feed(d: AppData): FeedEntry[] {
     .map((r) => mealEntry(d, r.id))
     .filter((x): x is FeedEntry => !!x);
   const oms = omPresets(d).map((p, i) => omEntry(d, p.sel, "o:" + i, p.n, p.d, String(i)));
-  const preps = allPreps(d)
+  return [...meals, ...oms];
+}
+
+/** Prep recepti za stranicu Prep (isti podaci i filteri kao recepti) */
+export function prepFeed(d: AppData): FeedEntry[] {
+  return allPreps(d)
     .map((p) => prepEntry(d, p.id))
     .filter((x): x is FeedEntry => !!x);
-  return [...meals, ...oms, ...preps];
 }
 
 export interface FeedFilter {

@@ -3472,3 +3472,12 @@ ul.parts li {
   border-radius: 8px;
   background: #000;
 }
+.partstate {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.85rem;
+  color: var(--orange-ink);
+}
+.partstate.ok {
+  color: var(--muted);
+}

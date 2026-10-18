@@ -113,6 +113,13 @@ export interface PrepRecipe {
   st: string[];
   tip: string;
   for: string[];
+  /** vrste jela (id-evi s popisa Vrste jela) */
+  kinds?: string[];
+  /** vlastiti prep ili uređeni ugrađeni */
+  custom?: boolean;
+  edited?: boolean;
+  /** drugi prep kao dio: [id, jedinica] za jednu turu; ako ga nema pripremljenog, troše se njegovi sirovi sastojci */
+  prep?: [string, number][];
 }
 
 /** Vlastiti prep (npr. umak spremljen iz recepta s weba). `use` su sirovi sastojci za jednu turu. */
@@ -129,6 +136,12 @@ export interface CustomPrep {
   /** sastojci koji se ne prate (začini) */
   extra: string[];
   st: string[];
+  /** vrste jela */
+  kinds?: string[];
+  /** drugi prep kao dio: id → jedinica za jednu turu */
+  prep?: Record<string, number>;
+  /** savjet (uređeni ugrađeni prep) */
+  tip?: string;
 }
 
 export interface PrepInv {

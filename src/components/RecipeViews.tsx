@@ -5,15 +5,15 @@ import { fetchPage, parseIngredient, parseRecipeHtml, parseRecipeText } from "..
 import { ImportReview } from "./ImportReview";
 import { CLAUDE_MODEL, claudeRecipe, loadClaudeKey } from "../logic/claude";
 import type { IngLine, ParsedRecipe } from "../logic/importRecipe";
-import { DEFAULT_OM, OM_BASE, OM_CARB, OM_PRESETS, PBY, REC_PREP } from "../data";
+import { DEFAULT_OM, OM_BASE, OM_CARB, OM_PRESETS, REC_PREP } from "../data";
 import type { CustomRecipe, OmSel } from "../data";
 import { useApp } from "../state/AppContext";
 import { clone, getDay, getOm } from "../state/model";
 import { dayDate, dayLabel, dayName, todayKey, windowKeys } from "../logic/dates";
 import type { AppData } from "../state/model";
-import { BASE_SERVINGS, effUse, pc, qty } from "../logic/inventory";
+import { BASE_SERVINGS, effUse, pc, prepEff, prepUsedIn, qty } from "../logic/inventory";
 import type { EffUse } from "../logic/inventory";
-import { cook, eatMuffins, eatOmlet, removeRecipe, setOmDay, setPlanDay } from "../logic/actions";
+import { cook, eatMuffins, eatOmlet, makePrep, removeRecipe, setOmDay, setPlanDay } from "../logic/actions";
 import { newRecipeId, recipeName, recipeOf, toCustom, usedIn } from "../logic/recipes";
 import { itemOf } from "../logic/items";
 import {
@@ -36,9 +36,7 @@ import { shopName } from "../logic/shops";
 import { Html, Stepper } from "./ui";
 import { Icon } from "./icons";
 import { RecipeForm } from "./RecipeForm";
-import { PrepForm } from "./PrepForm";
-import { isCustomPrep, prepInv, prepName, prepOf, removeCustomPrep } from "../logic/preps";
-import { PrepBody } from "../tabs/PrepTab";
+import { isCustomPrep, prepInv, prepName, prepOf, removeCustomPrep, toCustomPrep } from "../logic/preps";
 import { usePanel } from "./Panel";
 import type { View } from "./Panel";
 
@@ -149,8 +147,7 @@ function DayPicker({ on, onPick, label }: { on: (k: string) => boolean; onPick: 
 }
 
 /** Popis namirnica iz zalihe: treba, imaš, status */
-function StockList({ data, use, prep = [] }: { data: AppData; use: Record<string, number>; prep?: EffUse["prep"] }) {
-  const { open } = usePanel();
+function StockList({ data, use }: { data: AppData; use: Record<string, number> }) {
   return (
     <table className="grid compact stocklist">
       <thead>
@@ -162,26 +159,6 @@ function StockList({ data, use, prep = [] }: { data: AppData; use: Record<string
         </tr>
       </thead>
       <tbody>
-        {prep.map((p) => {
-          const ok = p.used + 1e-9 >= p.need;
-          const unit = prepInv(data, p.id)?.unit ?? "porcija";
-          return (
-            <tr key={"p:" + p.id} className={ok ? "" : "st-low"}>
-              <td className="namecell">
-                <span className={"dot " + (ok ? "ok" : "low")} aria-hidden="true" />
-                <button type="button" className="linkbtn plain" onClick={() => open({ t: "prep", id: p.id })}>
-                  {prepName(data, p.id)}
-                </button>{" "}
-                <span className="chip">prep</span>
-              </td>
-              <td className="num">{pfmt(p.need, unit)}</td>
-              <td className="num">{pfmt(pc(data, p.id), unit)}</td>
-              <td className="muted">
-                {ok ? "iz pripremljenog" : p.used > 0 ? "dio iz sirovog" : "napravi ili sirovo"}
-              </td>
-            </tr>
-          );
-        })}
         {Object.entries(use).map(([id, a]) => {
           const i = itemOf(data, id);
           if (!i) return null;
@@ -201,6 +178,50 @@ function StockList({ data, use, prep = [] }: { data: AppData; use: Record<string
         })}
       </tbody>
     </table>
+  );
+}
+
+/** Dijelovi recepta: drugi recepti i prep, s linkom i stanjem pripremljenog */
+function Parts({ recipes = [], preps, s = 1 }: { recipes?: [string, number][]; preps: EffUse["prep"]; s?: number }) {
+  const { data } = useApp();
+  const { open } = usePanel();
+  if (!recipes.length && !preps.length) return null;
+  return (
+    <section className="psec">
+      <h3>Sastoji se od</h3>
+      <ul className="parts">
+        {recipes.map(([pid, k]) => (
+          <li key={pid}>
+            <span className="chip">recept</span>{" "}
+            <button type="button" className="linkbtn" onClick={() => open({ t: "meal", id: pid })}>
+              {recipeName(data, pid)}
+            </button>
+            <span className="muted"> · {porcTxt(round(k * s))}</span>
+          </li>
+        ))}
+        {preps.map((p) => {
+          const ok = p.used + 1e-9 >= p.need;
+          const unit = prepInv(data, p.id)?.unit ?? "porcija";
+          return (
+            <li key={"p:" + p.id} className={ok ? "" : "st-low"}>
+              <span className="chip">prep</span>{" "}
+              <button type="button" className="linkbtn" onClick={() => open({ t: "prep", id: p.id })}>
+                {prepName(data, p.id)}
+              </button>
+              <span className="muted"> · {pfmt(p.need, unit)}</span>
+              <span className={"partstate" + (ok ? " ok" : "")}>
+                {ok
+                  ? `pripremljeno (imaš ${pfmt(pc(data, p.id), unit)})`
+                  : p.used > 0
+                    ? `imaš ${pfmt(p.used, unit)}, za ostatak se troše njegove namirnice`
+                    : "nije pripremljeno: troše se njegove namirnice"}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="sub">Klik otvara dio s njegovim namirnicama i pripremom.</p>
+    </section>
   );
 }
 
@@ -269,29 +290,14 @@ export function MealView({ id, day }: { id: string; day?: string }) {
           ))}
         </div>
       )}
-      {r.parts && (
-        <section className="psec">
-          <h3>Sastoji se od</h3>
-          <ul className="parts">
-            {r.parts.map(([pid, k]) => (
-              <li key={pid}>
-                <button type="button" className="linkbtn" onClick={() => open({ t: "meal", id: pid })}>
-                  {recipeName(data, pid)}
-                </button>
-                <span className="muted"> · {porcTxt(round(k * s))}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="sub">Klik otvara dio s njegovom pripremom. Namirnice svih dijelova su u tablici ispod.</p>
-        </section>
-      )}
+      <Parts recipes={r.parts} preps={eff.prep} s={s} />
       <section className="psec">
         <h3>Iz zalihe</h3>
-        <StockList data={data} use={eff.use} prep={eff.prep} />
+        <StockList data={data} use={eff.use} />
         {eff.prep.some((p) => p.used + 1e-9 < p.need) && (
           <p className="sub">
-            Za prep koji nemaš, sirovi sastojci su već u tablici i na popisu za kupovinu. Ili ga napravi unaprijed u
-            Prepu.
+            Za prep koji nemaš pripremljen, njegove namirnice su već u tablici i na popisu za kupovinu. Ili ga napravi
+            unaprijed u Prepu.
           </p>
         )}
         {REC_PREP[r.id] && (
@@ -301,7 +307,7 @@ export function MealView({ id, day }: { id: string; day?: string }) {
               <span key={p}>
                 {i > 0 && ", "}
                 <button type="button" className="linkbtn" onClick={() => open({ t: "prep", id: p })}>
-                  {PBY[p].n}
+                  {prepName(data, p)}
                 </button>
               </span>
             ))}
@@ -587,46 +593,142 @@ export function OmView({ sel: initSel, day, n }: { sel?: OmSel; day?: string; n?
 }
 
 export function PrepView({ id }: { id: string }) {
-  const { data, apply } = useApp();
+  const { data, apply, update } = useApp();
   const { open, close } = usePanel();
   const [confirm, setConfirm] = useState(false);
   const p = prepOf(data, id);
   const e = prepEntry(data, id);
   if (!p || !e) return <p className="sub">Prep više ne postoji.</p>;
+  const t = data.ui.ture[id] ?? 1;
+  const inv = prepInv(data, id) ?? { make: 1, unit: "porcija" as const, per: {} };
+  const have = pc(data, id);
+  const eff = prepEff(data, p, t, { ...data.prepStock });
+  const users = prepUsedIn(data, id);
+  const own = !!p.custom;
+  const change = (fn: (n: AppData) => void) =>
+    update((d) => {
+      const n = clone(d);
+      fn(n);
+      return n;
+    });
   return (
     <div className="pbody">
-      <Head e={e} kicker={isCustomPrep(id) ? "moj prep" : undefined} />
-      <Stats e={e} />
-      <PrepBody p={p} />
-      {isCustomPrep(id) && (
-        <div className="btnrow">
-          <button type="button" className="btn ghost" onClick={() => open({ t: "editPrep", id })}>
-            <Icon name="edit" size={16} /> Uredi prep
-          </button>
-          {confirm ? (
-            <>
-              <button
-                type="button"
-                className="btn danger"
-                onClick={() => {
-                  const r = removeCustomPrep(data, id);
-                  apply(r.data, r.msg);
-                  close();
-                }}
-              >
-                Da, obriši
-              </button>
-              <button type="button" className="btn ghost" onClick={() => setConfirm(false)}>
-                Odustani
-              </button>
-            </>
-          ) : (
-            <button type="button" className="btn ghost danger" onClick={() => setConfirm(true)}>
-              <Icon name="trash" size={16} /> Obriši
-            </button>
-          )}
+      <Head e={e} kicker={isCustomPrep(id) ? "moj prep" : p.edited ? "uređen" : undefined} />
+      <Stats e={e} per={false} />
+      <div className="facts">
+        <div>
+          <b>Jedna tura daje</b>
+          <span>{pfmt(inv.make, inv.unit)}</span>
         </div>
+        <div>
+          <b>Čuvanje</b>
+          <span>{p.keep || "–"}</span>
+        </div>
+      </div>
+      <section className="psec">
+        <div className="rowspread">
+          <h3>Koliko tura</h3>
+          <Stepper
+            label="ture"
+            value={`× ${t.toLocaleString("hr-HR")}`}
+            onDec={() => change((n) => (n.ui.ture[id] = Math.max(0.5, t - 0.5)))}
+            onInc={() => change((n) => (n.ui.ture[id] = Math.min(5, t + 0.5)))}
+          />
+        </div>
+        <div className="rowspread">
+          <h3>Pripremljeno na zalihi</h3>
+          <Stepper
+            label={p.n}
+            value={pfmt(have, inv.unit)}
+            onDec={() => change((n) => (n.prepStock[id] = Math.max(0, have - 1)))}
+            onInc={() => change((n) => (n.prepStock[id] = have + 1))}
+          />
+        </div>
+      </section>
+      <Parts preps={eff.prep} />
+      <section className="psec">
+        <h3>Iz zalihe</h3>
+        <StockList data={data} use={eff.use} />
+      </section>
+      <section className="psec">
+        <h3>Sastojci{t !== 1 ? ` za ${t.toLocaleString("hr-HR")} ture` : ""}</h3>
+        <ul className="ing">
+          {p.ing.map((i, k) => (
+            <Html key={k} as="li" html={scaleText(i, t)} />
+          ))}
+        </ul>
+      </section>
+      <section className="psec">
+        <h3>Priprema</h3>
+        {p.st.length ? (
+          <ol className="steps">
+            {p.st.map((x, k) => (
+              <li key={k}>{x}</li>
+            ))}
+          </ol>
+        ) : (
+          <p className="sub">Koraci nisu upisani.</p>
+        )}
+        {p.tip && <div className="tip">{p.tip}</div>}
+      </section>
+      {(users.length > 0 || p.for.length > 0) && (
+        <section className="psec">
+          <h3>Dio recepata</h3>
+          {users.length ? (
+            <ul className="parts">
+              {users.map((u) => (
+                <li key={u.id}>
+                  <button type="button" className="linkbtn" onClick={() => open({ t: "meal", id: u.id })}>
+                    {u.n}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="sub">{p.for.join(", ")}</p>
+          )}
+        </section>
       )}
+      <div className="pactions">
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            const r = makePrep(data, id, t);
+            apply(r.data, r.msg);
+          }}
+        >
+          <Icon name="check" size={18} /> Napravio sam
+        </button>
+        <span className="count">skida namirnice sa zalihe, +{pfmt(inv.make * t, inv.unit)} pripremljeno</span>
+      </div>
+      <div className="btnrow">
+        <button type="button" className="btn ghost" onClick={() => open({ t: "editPrep", id })}>
+          <Icon name="edit" size={16} /> Uredi prep
+        </button>
+        {!own ? null : confirm ? (
+          <>
+            <button
+              type="button"
+              className="btn danger"
+              onClick={() => {
+                const r = removeCustomPrep(data, id);
+                apply(r.data, r.msg);
+                if (!p.edited) close();
+              }}
+            >
+              {p.edited ? "Da, vrati original" : "Da, obriši"}
+            </button>
+            <button type="button" className="btn ghost" onClick={() => setConfirm(false)}>
+              Odustani
+            </button>
+          </>
+        ) : (
+          <button type="button" className="btn ghost danger" onClick={() => setConfirm(true)}>
+            <Icon name="trash" size={16} /> {p.edited ? "Vrati original" : "Obriši"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -634,17 +736,23 @@ export function PrepView({ id }: { id: string }) {
 function PrepFormView({ id }: { id?: string }) {
   const { data } = useApp();
   const { open, close } = usePanel();
-  const existing = id ? data.preps.find((x) => x.id === id) : undefined;
+  const p = id ? prepOf(data, id) : undefined;
+  const existing = p ? toCustomPrep(data, p) : undefined;
   return (
     <div className="pbody">
       <header className="phead">
         <p className="kicker">Prep</p>
         <h2 className="pname">{existing ? `Uredi: ${existing.n}` : "Novi prep"}</h2>
         <p className="sub">
-          Umak, marinada ili baza koju radiš unaprijed. Recepti ga onda mogu koristiti kao sastojak.
+          Umak, marinada ili baza koju radiš unaprijed. To je recept kao i ostali, a drugi recepti ga mogu imati kao
+          dio.
         </p>
       </header>
-      <PrepForm existing={existing} onDone={(pid?: string) => (pid ? open({ t: "prep", id: pid }) : close())} />
+      <RecipeForm
+        mode="prep"
+        existing={existing}
+        onDone={(pid?: string) => (pid ? open({ t: "prep", id: pid }) : close())}
+      />
     </div>
   );
 }

@@ -230,7 +230,7 @@ export function ImportReview({
                     >
                       <option value="">— samo bilješka —</option>
                       <option value="__new">+ Nova namirnica…</option>
-                      <optgroup label="Pripremljeno (prep)">
+                      <optgroup label="Prep (postaje dio recepta)">
                         {preps.map((p) => (
                           <option key={p.id} value={"p:" + p.id}>
                             {p.n}

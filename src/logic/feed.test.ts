@@ -9,9 +9,12 @@ describe("feed recepata", () => {
   const d = makeDemo(Date.UTC(2026, 9, 17));
   const all = feed(d);
 
-  it("sadrži obroke, omlete i prep na jednom mjestu", () => {
+  it("recepti su obroci i omleti, a prep ima svoj popis s istim podacima", async () => {
     const kinds = new Set(all.map((e) => e.kind));
-    expect(kinds).toEqual(new Set(["meal", "om", "prep"]));
+    expect(kinds).toEqual(new Set(["meal", "om"]));
+    const { prepFeed } = await import("./feed");
+    expect(prepFeed(d).every((e) => e.kind === "prep")).toBe(true);
+    expect(prepFeed(d).length).toBeGreaterThan(5);
     expect(new Set(all.map((e) => e.key)).size).toBe(all.length);
   });
 

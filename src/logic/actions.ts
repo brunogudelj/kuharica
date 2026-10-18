@@ -6,7 +6,7 @@ import { allRecipes, isBuiltinRecipe, recipeOf } from "./recipes";
 import type { AppData, CostEntry, Slot, SlotKey } from "../state/model";
 import { SLOT_KEYS, cleanState, clone, cycleIx, getOm, getSlot } from "../state/model";
 import { todayKey, windowKeys } from "./dates";
-import { effUse, missingFor, pc, price, qty, slotUse } from "./inventory";
+import { effUse, missingFor, pc, prepEff, price, qty, slotUse } from "./inventory";
 import { omEff, omMissing, omName, omPresets, shuffle } from "./omlet";
 import { allItems, defaultStep, isCustom, itemOf } from "./items";
 import { eur, fmt, monthKey, newId, pfmt, round, sameDay } from "./format";
@@ -46,7 +46,8 @@ export function makePrep(src: AppData, pid: string, t = 1): Result {
   const p = prepOf(src, pid);
   const inv = prepInv(src, pid);
   if (!p || !inv) return { data: src, msg: "Prep ne postoji." };
-  for (const [id, a] of Object.entries(p.use)) setQty(d, id, qty(d, id) - a * t);
+  const eff = prepEff(src, p, t, { ...src.prepStock });
+  consume(d, eff.use, eff.consumed);
   d.prepStock[pid] = round(pc(d, pid) + inv.make * t);
   return { data: d, msg: `${p.n}: +${pfmt(inv.make * t, inv.unit)} u pripremljenom.` };
 }

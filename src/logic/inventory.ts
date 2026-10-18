@@ -1,7 +1,7 @@
 import { DAILY, DAILY_COOK, REC_USE_PREP } from "../data";
 import { prepInv } from "./preps";
-import type { Item, Recipe, Use } from "../data";
-import { recipeOf } from "./recipes";
+import type { Item, PrepRecipe, Recipe, Use } from "../data";
+import { allRecipes, recipeOf } from "./recipes";
 import type { AppData, Slot } from "../state/model";
 import { SLOT_KEYS } from "../state/model";
 import { aheadKeys, windowKeys } from "./dates";
@@ -71,6 +71,32 @@ export function effUse(r: Recipe, pcopy: Record<string, number>, withDaily: bool
   for (const id of Object.keys(use)) if (use[id] < 0.001) delete use[id];
   return { use, consumed, prep };
 }
+
+/** Što troši prep za `t` tura: sirovi sastojci i drugi prep (dio); prep koji nemaš troši svoje sirove sastojke */
+export function prepEff(d: AppData, p: PrepRecipe, t: number, pcopy: Record<string, number>): EffUse {
+  const use: Use = {};
+  for (const [id, a] of Object.entries(p.use)) use[id] = a * t;
+  const consumed: [string, number][] = [];
+  const prep: EffUse["prep"] = [];
+  for (const [pid, n0] of p.prep ?? []) {
+    const inv = prepInv(d, pid);
+    if (!inv || pid === p.id) continue;
+    const n = n0 * t;
+    const k = Math.max(0, Math.min(n, pcopy[pid] || 0));
+    prep.push({ id: pid, need: n, used: k });
+    if (k > 0) {
+      pcopy[pid] -= k;
+      consumed.push([pid, k]);
+    }
+    const short = n - k;
+    if (short > 0) for (const [id, a] of Object.entries(inv.per)) use[id] = (use[id] || 0) + a * short;
+  }
+  return { use, consumed, prep };
+}
+
+/** Recepti koji koriste prep (kao dio) */
+export const prepUsedIn = (d: AppData, id: string) =>
+  allRecipes(d).filter((r) => prepListOf(r).some(([p]) => p === id));
 
 /** Recept kao jedna porcija u slotu (doručak, juha, salata): dodaci (juha, salata) su već za cijeli dan */
 export const slotFactor = (r: Recipe) => (r.side ? 1 : 1 / BASE_SERVINGS);

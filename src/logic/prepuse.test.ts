@@ -29,7 +29,9 @@ describe("prep kao sastojak recepta", () => {
       st: [],
     }).data;
     const r = recipeOf(d, "r-t-1")!;
-    expect(r.ing[0]).toContain("Teriyaki umak");
+    // prep nije sastojak nego dio recepta
+    expect(r.ing.some((x) => x.includes("Teriyaki umak"))).toBe(false);
+    expect(r.prep).toEqual([["teriyaki-umak", 1]]);
     const bez = effUse(r, {}, false);
     for (const [id, a] of Object.entries(PREP_INV["teriyaki-umak"].per)) expect(bez.use[id]).toBeCloseTo(a, 5);
     const s = effUse(r, { "teriyaki-umak": 2 }, false);
@@ -90,5 +92,50 @@ describe("vlastiti prep", () => {
     const l = parseIngredient(d, "1 porcija teriyaki umaka");
     expect(l.prep).toBe("teriyaki-umak");
     expect(l.amount).toBe(1);
+  });
+});
+
+describe("prep je recept", () => {
+  it("uređeni ugrađeni prep zamjenjuje original i mijenja zalihu koju daje", async () => {
+    const { toCustomPrep, saveCustomPrep, prepOf, prepInv, allPreps, removeCustomPrep } = await import("./preps");
+    let d = defaultData();
+    const n = allPreps(d).length;
+    const c = toCustomPrep(d, prepOf(d, "teriyaki-umak")!);
+    expect(c.make).toBe(PREP_INV["teriyaki-umak"].make);
+    d = saveCustomPrep(d, { ...c, make: 6, kinds: ["wok"] }).data;
+    expect(allPreps(d).length).toBe(n);
+    expect(prepOf(d, "teriyaki-umak")!.edited).toBe(true);
+    expect(prepInv(d, "teriyaki-umak")!.make).toBe(6);
+    d = removeCustomPrep(d, "teriyaki-umak").data;
+    expect(prepInv(d, "teriyaki-umak")!.make).toBe(PREP_INV["teriyaki-umak"].make);
+  });
+
+  it("prep s drugim prepom kao dijelom: bez pripremljenog dijela troše se njegove namirnice", async () => {
+    const { saveCustomPrep, prepOf } = await import("./preps");
+    const { prepEff } = await import("./inventory");
+    const { makePrep } = await import("./actions");
+    let d = defaultData();
+    d = saveCustomPrep(d, {
+      id: "pp-marinada-x",
+      n: "Marinada",
+      k: "Marinade",
+      time: "",
+      keep: "",
+      make: 2,
+      unit: "porcija",
+      use: { piletina: 500 },
+      extra: [],
+      st: [],
+      prep: { "teriyaki-umak": 1 },
+    }).data;
+    const p = prepOf(d, "pp-marinada-x")!;
+    const bez = prepEff(d, p, 1, {});
+    expect(bez.use.soja).toBeGreaterThan(0);
+    const s = prepEff(d, p, 1, { "teriyaki-umak": 3 });
+    expect(s.use.soja).toBeUndefined();
+    d.prepStock["teriyaki-umak"] = 3;
+    const r = makePrep(d, "pp-marinada-x", 1);
+    expect(r.data.prepStock["teriyaki-umak"]).toBe(2);
+    expect(r.data.prepStock["pp-marinada-x"]).toBe(2);
   });
 });
