@@ -3379,3 +3379,96 @@ ol.steps {
   font-size: 12px;
   white-space: nowrap;
 }
+
+/* Vrsta jela */
+.kindpick {
+  border: 0;
+  padding: 0;
+  margin: 4px 0 0;
+  min-width: 0;
+}
+.kindpick legend {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+  padding: 0;
+}
+.kindpick .chip {
+  cursor: pointer;
+  font-weight: 400;
+  padding: 4px 11px;
+  background: var(--card);
+}
+.kindpick .chip.on {
+  background: var(--orange-soft);
+  border-color: var(--orange);
+  color: var(--orange-ink);
+}
+.chip.kind {
+  font-weight: 400;
+  background: var(--card);
+}
+ul.parts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+ul.parts li {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+/* Podaci o proizvodu */
+.iteminfo {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.infosearch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.infosearch .searchbox {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.hitname {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 220px;
+}
+.hitname img {
+  object-fit: contain;
+  border-radius: 4px;
+  background: var(--sunk);
+  flex: none;
+}
+.hitname span {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+.hitname .btn {
+  flex: none;
+}
+.hitname b {
+  font-weight: 600;
+  white-space: normal;
+}
+.scanner {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+.scanner video {
+  width: 100%;
+  max-width: 360px;
+  border-radius: 8px;
+  background: #000;
+}

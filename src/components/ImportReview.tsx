@@ -6,7 +6,7 @@ import type { CustomPrep, PrepCat } from "../data";
 import { useApp } from "../state/AppContext";
 import { allItems, itemOf } from "../logic/items";
 import { catOpts } from "../logic/lists";
-import { toDraft } from "../logic/importRecipe";
+import { learnAliases, toDraft } from "../logic/importRecipe";
 import type { IngLine, ParsedRecipe } from "../logic/importRecipe";
 import { allPreps, newPrepId, prepInv, saveCustomPrep } from "../logic/preps";
 import { plural, round } from "../logic/format";
@@ -16,6 +16,8 @@ import { Icon } from "./icons";
 
 interface Row {
   raw: string;
+  /** namirnica koju je uvoz sam prepoznao (za učenje kad je korisnik promijeni) */
+  auto?: string;
   /** id namirnice, "p:<id>" za prep ili "" = samo bilješka (ne prati se u zalihi) */
   item: string;
   /** količina za cijeli recept, u jedinici namirnice ili prepa */
@@ -60,6 +62,7 @@ export function ImportReview({
     lines.map((l) => ({
       raw: l.raw,
       item: l.prep ? "p:" + l.prep : (l.item?.id ?? ""),
+      auto: l.prep ? "p:" + l.prep : (l.item?.id ?? ""),
       amt: show(l.amount),
       group: l.group,
       sel: false,
@@ -333,7 +336,19 @@ export function ImportReview({
         />
       )}
       <div className="btnrow">
-        <button type="button" className="btn" onClick={() => setStep("form")}>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            // ručno povezani sastojci postaju drugi naziv namirnice, pa se idući put prepoznaju sami
+            const learned = learnAliases(
+              data,
+              rows.filter((r) => r.item && !r.item.startsWith("p:") && r.item !== r.auto).map((r) => [r.item, r.raw]),
+            );
+            if (learned.n) apply(learned.data, `Zapamćeno ${learned.n} naziva za idući uvoz.`);
+            setStep("form");
+          }}
+        >
           Dalje: provjeri recept <Icon name="chev" size={16} />
         </button>
         <span className="count">

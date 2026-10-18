@@ -8,6 +8,8 @@ import type { ListKind } from "../logic/lists";
 import { useApp } from "../state/AppContext";
 import { newCustomItem, visibleItems } from "../logic/items";
 import { addItem } from "../logic/actions";
+import { ItemInfo } from "./ItemInfo";
+import type { InfoPatch } from "./ItemInfo";
 
 const parse = (s: string) => parseFloat(s.replace(",", "."));
 const per = (u: Unit) => (isMass(u) ? `na 100 ${u}` : u === "kom" ? "po komadu" : `po ${u}`);
@@ -24,11 +26,12 @@ export function OmFields({
   setAmt,
   pre,
   setPre,
-  kcal,
-  setKcal,
-  prot,
-  setProt,
+  kcal = "",
+  setKcal = () => undefined,
+  prot = "",
+  setProt = () => undefined,
   onBlur,
+  hideMacros,
 }: {
   idp: string;
   u: Unit;
@@ -38,11 +41,12 @@ export function OmFields({
   setAmt: (v: string) => void;
   pre: string;
   setPre: (v: string) => void;
-  kcal: string;
-  setKcal: (v: string) => void;
-  prot: string;
-  setProt: (v: string) => void;
+  kcal?: string;
+  setKcal?: (v: string) => void;
+  prot?: string;
+  setProt?: (v: string) => void;
   onBlur?: () => void;
+  hideMacros?: boolean;
 }) {
   return (
     <div className="edit">
@@ -83,32 +87,36 @@ export function OmFields({
           </label>
         </>
       )}
-      <label htmlFor={`${idp}-kcal`}>
-        kcal {per(u)} (s deklaracije)
-        <input
-          id={`${idp}-kcal`}
-          type="text"
-          inputMode="decimal"
-          min="0"
-          step="any"
-          value={kcal}
-          onChange={(e) => setKcal(e.target.value)}
-          onBlur={onBlur}
-        />
-      </label>
-      <label htmlFor={`${idp}-prot`}>
-        Proteini (g) {per(u)}
-        <input
-          id={`${idp}-prot`}
-          type="text"
-          inputMode="decimal"
-          min="0"
-          step="any"
-          value={prot}
-          onChange={(e) => setProt(e.target.value)}
-          onBlur={onBlur}
-        />
-      </label>
+      {!hideMacros && (
+        <>
+          <label htmlFor={`${idp}-kcal`}>
+            kcal {per(u)} (s deklaracije)
+            <input
+              id={`${idp}-kcal`}
+              type="text"
+              inputMode="decimal"
+              min="0"
+              step="any"
+              value={kcal}
+              onChange={(e) => setKcal(e.target.value)}
+              onBlur={onBlur}
+            />
+          </label>
+          <label htmlFor={`${idp}-prot`}>
+            Proteini (g) {per(u)}
+            <input
+              id={`${idp}-prot`}
+              type="text"
+              inputMode="decimal"
+              min="0"
+              step="any"
+              value={prot}
+              onChange={(e) => setProt(e.target.value)}
+              onBlur={onBlur}
+            />
+          </label>
+        </>
+      )}
     </div>
   );
 }
@@ -145,8 +153,7 @@ export function ItemForm({ onDone, initialName = "" }: { onDone: (item?: Item) =
   const [role, setRole] = useState<OmRole>("");
   const [amt, setAmt] = useState("");
   const [pre, setPre] = useState("");
-  const [kcal, setKcal] = useState("");
-  const [prot, setProt] = useState("");
+  const [info, setInfo] = useState<InfoPatch>({});
   const [err, setErr] = useState("");
   // "+ Nova…" u padajućem izborniku: doda stavku popisa (vidi Postavke) i odmah je odabere
   const addNew = (kind: ListKind, set: (id: string) => void) => {
@@ -171,11 +178,10 @@ export function ItemForm({ onDone, initialName = "" }: { onDone: (item?: Item) =
     if (isNaN(m) || m < 0) return setErr("Minimum mora biti 0 ili više.");
     if (role && !(parse(amt) > 0)) return setErr(`Upiši koliko ide u jedan omlet (${u}).`);
     const base = newCustomItem({ n, cat, grp, src, u, pack: p, min: m });
-    const extra = omPatch(role, amt, pre, kcal, prot);
+    const extra = omPatch(role, amt, pre, "", "");
     const item: Item = { ...base };
     if (extra.om) item.om = extra.om;
-    if (extra.kcal != null) item.kcal = extra.kcal;
-    if (extra.prot != null) item.prot = extra.prot;
+    for (const [k, v] of Object.entries(info)) if (v !== undefined && k !== "pack") Object.assign(item, { [k]: v });
     const r = addItem(data, item, isNaN(h) ? 0 : h);
     apply(r.data, r.msg);
     onDone(item);
@@ -289,7 +295,19 @@ export function ItemForm({ onDone, initialName = "" }: { onDone: (item?: Item) =
           </select>
         </label>
       </div>
-      <h4 className="omh">Omlet i kalorije (po želji)</h4>
+      <h4 className="omh">Proizvod i kalorije (po želji)</h4>
+      <p className="sub">
+        Potraži proizvod u bazi ili skeniraj barkod: upisat će se marka, pakiranje i vrijednosti s deklaracije.
+      </p>
+      <ItemInfo
+        idp="ni"
+        item={{ n: n.trim() || "nova namirnica", u, pack: parse(pack) || 0, ...info }}
+        onPatch={(p) => {
+          setInfo((x) => ({ ...x, ...p }));
+          if (p.pack) setPack(String(p.pack).replace(".", ","));
+        }}
+      />
+      <h4 className="omh">Omlet (po želji)</h4>
       <OmFields
         idp="ni"
         u={u}
@@ -299,14 +317,11 @@ export function ItemForm({ onDone, initialName = "" }: { onDone: (item?: Item) =
         setAmt={setAmt}
         pre={pre}
         setPre={setPre}
-        kcal={kcal}
-        setKcal={setKcal}
-        prot={prot}
-        setProt={setProt}
+        hideMacros
       />
       <p className="sub">
         Minimum 0 znači da je samo pratiš, a ne dolazi na popis za kupovinu dok je ne potroši recept ili omlet. Jedinicu
-        kasnije ne možeš mijenjati. Kalorije i proteini služe za izračun omleta.
+        kasnije ne možeš mijenjati. Kalorije i proteini služe za izračun recepata i omleta.
       </p>
       {err && <p className="miss">{err}</p>}
       <div className="btnrow">

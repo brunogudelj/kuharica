@@ -1,5 +1,5 @@
 import { del, get, set } from "idb-keyval";
-import { ITEMS, NEW_ITEMS, UNITS } from "../data";
+import { ITEMS, NEW_ITEMS, RBY, UNITS } from "../data";
 import { isBuiltin } from "../logic/lists";
 import type { Carb, CatId, GrpId, PrepCat, Shop, Unit, UnitId } from "../data";
 import type { AppData, OmDay, PlanDay, Slot } from "../state/model";
@@ -79,6 +79,23 @@ export function fromStored(raw: unknown, bump = false): AppData {
   // na uređaju: novije od starog stanja na GitHubu, da se čisto stanje pošalje dalje
   if (bump) c.updatedAt = Date.now();
   return c;
+}
+
+/** Marka, barkod, drugi nazivi, ugljikohidrati i masti namirnice */
+function itemInfo(x: Record<string, unknown>) {
+  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+  const brand = str(x.brand);
+  const ean = str(x.ean);
+  const alias = Array.isArray(x.alias)
+    ? x.alias.filter((a): a is string => typeof a === "string" && !!a.trim()).slice(0, 30)
+    : [];
+  return {
+    ...(typeof x.carb === "number" ? { carb: x.carb } : {}),
+    ...(typeof x.fat === "number" ? { fat: x.fat } : {}),
+    ...(brand ? { brand } : {}),
+    ...(ean ? { ean } : {}),
+    ...(alias.length ? { alias } : {}),
+  };
 }
 
 /** Provjeri i dopuni podatke (iz spremišta ili uvoza). Nepoznata polja se odbacuju. */
@@ -169,7 +186,7 @@ export function migrate(raw: unknown): AppData {
   d.updatedAt = num(r.updatedAt, 0);
 
   const ls = obj(r.lists);
-  for (const k of ["cats", "grps", "units"] as const) {
+  for (const k of ["cats", "grps", "units", "kinds"] as const) {
     if (!Array.isArray(ls[k])) continue;
     const got = (ls[k] as unknown[])
       .map(obj)
@@ -221,11 +238,12 @@ export function migrate(raw: unknown): AppData {
           : {}),
         ...(typeof x.kcal === "number" ? { kcal: x.kcal } : {}),
         ...(typeof x.prot === "number" ? { prot: x.prot } : {}),
+        ...itemInfo(x),
       }));
   if (Array.isArray(r.recipes))
     d.recipes = r.recipes
       .map(obj)
-      .filter((x) => typeof x.id === "string" && x.id.startsWith("r-") && typeof x.n === "string")
+      .filter((x) => typeof x.id === "string" && (x.id.startsWith("r-") || x.id in RBY) && typeof x.n === "string")
       .map((x) => ({
         id: x.id as string,
         n: x.n as string,
@@ -241,8 +259,25 @@ export function migrate(raw: unknown): AppData {
               ),
             }
           : {}),
+        ...(x.prepIn && typeof x.prepIn === "object"
+          ? {
+              prepIn: Object.fromEntries(
+                Object.entries(obj(x.prepIn)).filter(([, a]) => typeof a === "number" && a > 0) as [string, number][],
+              ),
+            }
+          : {}),
         extra: Array.isArray(x.extra) ? x.extra.filter((s): s is string => typeof s === "string") : [],
         st: Array.isArray(x.st) ? x.st.filter((s): s is string => typeof s === "string") : [],
+        ...(Array.isArray(x.kinds) ? { kinds: x.kinds.filter((s): s is string => typeof s === "string") } : {}),
+        ...(x.parts && typeof x.parts === "object"
+          ? {
+              parts: Object.fromEntries(
+                Object.entries(obj(x.parts)).filter(([, a]) => typeof a === "number" && a > 0) as [string, number][],
+              ),
+            }
+          : {}),
+        ...(x.side === "juha" || x.side === "salata" ? { side: x.side as "juha" | "salata" } : {}),
+        ...(x.two === true ? { two: true } : {}),
       }));
   if (Array.isArray(r.preps))
     d.preps = r.preps
@@ -280,6 +315,7 @@ export function migrate(raw: unknown): AppData {
       ...(typeof o.src === "string" && o.src ? { src: o.src } : {}),
       ...(typeof o.kcal === "number" ? { kcal: o.kcal } : {}),
       ...(typeof o.prot === "number" ? { prot: o.prot } : {}),
+      ...itemInfo(o),
     };
   }
   if (Array.isArray(r.shops)) {

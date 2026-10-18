@@ -32,6 +32,15 @@ export interface Item {
   /** kcal i proteini na 100 g/ml, ili po komadu */
   kcal?: number;
   prot?: number;
+  /** ugljikohidrati i masti (g) na 100 g/ml, ili po komadu */
+  carb?: number;
+  fat?: number;
+  /** marka i proizvod, npr. "Ledo" */
+  brand?: string;
+  /** barkod (EAN) s pakiranja */
+  ean?: string;
+  /** drugi nazivi po kojima se prepoznaje pri uvozu recepta (npr. "meksička mješavina", "mexican mix") */
+  alias?: string[];
 }
 
 /** Količine po id-u namirnice */
@@ -58,6 +67,15 @@ export interface Recipe {
   /** pripremljeno (prep) kao sastojak vlastitog recepta: [id prepa, jedinica] za 1,5 porcija.
    * Ako prepa nema, troše se njegovi sirovi sastojci. */
   prep?: [string, number][];
+  /** prep čiji su sirovi sastojci već u `use` (kao kod ugrađenih): pripremljeno ih zamjenjuje.
+   * Ugrađeni recept bez `prep` koristi REC_USE_PREP. */
+  prepIn?: [string, number][];
+  /** vrste jela (id-evi s popisa Vrste jela) */
+  kinds?: string[];
+  /** recept je složen od drugih recepata: [id recepta, porcija tog recepta po 1 porciji ovog] */
+  parts?: [string, number][];
+  /** ugrađeni recept koji je korisnik uredio */
+  edited?: boolean;
 }
 
 /** Vlastiti recept kako se sprema: količine su za 1,5 porcija (kao ugrađeni) */
@@ -71,7 +89,16 @@ export interface CustomRecipe {
   extra: string[];
   /** pripremljeno kao sastojak: id prepa → jedinice (porcije, kutije…) za 1,5 porcija */
   prep?: Record<string, number>;
+  /** prep čiji su sirovi sastojci već u `use` (uređeni ugrađeni recept) */
+  prepIn?: Record<string, number>;
   st: string[];
+  /** vrste jela (id-evi s popisa Vrste jela) */
+  kinds?: string[];
+  /** drugi recepti kao dijelovi: id recepta → porcija tog recepta po 1 porciji ovog */
+  parts?: Record<string, number>;
+  /** dodatak uz ručak (za uređeni ugrađeni recept) */
+  side?: "juha" | "salata";
+  two?: boolean;
 }
 
 export interface PrepRecipe {

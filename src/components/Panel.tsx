@@ -1,14 +1,14 @@
 /* Bočni panel (na mobitelu preko cijelog ekrana) za recept, omlet, odabir recepta za dan i obrasce */
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import type { OmSel } from "../data";
+import type { CustomRecipe, OmSel } from "../data";
 import { Icon } from "./icons";
 
 export type View =
   | { t: "meal"; id: string; day?: string }
   | { t: "om"; sel?: OmSel; day?: string; n?: string }
   | { t: "prep"; id: string }
-  | { t: "newRecipe"; day?: string }
+  | { t: "newRecipe"; day?: string; draft?: CustomRecipe }
   | { t: "editRecipe"; id: string }
   | { t: "importRecipe" }
   | { t: "newPrep" }

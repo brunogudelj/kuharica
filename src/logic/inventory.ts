@@ -28,8 +28,14 @@ export interface EffUse {
   prep: { id: string; need: number; used: number }[];
 }
 
-/** Prep sastojci recepta: vlastiti (r.prep) ili ugrađeni (REC_USE_PREP) */
-export const prepListOf = (r: Recipe): [string, number][] => r.prep ?? REC_USE_PREP[r.id] ?? [];
+/** Prep sastojci recepta: [id, količina, sirovi sastojci su već u receptu]. Ugrađeni bez `prep` koriste REC_USE_PREP. */
+export const prepListOf = (r: Recipe): [string, number, boolean][] =>
+  r.prep
+    ? [
+        ...r.prep.map(([p, n]): [string, number, boolean] => [p, n, false]),
+        ...(r.prepIn ?? []).map(([p, n]): [string, number, boolean] => [p, n, true]),
+      ]
+    : (REC_USE_PREP[r.id] ?? []).map(([p, n]): [string, number, boolean] => [p, n, true]);
 
 /**
  * Što recept stvarno troši: sirovi sastojci × f, umanjeni za ono što pokrije pripremljeno.
@@ -41,12 +47,11 @@ export function effUse(r: Recipe, pcopy: Record<string, number>, withDaily: bool
   if (withDaily && d?.settings.builtin !== false)
     for (const [id, a] of Object.entries(DAILY_COOK)) use[id] = (use[id] || 0) + a;
   const consumed: [string, number][] = [];
-  const own = !!r.prep;
-  const list: [string, number][] = prepListOf(r)
+  const list = prepListOf(r)
     .filter(([p]) => prepInv(d, p))
-    .map(([p, n]): [string, number] => [p, n * f]);
+    .map(([p, n, inUse]): [string, number, boolean] => [p, n * f, inUse]);
   const prep: EffUse["prep"] = [];
-  for (const [pid, n] of list) {
+  for (const [pid, n, inUse] of list) {
     const k = Math.max(0, Math.min(n, pcopy[pid] || 0));
     prep.push({ id: pid, need: n, used: k });
     if (k > 0) {
@@ -54,7 +59,7 @@ export function effUse(r: Recipe, pcopy: Record<string, number>, withDaily: bool
       consumed.push([pid, k]);
     }
     const per = prepInv(d, pid)!.per;
-    if (own) {
+    if (!inUse) {
       // vlastiti recept nema sirove sastojke prepa: za ono što fali troše se sirovi
       const short = n - k;
       if (short > 0) for (const [id, a] of Object.entries(per)) use[id] = (use[id] || 0) + a * short;

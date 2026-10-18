@@ -2,7 +2,7 @@
 import { CYCLE, ITEMS } from "../data";
 import { prepInv, prepOf } from "./preps";
 import type { CustomRecipe, Item, OmSel } from "../data";
-import { allRecipes, recipeOf } from "./recipes";
+import { allRecipes, isBuiltinRecipe, recipeOf } from "./recipes";
 import type { AppData, CostEntry, Slot, SlotKey } from "../state/model";
 import { SLOT_KEYS, cleanState, clone, cycleIx, getOm, getSlot } from "../state/model";
 import { todayKey, windowKeys } from "./dates";
@@ -253,22 +253,36 @@ export function addItem(src: AppData, item: Item, startQty = 0): Result {
 }
 
 /** Promijeni namirnicu: vlastitu u cijelosti (osim jedinice), ugrađenoj samo pakiranje i minimum */
-export function editItem(
-  src: AppData,
-  id: string,
-  patch: Partial<Pick<Item, "n" | "cat" | "grp" | "src" | "pack" | "min" | "om" | "kcal" | "prot">>,
-): AppData {
+const ITEM_FIELDS = [
+  "n",
+  "cat",
+  "grp",
+  "src",
+  "min",
+  "pack",
+  "kcal",
+  "prot",
+  "carb",
+  "fat",
+  "brand",
+  "ean",
+  "alias",
+] as const;
+type ItemField = (typeof ITEM_FIELDS)[number];
+const OPTIONAL = ["om", "kcal", "prot", "carb", "fat", "brand", "ean", "alias"] as const;
+
+export function editItem(src: AppData, id: string, patch: Partial<Pick<Item, ItemField | "om">>): AppData {
   const d = clone(src);
   if (isCustom(id)) {
     d.items.custom = d.items.custom.map((i) => {
       if (i.id !== id) return i;
       const n: Item = { ...i, ...patch };
-      for (const k of ["om", "kcal", "prot"] as const) if (k in patch && patch[k] === undefined) delete n[k];
+      for (const k of OPTIONAL) if (k in patch && patch[k] === undefined) delete n[k];
       return { ...n, step: patch.pack != null ? defaultStep(n.u, n.pack) : n.step };
     });
   } else {
     const o = { ...(d.items.over[id] || {}) };
-    for (const k of ["n", "cat", "grp", "src", "min", "pack", "kcal", "prot"] as const) {
+    for (const k of ITEM_FIELDS) {
       if (!(k in patch)) continue;
       const v = patch[k];
       if (v === undefined) delete o[k];
@@ -304,11 +318,19 @@ export function saveRecipe(src: AppData, r: CustomRecipe): Result {
   return { data: d, msg: i >= 0 ? `${r.n} je spremljen.` : `${r.n} je dodan u recepte.` };
 }
 
-/** Obriši vlastiti recept; makni ga i iz plana */
+/** Obriši vlastiti recept; makni ga i iz plana i iz složenih recepata.
+ * Za uređeni ugrađeni recept samo vrati original. */
 export function removeRecipe(src: AppData, id: string): Result {
   const d = clone(src);
   const r = d.recipes.find((x) => x.id === id);
   d.recipes = d.recipes.filter((x) => x.id !== id);
+  if (isBuiltinRecipe(id)) return { data: d, msg: `${r?.n ?? "Recept"} je vraćen na original.` };
+  d.recipes = d.recipes.map((x) => {
+    if (!x.parts?.[id]) return x;
+    const parts = { ...x.parts };
+    delete parts[id];
+    return { ...x, parts };
+  });
   for (const [k, x] of Object.entries(d.plan.days)) if (x.r === id && !x.done) delete d.plan.days[k];
   for (const [k, x] of Object.entries(d.plan.om)) if (x.r === id && !x.done) delete d.plan.om[k];
   for (const s of SLOT_KEYS)

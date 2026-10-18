@@ -2,12 +2,12 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { dayLabel } from "../logic/dates";
 import { allPreps, prepInv, prepName } from "../logic/preps";
-import { plural } from "../logic/format";
+import { plural, round } from "../logic/format";
 import type { Carb, CustomRecipe } from "../data";
 import { useApp } from "../state/AppContext";
 import { allItems, itemOf } from "../logic/items";
-import { catOpts } from "../logic/lists";
-import { newRecipeId } from "../logic/recipes";
+import { catOpts, kindOpts } from "../logic/lists";
+import { allRecipes, newRecipeId, recipeName } from "../logic/recipes";
 import { saveRecipe, setPlanDay } from "../logic/actions";
 import { BASE_SERVINGS } from "../logic/inventory";
 import { ItemForm } from "./ItemForm";
@@ -57,6 +57,10 @@ export function RecipeForm({
         }))
       : [{ key: 0, id: "", amt: "" }],
   );
+  const [kinds, setKinds] = useState<string[]>(init?.kinds ?? []);
+  const [parts, setParts] = useState<Row[]>(() =>
+    Object.entries(init?.parts ?? {}).map(([id, k], i) => ({ key: i, id, amt: String(round(k)).replace(".", ",") })),
+  );
   const [extra, setExtra] = useState(init?.extra.join("\n") ?? "");
   const [steps, setSteps] = useState(init?.st.join("\n") ?? "");
   const [err, setErr] = useState("");
@@ -65,6 +69,11 @@ export function RecipeForm({
   // vidljive namirnice + skrivene koje su već u receptu (npr. prepoznate iz linka)
   const items = allItems(data)
     .filter((i) => !data.items.hidden.includes(i.id) || rows.some((r) => r.id === i.id))
+    .sort((a, b) => a.n.localeCompare(b.n, "hr"));
+  // dio ne može biti sam recept ni recept koji već koristi ovaj (petlja)
+  const selfId = existing?.id ?? draft?.id;
+  const partOptions = allRecipes(data)
+    .filter((r) => r.id !== selfId && !(selfId && r.parts?.some(([p]) => p === selfId)))
     .sort((a, b) => a.n.localeCompare(b.n, "hr"));
   const setRow = (key: number, patch: Partial<Row>) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -84,7 +93,15 @@ export function RecipeForm({
       if (isPrep) prep[r.id.slice(2)] = (prep[r.id.slice(2)] || 0) + a * BASE_SERVINGS;
       else use[r.id] = (use[r.id] || 0) + a * BASE_SERVINGS;
     }
-    if (!Object.keys(use).length && !Object.keys(prep).length) return setErr("Dodaj barem jednu namirnicu ili prep.");
+    const partMap: Record<string, number> = {};
+    for (const p of parts) {
+      if (!p.id) continue;
+      const k = parse(p.amt);
+      if (isNaN(k) || k <= 0) return setErr(`Upiši koliko porcija recepta ${recipeName(data, p.id)} ide u 1 porciju.`);
+      partMap[p.id] = (partMap[p.id] || 0) + k;
+    }
+    if (!Object.keys(use).length && !Object.keys(prep).length && !Object.keys(partMap).length)
+      return setErr("Dodaj barem jednu namirnicu, prep ili recept kao dio.");
     const lines = (t: string) =>
       t
         .split("\n")
@@ -99,6 +116,11 @@ export function RecipeForm({
       ...(Object.keys(prep).length ? { prep } : {}),
       extra: lines(extra),
       st: lines(steps),
+      ...(kinds.length ? { kinds } : {}),
+      ...(Object.keys(partMap).length ? { parts: partMap } : {}),
+      ...(init?.prepIn ? { prepIn: init.prepIn } : {}),
+      ...(init?.side ? { side: init.side } : {}),
+      ...(init?.two ? { two: true } : {}),
     };
     const res = saveRecipe(data, r);
     if (planDay != null && !existing)
@@ -144,7 +166,92 @@ export function RecipeForm({
           </label>
         </div>
 
+        <fieldset className="kindpick">
+          <legend>Vrsta jela</legend>
+          <div className="chips">
+            {kindOpts(data).map(([k, t]) => (
+              <button
+                key={k}
+                type="button"
+                className={"chip" + (kinds.includes(k) ? " on" : "")}
+                aria-pressed={kinds.includes(k)}
+                onClick={() => setKinds((ks) => (ks.includes(k) ? ks.filter((x) => x !== k) : [...ks, k]))}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <h4 className="omh">Dijelovi: drugi recepti</h4>
+        <p className="sub">
+          Npr. tuna steak s krumpirom = tuna steak na tavi + hrskavi krumpir + miso juha. Njihove namirnice se same
+          zbrajaju.
+        </p>
+        {parts.length > 0 && (
+          <div className="rfrows">
+            {parts.map((p) => (
+              <div key={p.key} className="rfrow">
+                <select
+                  aria-label="Recept"
+                  value={p.id}
+                  onChange={(e) =>
+                    setParts((ps) => ps.map((x) => (x.key === p.key ? { ...x, id: e.target.value } : x)))
+                  }
+                >
+                  <option value="">Odaberi recept…</option>
+                  {partOptions.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.n}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  aria-label="Porcija po porciji"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="1"
+                  value={p.amt}
+                  onChange={(e) =>
+                    setParts((ps) => ps.map((x) => (x.key === p.key ? { ...x, amt: e.target.value } : x)))
+                  }
+                />
+                <span className="unit">porc.</span>
+                <button
+                  type="button"
+                  className="del"
+                  aria-label="Makni dio"
+                  onClick={() => setParts((ps) => ps.filter((x) => x.key !== p.key))}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="btnrow">
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={() =>
+              setParts((ps) => [...ps, { key: Math.max(0, ...ps.map((x) => x.key)) + 1, id: "", amt: "1" }])
+            }
+          >
+            + Recept kao dio
+          </button>
+        </div>
+
         <h4 className="omh">Namirnice za 1 porciju</h4>
+        <p className="sub">Ono što dio (recept iznad) već ima ne upisuj ponovno.</p>
+        {init?.prepIn && Object.keys(init.prepIn).length > 0 && (
+          <p className="sub">
+            Uz ove namirnice ide i prep{" "}
+            {Object.keys(init.prepIn)
+              .map((p) => prepName(data, p))
+              .join(", ")}
+            : kad ga imaš pripremljenog, zamjenjuje dio sirovih sastojaka.
+          </p>
+        )}
         <div className="rfrows">
           {rows.map((r) => {
             const it = r.id ? itemOf(data, r.id) : undefined;

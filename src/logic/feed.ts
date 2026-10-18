@@ -59,22 +59,15 @@ export interface FeedEntry {
   two: boolean;
   /** oznake: Omlet, Wok, Air fryer, Lonac, Varivo, Juha, Salata, Prep… */
   tags: string[];
+  /** vrste jela (id-evi s popisa Vrste jela) */
+  kinds: string[];
+  /** složen od drugih recepata */
+  parts: number;
   sel?: OmSel;
 }
 
 /** Redoslijed oznaka u filteru */
-export const TAG_ORDER = [
-  "Omlet",
-  "Wok",
-  "Air fryer",
-  "Lonac",
-  "Varivo",
-  "Juha",
-  "Salata",
-  "Bez kuhanja",
-  "2 u 1",
-  "Prep",
-];
+export const TAG_ORDER = ["Wok", "Air fryer", "Lonac", "Bez kuhanja", "2 u 1", "Složeni", "Prep"];
 
 function methodTags(text: string): string[] {
   const t = text.toLowerCase();
@@ -148,14 +141,11 @@ export function mealEntry(d: AppData, id: string): FeedEntry | null {
     ...av,
     time: minutes(r.d),
     method: r.d.split(" · ")[0] || "",
-    custom: !!r.custom,
+    custom: !!r.custom && !r.edited,
     two: !!r.two,
-    tags: [
-      ...methodTags(r.d),
-      ...(/gula|varivo|curry|čorb|corb/i.test(r.n) ? ["Varivo"] : []),
-      ...(r.side === "juha" ? ["Juha"] : r.side === "salata" ? ["Salata"] : []),
-      ...(r.two ? ["2 u 1"] : []),
-    ],
+    tags: [...methodTags(r.d), ...(r.two ? ["2 u 1"] : []), ...(r.parts ? ["Složeni"] : [])],
+    kinds: (r.kinds ?? []).filter((k) => d.lists.kinds.some((x) => x.id === k)),
+    parts: r.parts?.length ?? 0,
   };
 }
 
@@ -184,7 +174,9 @@ export function omEntry(d: AppData, sel: OmSel, key: string, n: string, desc: st
     method: "Wok ili air fryer",
     custom: false,
     two: false,
-    tags: ["Omlet", "Wok", "Air fryer"],
+    tags: ["Wok", "Air fryer"],
+    kinds: ["omlet", "dorucak"].filter((k) => d.lists.kinds.some((x) => x.id === k)),
+    parts: 0,
     sel,
   };
 }
@@ -214,6 +206,8 @@ export function prepEntry(d: AppData, id: string): FeedEntry | null {
     custom: isCustomPrep(p.id),
     two: false,
     tags: ["Prep"],
+    kinds: [],
+    parts: 0,
   };
 }
 
@@ -234,6 +228,8 @@ export interface FeedFilter {
   tags: string[];
   prot: string[];
   carb: string[];
+  /** vrste jela */
+  kinds: string[];
   /** svi odabrani sastojci moraju biti u receptu */
   items: string[];
   /** "" = sve, "all" = imam sve, "max2" = fale najviše 2 */
@@ -247,13 +243,14 @@ export const emptyFilter = (): FeedFilter => ({
   tags: [],
   prot: [],
   carb: [],
+  kinds: [],
   items: [],
   avail: "",
   mine: false,
   time: 0,
 });
 
-export type FacetKey = "tags" | "prot" | "carb" | "avail" | "time";
+export type FacetKey = "tags" | "prot" | "carb" | "kinds" | "avail" | "time";
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d");
 
@@ -267,6 +264,7 @@ export function matches(e: FeedEntry, f: FeedFilter, d: AppData, skip?: FacetKey
   if (skip !== "tags" && f.tags.length && !e.tags.some((t) => f.tags.includes(t))) return false;
   if (skip !== "prot" && f.prot.length && !e.prot.some((p) => f.prot.includes(p))) return false;
   if (skip !== "carb" && f.carb.length && !f.carb.includes(e.carb)) return false;
+  if (skip !== "kinds" && f.kinds.length && !e.kinds.some((k) => f.kinds.includes(k))) return false;
   if (f.items.length && !f.items.every((id) => e.items.includes(id))) return false;
   if (skip !== "avail") {
     if (f.avail === "all" && e.have < e.total) return false;
@@ -282,11 +280,11 @@ export function filterFeed(list: FeedEntry[], f: FeedFilter, d: AppData) {
 }
 
 /** Broj recepata po vrijednosti, uz sve ostale aktivne filtere */
-export function facetCounts(list: FeedEntry[], f: FeedFilter, d: AppData, key: "tags" | "prot" | "carb") {
+export function facetCounts(list: FeedEntry[], f: FeedFilter, d: AppData, key: "tags" | "prot" | "carb" | "kinds") {
   const out: Record<string, number> = {};
   for (const e of list) {
     if (!matches(e, f, d, key)) continue;
-    const vals = key === "prot" ? e.prot : key === "tags" ? e.tags : [e.carb];
+    const vals = key === "prot" ? e.prot : key === "tags" ? e.tags : key === "kinds" ? e.kinds : [e.carb];
     for (const v of vals) if (v) out[v] = (out[v] || 0) + 1;
   }
   return out;

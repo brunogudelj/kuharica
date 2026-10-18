@@ -3,6 +3,7 @@
 import type { Carb, CustomRecipe, Item } from "../data";
 import type { AppData } from "../state/model";
 import { allItems } from "./items";
+import { editItem } from "./actions";
 import { newRecipeId } from "./recipes";
 import { BASE_SERVINGS } from "./inventory";
 import { isMass } from "./lists";
@@ -300,11 +301,35 @@ const SYN: [RegExp, string][] = [
   [/blueberr|borovnic/, "borovnice"],
 ];
 
+/** Naziv sastojka bez količine, za učenje drugih naziva ("400 g pilećih prsa" → "pilećih prsa") */
+export function ingredientName(raw: string): string {
+  return raw
+    .replace(/\(.*?\)/g, " ")
+    .replace(/^[\d\s.,/½¼¾⅓⅔-]+/, "")
+    .replace(/^(g|kg|ml|l|dl|kom|tbsp|tsp|cups?|oz|lb|žlic\w*|žličic\w*|šalic\w*|pakiranj\w*|vrećic\w*)\b\.?\s*/i, "")
+    .split(/,| or | ili /i)[0]
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 /** Pronađi namirnicu iz zalihe za naziv sastojka */
 export function matchItem(d: AppData, name: string): Item | null {
   const n = norm(name);
   if (!n) return null;
   const items = allItems(d);
+  // točan proizvod ili naziv koji si već jednom povezao (drugi nazivi, marka + naziv) ima prednost
+  let alias: Item | null = null;
+  let len = 0;
+  for (const i of items) {
+    const names = [...(i.alias ?? []), ...(i.brand ? [`${i.brand} ${i.n}`] : [])].map(norm);
+    for (const a of names)
+      if (a.length >= 3 && a.length > len && (` ${n} `.includes(` ${a} `) || n === a)) {
+        alias = i;
+        len = a.length;
+      }
+  }
+  if (alias) return alias;
   for (const [re, id] of SYN) if (re.test(n)) return items.find((i) => i.id === id) ?? null;
   // vlastite i ostale namirnice: početak riječi (padeži: "piletine" ~ "piletina")
   const words = n.split(" ").filter((w) => w.length >= 3);
@@ -406,6 +431,21 @@ function guessMethod(p: ParsedRecipe): string {
   if (/pecnic|oven|bake/.test(t)) return "Pećnica";
   if (/lonac|lonc|pot\b|simmer|krcka/.test(t)) return "Lonac";
   return "Tava";
+}
+
+/** Zapamti nazive sastojaka kao druge nazive namirnica: [id namirnice, izvorni redak] */
+export function learnAliases(src: AppData, pairs: [string, string][]): { data: AppData; n: number } {
+  let d = src;
+  let count = 0;
+  for (const [id, raw] of pairs) {
+    const it = allItems(d).find((i) => i.id === id);
+    const name = ingredientName(raw);
+    if (!it || name.length < 3 || norm(name) === norm(it.n)) continue;
+    if ((it.alias ?? []).some((a) => norm(a) === norm(name))) continue;
+    d = editItem(d, id, { alias: [...(it.alias ?? []), name] });
+    count++;
+  }
+  return { data: d, n: count };
 }
 
 /** Nacrt vlastitog recepta: količine po 1,5 porcije (kao u aplikaciji), neprepoznato ide u "ostalo" */

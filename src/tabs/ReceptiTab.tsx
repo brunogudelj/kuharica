@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useApp } from "../state/AppContext";
 import { allItems } from "../logic/items";
+import { kindName, kindOpts } from "../logic/lists";
 import {
   CARB_ORDER,
   PROT_GROUPS,
@@ -34,7 +35,7 @@ export function Thumb({ kind, carb }: { kind: Kind; carb: string }) {
   );
 }
 
-function Row({ e, onOpen }: { e: FeedEntry; onOpen: () => void }) {
+function Row({ e, onOpen, kindN }: { e: FeedEntry; onOpen: () => void; kindN: (id: string) => string }) {
   const all = e.total > 0 && e.have >= e.total;
   const approx = e.macKnown > 0 && e.macKnown < e.items.length ? "≈ " : "";
   return (
@@ -59,7 +60,16 @@ function Row({ e, onOpen }: { e: FeedEntry; onOpen: () => void }) {
           </div>
         </div>
       </td>
-      <td data-l="Oznake" className="muted">
+      <td data-l="Vrsta">
+        <div className="chips">
+          {e.kinds.map((k) => (
+            <span key={k} className="chip kind">
+              {kindN(k)}
+            </span>
+          ))}
+        </div>
+      </td>
+      <td data-l="Način" className="muted">
         {e.tags.filter((t) => t !== "2 u 1").join(", ")}
       </td>
       <td data-l="Prilog">{e.carb && <span className={`chip carb-chip ${carbCls(e.carb)}`}>{e.carb}</span>}</td>
@@ -113,6 +123,8 @@ export function ReceptiTab() {
     ...[...new Set(all.flatMap((e) => e.tags))].filter((t) => !TAG_ORDER.includes(t)),
   ];
   const prots = facetCounts(all, f, data, "prot");
+  const kindCounts = facetCounts(all, f, data, "kinds");
+  const kindN = (id: string) => kindName(data, id) ?? id;
   const carbs = facetCounts(all, f, data, "carb");
   const set = (p: Partial<FeedFilter>) => setF({ ...f, ...p });
 
@@ -132,6 +144,7 @@ export function ReceptiTab() {
     all.filter((e) => matches(e, { ...f, items: [...f.items.filter((x) => x !== id), id] }, data)).length;
 
   const chips: Chip[] = [
+    ...f.kinds.map((k): Chip => [kindN(k), () => set({ kinds: toggle(f.kinds, k) })]),
     ...f.tags.map((k): Chip => [k, () => set({ tags: toggle(f.tags, k) })]),
     ...f.prot.map((p): Chip => [p, () => set({ prot: toggle(f.prot, p) })]),
     ...f.carb.map((c): Chip => [c, () => set({ carb: toggle(f.carb, c) })]),
@@ -156,7 +169,21 @@ export function ReceptiTab() {
 
   const filters = (
     <>
-      <FGroup title="Oznake" count={f.tags.length}>
+      <FGroup title="Vrsta jela" count={f.kinds.length}>
+        {kindOpts(data)
+          .filter(([k]) => all.some((e) => e.kinds.includes(k)) || f.kinds.includes(k))
+          .map(([k, t]) => (
+            <FCheck
+              key={k}
+              on={f.kinds.includes(k)}
+              label={t}
+              count={kindCounts[k] || 0}
+              onChange={() => set({ kinds: toggle(f.kinds, k) })}
+            />
+          ))}
+        <p className="fhint">Vrste uređuješ u Postavkama, a receptu ih dodaješ kod uređivanja.</p>
+      </FGroup>
+      <FGroup title="Način" count={f.tags.length}>
         {tagList.map((k) => (
           <FCheck
             key={k}
@@ -289,7 +316,8 @@ export function ReceptiTab() {
             <thead>
               <tr>
                 <th className="sticky">Recept</th>
-                <th>Oznake</th>
+                <th>Vrsta</th>
+                <th>Način</th>
                 <th>Prilog</th>
                 <th>Protein</th>
                 <th className="num">kcal</th>
@@ -301,7 +329,7 @@ export function ReceptiTab() {
             </thead>
             <tbody>
               {list.map((e) => (
-                <Row key={e.key} e={e} onOpen={() => openEntry(e)} />
+                <Row key={e.key} e={e} kindN={kindN} onOpen={() => openEntry(e)} />
               ))}
             </tbody>
           </table>

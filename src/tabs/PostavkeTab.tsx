@@ -20,6 +20,7 @@ const HINT: Record<ListKind, string> = {
   cats: "Gdje namirnica stoji doma. Po tome se grupira zaliha i popis za kupovinu.",
   grps: "Vrsta hrane: voće, povrće, meso… Npr. dodaj „Juhe i temeljci” za pileći temeljac.",
   units: "U čemu brojiš namirnicu. g i ml računaju kalorije na 100, sve ostale (kom, kocka, konzerva…) po komadu.",
+  kinds: "Kakvo je jelo: juha, wok, burek… Recept može imati više vrsta, a u Receptima po njima filtriraš.",
 };
 
 function ListTable({ kind }: { kind: ListKind }) {
@@ -45,7 +46,7 @@ function ListTable({ kind }: { kind: ListKind }) {
             <tr>
               <th className="sticky">Naziv</th>
               {kind === "units" && <th>Oznaka</th>}
-              <th className="num">Namirnica</th>
+              <th className="num">{kind === "kinds" ? "Recepata" : "Namirnica"}</th>
               <th>
                 <span className="sr-only">Obriši</span>
               </th>
@@ -99,7 +100,13 @@ function ListTable({ kind }: { kind: ListKind }) {
             value={n}
             onChange={(e) => setN(e.target.value)}
             placeholder={
-              kind === "units" ? "npr. kocka, l, šalica" : kind === "grps" ? "npr. Juhe i temeljci" : "npr. Podrum"
+              kind === "units"
+                ? "npr. kocka, l, šalica"
+                : kind === "grps"
+                  ? "npr. Juhe i temeljci"
+                  : kind === "kinds"
+                    ? "npr. Tacos"
+                    : "npr. Podrum"
             }
             aria-label={`Nova ${LIST_LABEL[kind].one}`}
           />
@@ -294,7 +301,7 @@ export function PostavkeTab() {
         <div className="seg" role="tablist" aria-label="Postavke">
           {(
             [
-              ["lists", "Mjesta, skupine i jedinice"],
+              ["lists", "Popisi"],
               ["claude", "Claude"],
               ["sync", "Sinkronizacija"],
               ["backup", "Backup"],
@@ -320,6 +327,7 @@ export function PostavkeTab() {
           <ListTable kind="cats" />
           <ListTable kind="grps" />
           <ListTable kind="units" />
+          <ListTable kind="kinds" />
         </div>
       )}
       {tab === "claude" && <ClaudeSettings />}

@@ -15,10 +15,12 @@ describe("feed recepata", () => {
     expect(new Set(all.map((e) => e.key)).size).toBe(all.length);
   });
 
-  it("omlet je oznaka, a juha i salata su recepti s oznakom", () => {
-    expect(all.filter((e) => e.tags.includes("Omlet")).every((e) => e.kind === "om")).toBe(true);
-    expect(all.some((e) => e.tags.includes("Juha"))).toBe(true);
-    expect(all.some((e) => e.tags.includes("Salata"))).toBe(true);
+  it("vrsta jela: omleti su omlet, a juha, salata, wok i varivo se prepoznaju iz ugrađenih recepata", () => {
+    expect(all.filter((e) => e.kind === "om").every((e) => e.kinds.includes("omlet"))).toBe(true);
+    for (const k of ["juha", "salata", "wok", "varivo", "curry", "rezanci", "pasta"])
+      expect(all.some((e) => e.kind === "meal" && e.kinds.includes(k))).toBe(true);
+    const f = { ...emptyFilter(), kinds: ["juha"] };
+    expect(filterFeed(all, f, d).every((e) => e.kinds.includes("juha"))).toBe(true);
   });
 
   it("filteri se kombiniraju: unutar skupine ili, između skupina i", () => {

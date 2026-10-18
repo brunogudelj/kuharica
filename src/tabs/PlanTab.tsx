@@ -319,11 +319,21 @@ export function PlanTab() {
     ["Recepti (1 porcija)", mains.map((r): Opt => ["r:" + r.id, r.n])],
     ...(presets.length ? [["Složi sam", [["build", "Složi svoj omlet…"]]] as OptGroup] : []),
   ];
-  const sideGroups = (k: "juha" | "salata"): OptGroup[] => [
-    [k === "juha" ? "Juhe" : "Salate", recipes.filter((r) => r.side === k).map((r): Opt => [r.id, r.n])],
-    [k === "juha" ? "Salate" : "Juhe", recipes.filter((r) => r.side && r.side !== k).map((r): Opt => [r.id, r.n])],
-    ["Ostali recepti (1 porcija)", mains.map((r): Opt => [r.id, r.n])],
-  ];
+  const isSide = (r: (typeof recipes)[number], k: "juha" | "salata") => r.side === k || !!r.kinds?.includes(k);
+  const sideGroups = (k: "juha" | "salata"): OptGroup[] => {
+    const o: "juha" | "salata" = k === "juha" ? "salata" : "juha";
+    return [
+      [k === "juha" ? "Juhe" : "Salate", recipes.filter((r) => isSide(r, k)).map((r): Opt => [r.id, r.n])],
+      [
+        k === "juha" ? "Salate" : "Juhe",
+        recipes.filter((r) => isSide(r, o) && !isSide(r, k)).map((r): Opt => [r.id, r.n]),
+      ],
+      [
+        "Ostali recepti (1 porcija)",
+        mains.filter((r) => !isSide(r, "juha") && !isSide(r, "salata")).map((r): Opt => [r.id, r.n]),
+      ],
+    ];
+  };
   const fruits = allItems(data)
     .filter((i) => i.grp === "voce")
     .sort((x, y) => x.n.localeCompare(y.n, "hr"));

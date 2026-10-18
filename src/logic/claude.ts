@@ -44,7 +44,10 @@ export class ClaudeError extends Error {}
 
 function prompt(d: AppData, src: { url?: string; text?: string }) {
   const catalog = [
-    ...allItems(d).map((i) => `${i.id} | ${i.n} | ${i.u}`),
+    ...allItems(d).map(
+      (i) =>
+        `${i.id} | ${i.n}${i.brand ? ` (${i.brand})` : ""} | ${i.u}${i.alias?.length ? ` | zove se i: ${i.alias.join(", ")}` : ""}`,
+    ),
     ...allPreps(d).map(
       (p) => `p:${p.id} | ${p.n} (pripremljeno, prep) | ${plural(2, prepInv(d, p.id)?.unit ?? "porcija")}`,
     ),
@@ -53,6 +56,7 @@ function prompt(d: AppData, src: { url?: string; text?: string }) {
 
 Pretvori recept u JSON za aplikaciju kuharica. Pravila:
 - Naziv i koraci na hrvatskom (prevedi ako je recept na drugom jeziku). Koraci kratki, jedan korak = jedna radnja.
+- Prednost imaju namirnice s markom i drugim nazivima ("zove se i"): ako se sastojak tako zove ili je to isti proizvod, poveži ga s tom namirnicom.
 - Svaki sastojak poveži s namirnicom iz kataloga ispod (polje "item" = id iz kataloga) ako je to ista namirnica ili vrlo bliska (npr. "pileća prsa" = piletina, "basmati riža" = basmati). Ako nema odgovarajuće, "item": null.
 - "amount" je količina za CIJELI recept, u jedinici namirnice iz kataloga (g, ml, kom ili druga). Pretvori žlice, šalice, kg, l itd. (1 žlica ≈ 15 g/ml, 1 žličica ≈ 5, 1 šalica ≈ 240 ml). Za "kom" broji komade. Ako količina nije navedena (sol, papar po želji), "amount": null.
 - "raw" je izvorni redak sastojka.

@@ -11,6 +11,7 @@ import { pc, price, qty, status } from "../logic/inventory";
 import type { Status } from "../logic/inventory";
 import { hiddenItems, isCustom, visibleItems } from "../logic/items";
 import { buy, editItem, removeItem, resetItems, setHidden, setQty } from "../logic/actions";
+import { ItemInfo } from "../components/ItemInfo";
 import { macDisplay } from "../logic/omlet";
 import { fmt, pfmt } from "../logic/format";
 import { Note, StatusPill } from "../components/ui";
@@ -294,6 +295,8 @@ function Row({ i, open, onToggle }: { i: Item; open: boolean; onToggle: () => vo
                 </label>
               )}
             </div>
+            <h4 className="omh">Proizvod, kalorije i nazivi za recepte</h4>
+            <ItemInfo idp={`ii-${i.id}`} item={i} onPatch={(p) => change((n) => editItem(n, i.id, p))} />
             <p className="sub">
               Kcal i proteini su {per.replace("/", "na ")}. {custom ? "" : "Prazno znači ugrađenu vrijednost. "}
               Brisanje i sakrivanje možeš poništiti odmah nakon toga.

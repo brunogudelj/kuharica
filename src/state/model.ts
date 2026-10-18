@@ -60,7 +60,15 @@ export interface ItemsState {
   custom: Item[];
   hidden: string[];
   /** promjene ugrađenih namirnica (sve osim jedinice) */
-  over: Record<string, Partial<Pick<Item, "n" | "cat" | "grp" | "src" | "min" | "pack" | "kcal" | "prot">>>;
+  over: Record<
+    string,
+    Partial<
+      Pick<
+        Item,
+        "n" | "cat" | "grp" | "src" | "min" | "pack" | "kcal" | "prot" | "carb" | "fat" | "brand" | "ean" | "alias"
+      >
+    >
+  >;
 }
 export interface Settings {
   dostava: number;
@@ -119,7 +127,28 @@ export interface Lists {
   cats: Entry[];
   grps: Entry[];
   units: Entry[];
+  /** vrste jela za recepte */
+  kinds: Entry[];
 }
+/** Vrste jela na početku; sve se mogu preimenovati, brisati i dodavati u Postavkama */
+export const DEFAULT_KINDS: Entry[] = [
+  { id: "juha", n: "Juha" },
+  { id: "omlet", n: "Omlet" },
+  { id: "wok", n: "Wok" },
+  { id: "varivo", n: "Varivo" },
+  { id: "curry", n: "Curry" },
+  { id: "rezanci", n: "Rezanci i ramen" },
+  { id: "pasta", n: "Pasta" },
+  { id: "rizoto", n: "Rižoto" },
+  { id: "bowl", n: "Bowl" },
+  { id: "wrap", n: "Wrap" },
+  { id: "hamburger", n: "Hamburger" },
+  { id: "burek", n: "Burek i pita" },
+  { id: "pohano", n: "Pohano" },
+  { id: "pecenje", n: "Pečeno i grill" },
+  { id: "salata", n: "Salata" },
+  { id: "dorucak", n: "Doručak" },
+];
 export const BUILTIN_UNITS: Entry[] = [
   { id: "g", n: "grami (g)" },
   { id: "ml", n: "mililitri (ml)" },
@@ -134,6 +163,7 @@ export const defaultLists = (): Lists => ({
     { id: "konzerva", n: "konzerva" },
     { id: "vrećica", n: "vrećica" },
   ],
+  kinds: DEFAULT_KINDS.map((e) => ({ ...e })),
 });
 
 export const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
