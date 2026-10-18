@@ -1,5 +1,5 @@
 import { del, get, set } from "idb-keyval";
-import { ITEMS, NEW_ITEMS, PBY, RBY, UNITS } from "../data";
+import { ITEMS, NEW_ITEMS, OM_PRESETS, PBY, RBY, UNITS, omPresetId } from "../data";
 import { isBuiltin } from "../logic/lists";
 import type { Carb, CatId, GrpId, PrepCat, Shop, Unit, UnitId } from "../data";
 import type { AppData, OmDay, PlanDay, Slot } from "../state/model";
@@ -7,7 +7,7 @@ import { SLOT_KEYS, cleanState, defaultData } from "../state/model";
 import { addDays, dkey } from "../logic/dates";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-import { validOm } from "../logic/omlet";
+import { omNorm, validOm } from "../logic/omlet";
 
 /** Sučelje spremanja. Kasnije se može dodati sinkronizacija (npr. Supabase) kao druga implementacija. */
 export interface Storage {
@@ -114,7 +114,11 @@ export function migrate(raw: unknown): AppData {
   const parseOm = (x: unknown): OmDay => {
     const o = obj(x);
     if (typeof o.r === "string" && o.r) return { sel: null, r: o.r, done: !!o.done };
-    return { sel: o.sel === null || o.sel === undefined ? null : validOm(o.sel), done: !!o.done };
+    const sel = o.sel === null || o.sel === undefined ? null : validOm(o.sel);
+    // ugrađeni omlet je sada recept
+    const preset = sel && OM_PRESETS.find((x) => omNorm(x.sel) === omNorm(sel));
+    if (preset) return { sel: null, r: omPresetId(preset), done: !!o.done };
+    return { sel, done: !!o.done };
   };
   const parseSlot = (x: unknown): Slot => {
     const o = obj(x);
@@ -243,7 +247,12 @@ export function migrate(raw: unknown): AppData {
   if (Array.isArray(r.recipes))
     d.recipes = r.recipes
       .map(obj)
-      .filter((x) => typeof x.id === "string" && (x.id.startsWith("r-") || x.id in RBY) && typeof x.n === "string")
+      .filter(
+        (x) =>
+          typeof x.id === "string" &&
+          (x.id.startsWith("r-") || x.id.startsWith("om-") || x.id in RBY) &&
+          typeof x.n === "string",
+      )
       .map((x) => ({
         id: x.id as string,
         n: x.n as string,

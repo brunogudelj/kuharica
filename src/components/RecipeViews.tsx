@@ -13,7 +13,16 @@ import { dayDate, dayLabel, dayName, todayKey, windowKeys } from "../logic/dates
 import type { AppData } from "../state/model";
 import { BASE_SERVINGS, effUse, pc, prepEff, prepUsedIn, qty } from "../logic/inventory";
 import type { EffUse } from "../logic/inventory";
-import { cook, eatMuffins, eatOmlet, makePrep, removeRecipe, setOmDay, setPlanDay } from "../logic/actions";
+import {
+  cook,
+  eatMuffins,
+  eatOmlet,
+  makePrep,
+  removeRecipe,
+  setBreakfastRecipe,
+  setOmDay,
+  setPlanDay,
+} from "../logic/actions";
 import { newRecipeId, recipeName, recipeOf, toCustom, usedIn } from "../logic/recipes";
 import { itemOf } from "../logic/items";
 import {
@@ -72,7 +81,9 @@ export function Stats({ e, per = true }: { e: FeedEntry; per?: boolean }) {
         <dd>{e.time == null ? "–" : e.time + " min"}</dd>
       </div>
       {per && (
-        <p className="stats-note">{e.kind === "meal" ? "po obroku" : e.kind === "om" ? "po omletu" : "cijela tura"}</p>
+        <p className="stats-note">
+          {e.kind === "om" ? "po omletu" : e.kind === "prep" ? "cijela tura" : e.portion ? "po porciji" : "po obroku"}
+        </p>
       )}
     </dl>
   );
@@ -247,10 +258,13 @@ export function MealView({ id, day }: { id: string; day?: string }) {
   const r = recipeOf(data, id);
   const e = mealEntry(data, id);
   if (!r || !e) return <p className="sub">Recept više ne postoji.</p>;
-  const s = data.ui.servings[r.id] ?? BASE_SERVINGS;
+  // doručak (omlet) se jede kao 1 porcija i ide u red Doručak u planu
+  const bf = !!r.kinds?.some((k) => k === "omlet" || k === "dorucak");
+  const s = data.ui.servings[r.id] ?? (bf ? 1 : BASE_SERVINGS);
   const f = s / BASE_SERVINGS;
   const eff = effUse(r, { ...data.prepStock }, false, f, data);
   const edited = !!r.edited;
+  const bfDay = day != null && getOm(data.plan, day).r === id && !getOm(data.plan, day).done ? day : null;
   const users = usedIn(data, r.id);
   const setS = (v: number) =>
     update((d) => {
@@ -266,22 +280,43 @@ export function MealView({ id, day }: { id: string; day?: string }) {
       <Stats e={e} />
       <section className="psec">
         <h3>U planu</h3>
-        <DayPicker
-          label="Stavi recept na dan"
-          on={(k) => getDay(data.plan, k).r === id}
-          onPick={(k) =>
-            getDay(data.plan, k).r === id
-              ? update((d) => setPlanDay(d, k, ""))
-              : apply(setPlanDay(data, k, id), `${r.n} je na planu za ${dayLabel(k)}.`)
-          }
-        />
+        {bf ? (
+          <DayPicker
+            label="Stavi za doručak"
+            on={(k) => getOm(data.plan, k).r === id}
+            onPick={(k) =>
+              getOm(data.plan, k).r === id
+                ? update((d) => {
+                    const n = clone(d);
+                    delete n.plan.om[k];
+                    return n;
+                  })
+                : apply(setBreakfastRecipe(data, k, id), `Doručak za ${dayLabel(k)}: ${r.n}.`)
+            }
+          />
+        ) : (
+          <DayPicker
+            label="Stavi recept na dan"
+            on={(k) => getDay(data.plan, k).r === id}
+            onPick={(k) =>
+              getDay(data.plan, k).r === id
+                ? update((d) => setPlanDay(d, k, ""))
+                : apply(setPlanDay(data, k, id), `${r.n} je na planu za ${dayLabel(k)}.`)
+            }
+          />
+        )}
+        <p className="sub">{bf ? "U planu ide u red Doručak." : "U planu ide u red Ručak i večera."}</p>
       </section>
       <section className="psec">
         <div className="rowspread">
           <h3>Porcije</h3>
           <Stepper label="porcije" value={porcTxt(s)} onDec={() => setS(s - 0.5)} onInc={() => setS(s + 0.5)} />
         </div>
-        <p className="sub">1,5 porcija je ručak i večera iz jednog kuhanja. Uz to idu salata, miso juha i posni sir.</p>
+        {!bf && (
+          <p className="sub">
+            1,5 porcija je ručak i večera iz jednog kuhanja. Uz to idu salata, miso juha i posni sir.
+          </p>
+        )}
       </section>
       {r.split && (
         <div className="split">
@@ -318,7 +353,7 @@ export function MealView({ id, day }: { id: string; day?: string }) {
         <h3>Sastojci za {porcTxt(s)}</h3>
         <ul className="ing">
           {r.ing.map((i, k) => (
-            <Html key={k} as="li" html={scaleText(i, f)} />
+            <Html key={k} as="li" html={scaleText(i, r.ingFor ? s / r.ingFor : f)} />
           ))}
         </ul>
       </section>
@@ -339,14 +374,16 @@ export function MealView({ id, day }: { id: string; day?: string }) {
           type="button"
           className="btn"
           onClick={() => {
-            const res = cook(data, r.id, planIx, f);
+            const res = bfDay ? eatOmlet(data, bfDay) : cook(data, r.id, planIx, f);
             apply(res.data, res.msg);
             close();
           }}
         >
-          <Icon name="check" size={18} /> Skuhao sam
+          <Icon name="check" size={18} /> {bfDay ? "Pojeo sam" : "Skuhao sam"}
         </button>
-        <span className="count">skida {porcTxt(s)}, prep i posni sir sa zalihe</span>
+        <span className="count">
+          {bfDay ? "skida 1 porciju sa zalihe" : `skida ${porcTxt(s)}${bf ? "" : ", prep i posni sir"} sa zalihe`}
+        </span>
       </div>
       {users.length > 0 && (
         <p className="sub">

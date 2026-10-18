@@ -1,10 +1,9 @@
 /* Svi recepti na jednom mjestu: ručak i večera, omleti i prep, s podacima za filtere i kartice */
 import { OM_CARB, PREP_K } from "../data";
-import { omPresets } from "./omlet";
 import { allPreps, isCustomPrep, prepOf } from "./preps";
 import type { OmSel, Use } from "../data";
 import type { AppData } from "../state/model";
-import { costOf, effUse, prepEff, qty } from "./inventory";
+import { BASE_SERVINGS, costOf, effUse, prepEff, qty } from "./inventory";
 import { allRecipes } from "./recipes";
 import { allItems } from "./items";
 import { macOf, omEff, omMacros, omUse } from "./omlet";
@@ -13,7 +12,11 @@ import { macOf, omEff, omMacros, omUse } from "./omlet";
 export const MEALS_PER_COOK = 2;
 
 export type Kind = "meal" | "om" | "prep";
-export const KIND_LABEL: Record<Kind, string> = { meal: "Ručak i večera", om: "Omlet", prep: "Prep" };
+export const KIND_LABEL: Record<Kind, string> = { meal: "Recept", om: "Omlet", prep: "Prep" };
+
+/** Recept koji se jede kao jedna porcija (doručak, omlet, juha, salata), a ne kao ručak i večera */
+export const isPortion = (r: { kinds?: string[]; side?: string }) =>
+  !!r.side || !!r.kinds?.some((k) => k === "omlet" || k === "dorucak");
 
 /** Skupine proteina po namirnicama iz kataloga */
 export const PROT_GROUPS: [string, string[]][] = [
@@ -63,6 +66,8 @@ export interface FeedEntry {
   kinds: string[];
   /** složen od drugih recepata */
   parts: number;
+  /** brojke su po porciji (doručak, omlet), a ne po obroku */
+  portion?: boolean;
   sel?: OmSel;
 }
 
@@ -124,6 +129,9 @@ export function mealEntry(d: AppData, id: string): FeedEntry | null {
   const mac = macrosOf(d, r.use);
   const c = costOf(d, r.use);
   const av = availability(d, use);
+  // doručak (omlet) i dodaci jedu se kao 1 porcija, ručak i večera kao 2 obroka iz jednog kuhanja
+  // dodatak (juha, salata) ima količine za cijeli dan = 1 porcija
+  const div = r.side ? 1 : isPortion(r) ? BASE_SERVINGS : MEALS_PER_COOK;
   return {
     key: "m:" + r.id,
     kind: "meal",
@@ -133,10 +141,10 @@ export function mealEntry(d: AppData, id: string): FeedEntry | null {
     carb: r.c,
     prot: proteinsOf(d, r.use),
     items: Object.keys(r.use),
-    kcal: mac.known ? Math.round(mac.k / MEALS_PER_COOK) : null,
-    p: mac.known ? Math.round(mac.p / MEALS_PER_COOK) : null,
+    kcal: mac.known ? Math.round(mac.k / div) : null,
+    p: mac.known ? Math.round(mac.p / div) : null,
     macKnown: mac.known,
-    cost: c.known ? c.c / MEALS_PER_COOK : null,
+    cost: c.known ? c.c / div : null,
     costKnown: c.known,
     ...av,
     time: minutes(r.d),
@@ -146,6 +154,7 @@ export function mealEntry(d: AppData, id: string): FeedEntry | null {
     tags: [...methodTags(r.d), ...(r.two ? ["2 u 1"] : []), ...(r.parts ? ["Složeni"] : [])],
     kinds: (r.kinds ?? []).filter((k) => d.lists.kinds.some((x) => x.id === k)),
     parts: r.parts?.length ?? 0,
+    portion: isPortion(r),
   };
 }
 
@@ -216,8 +225,7 @@ export function feed(d: AppData): FeedEntry[] {
   const meals = allRecipes(d)
     .map((r) => mealEntry(d, r.id))
     .filter((x): x is FeedEntry => !!x);
-  const oms = omPresets(d).map((p, i) => omEntry(d, p.sel, "o:" + i, p.n, p.d, String(i)));
-  return [...meals, ...oms];
+  return meals;
 }
 
 /** Prep recepti za stranicu Prep (isti podaci i filteri kao recepti) */

@@ -76,6 +76,8 @@ export interface Recipe {
   parts?: [string, number][];
   /** ugrađeni recept koji je korisnik uredio */
   edited?: boolean;
+  /** za koliko porcija su napisani sastojci (`ing`), ako nije 1,5 (omlet: 1) */
+  ingFor?: number;
 }
 
 /** Vlastiti recept kako se sprema: količine su za 1,5 porcija (kao ugrađeni) */

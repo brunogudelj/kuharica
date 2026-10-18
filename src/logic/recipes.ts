@@ -1,9 +1,11 @@
 /* Recepti za korisnika: ugrađeni (s njegovim izmjenama) + vlastiti.
    Recept može biti složen od drugih recepata ("tuna steak s krumpirom" = tuna steak + hrskavi krumpir + miso juha):
    dijelovi se razlažu na namirnice i prep, pa kuhanje, kupovina, cijena i kalorije rade kao za običan recept. */
-import { RBY, RECIPES, REC_USE_PREP } from "../data";
+import { OM_CARB, OM_PRESETS, RBY, RECIPES, REC_USE_PREP, omPresetId } from "../data";
+import type { Carb } from "../data";
 import { prepInv } from "./preps";
 import { round } from "./format";
+import { omIngredients, omSteps, omUse } from "./omlet";
 import type { CustomRecipe, Recipe, Use } from "../data";
 import type { AppData } from "../state/model";
 import { itemOf } from "./items";
@@ -11,7 +13,36 @@ import { itemOf } from "./items";
 /** Broj za tekst sastojka (decimalni zarez, bez razmaka tisućica, da ga scaleText može skalirati) */
 const num = (a: number) => String(Math.round(a * 100) / 100).replace(".", ",");
 
-export const isBuiltinRecipe = (id: string) => id in RBY;
+const OM_IDS = new Map(OM_PRESETS.map((p) => [omPresetId(p), p]));
+export const isBuiltinRecipe = (id: string) => id in RBY || OM_IDS.has(id);
+
+const OM_C: Record<string, Carb> = { riza: "Riža", krumpir: "Krumpir" };
+/** Ugrađeni omlet kao recept: vrsta jela Omlet i Doručak, količine za 1,5 porcija (1 porcija = 1 omlet) */
+function omRecipe(d: AppData, id: string): Recipe | undefined {
+  const p = OM_IDS.get(id);
+  if (!p) return undefined;
+  const C = OM_CARB[p.sel.carb];
+  return {
+    id,
+    n: /omlet/i.test(p.n) ? p.n : `${p.n} omlet`,
+    c: OM_C[p.sel.carb] ?? "Ostalo",
+    d: "Wok · 10 min",
+    use: Object.fromEntries(Object.entries(omUse(d, p.sel, 1.5)).map(([k, a]) => [k, round(a)])),
+    ing: omIngredients(d, p.sel),
+    ingFor: 1,
+    st: omSteps(d, p.sel, "wok"),
+    prep: [],
+    // prilog iz prepa (riža, krumpir) zamjenjuje sirove sastojke kad ga imaš
+    ...(C.prep ? { prepIn: [[C.prep[0], C.prep[1] * 1.5]] as [string, number][] } : {}),
+    kinds: ["omlet", "dorucak"],
+  };
+}
+
+/** Ugrađeni recept po id-u (s vrstama jela) */
+function builtinRecipe(d: AppData, id: string): Recipe | undefined {
+  const b = RBY[id];
+  return b ? { ...b, kinds: guessKinds(b.n, b.d) } : omRecipe(d, id);
+}
 
 /** Vrste jela ugrađenih recepata, iz naziva i načina pripreme */
 const KIND_RULES: [RegExp, string][] = [
@@ -97,8 +128,7 @@ function toRecipeDeep(d: AppData, r: CustomRecipe, seen: Set<string>): Recipe {
 function resolve(d: AppData, id: string, seen: Set<string>): Recipe | undefined {
   const own = d.recipes.find((x) => x.id === id);
   if (own) return toRecipeDeep(d, own, seen);
-  const b = RBY[id];
-  return b && d.settings.builtin !== false ? { ...b, kinds: guessKinds(b.n, b.d) } : undefined;
+  return d.settings.builtin !== false ? builtinRecipe(d, id) : undefined;
 }
 
 export function toRecipe(d: AppData, r: CustomRecipe): Recipe {
@@ -134,7 +164,11 @@ export function toCustom(d: AppData, r: Recipe): CustomRecipe {
     d: r.d,
     use: { ...r.use },
     ...(r.prep?.length ? { prep: Object.fromEntries(r.prep) } : {}),
-    ...(!r.prep && REC_USE_PREP[r.id] ? { prepIn: Object.fromEntries(REC_USE_PREP[r.id]) } : {}),
+    ...(r.prepIn?.length
+      ? { prepIn: Object.fromEntries(r.prepIn) }
+      : !r.prep && REC_USE_PREP[r.id]
+        ? { prepIn: Object.fromEntries(REC_USE_PREP[r.id]) }
+        : {}),
     extra,
     st: r.st,
     kinds: r.kinds ?? guessKinds(r.n, r.d),
@@ -154,7 +188,8 @@ export function allRecipes(d: AppData): Recipe[] {
   let c = cache.get(d.recipes);
   if (!c || c.items !== d.items || c.builtin !== builtin) {
     const own = new Map(d.recipes.map((r) => [r.id, toRecipe(d, r)]));
-    const base = builtin ? RECIPES.map((r) => own.get(r.id) ?? { ...r, kinds: guessKinds(r.n, r.d) }) : [];
+    const ids = [...RECIPES.map((r) => r.id), ...OM_IDS.keys()];
+    const base = builtin ? ids.map((id) => own.get(id) ?? builtinRecipe(d, id)!) : [];
     const all = base.concat(d.recipes.filter((r) => !builtin || !isBuiltinRecipe(r.id)).map((r) => own.get(r.id)!));
     c = { items: d.items, builtin, all, map: new Map(all.map((r) => [r.id, r])) };
     cache.set(d.recipes, c);

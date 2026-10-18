@@ -7,7 +7,7 @@ import type { AppData, CostEntry, Slot, SlotKey } from "../state/model";
 import { SLOT_KEYS, cleanState, clone, cycleIx, getOm, getSlot } from "../state/model";
 import { todayKey, windowKeys } from "./dates";
 import { effUse, missingFor, pc, prepEff, price, qty, slotUse } from "./inventory";
-import { omEff, omMissing, omName, omPresets, shuffle } from "./omlet";
+import { omEff, omName, shuffle } from "./omlet";
 import { allItems, defaultStep, isCustom, itemOf } from "./items";
 import { eur, fmt, monthKey, newId, pfmt, round, sameDay } from "./format";
 
@@ -30,7 +30,9 @@ export function cook(src: AppData, rid: string, day: string | null, f = 1, now =
   const d = clone(src);
   const r = recipeOf(src, rid);
   if (!r) return { data: src, msg: "Recept ne postoji." };
-  const eff = effUse(r, { ...d.prepStock }, true, f, src);
+  // posni sir za užinu ide uz ručak, ne uz doručak ili dodatak
+  const portion = !!r.side || !!r.kinds?.some((x) => x === "omlet" || x === "dorucak");
+  const eff = effUse(r, { ...d.prepStock }, !portion, f, src);
   consume(d, eff.use, eff.consumed);
   // bez dana: prvi neskuhani dan s tim receptom u prozoru plana
   const k = day ?? windowKeys(now).find((x) => d.plan.days[x]?.r === rid && !d.plan.days[x]?.done);
@@ -146,7 +148,7 @@ export function autoFillPlan(src: AppData, now = Date.now(), rng: () => number =
     }
     const o = d.plan.om[k];
     if (oms.length && (!o || (!o.sel && !o.r && !o.done)))
-      d.plan.om[k] = { sel: clone(oms[oi++ % oms.length]), done: false };
+      d.plan.om[k] = { sel: null, r: oms[oi++ % oms.length], done: false };
     if (builtin && empty(d.plan.extra.juha[k])) d.plan.extra.juha[k] = { r: "dod-miso", done: false };
     if (builtin && empty(d.plan.extra.salata[k])) d.plan.extra.salata[k] = { r: "dod-salata", done: false };
     if (fruits.length)
@@ -159,12 +161,15 @@ export function autoFillPlan(src: AppData, now = Date.now(), rng: () => number =
   return d;
 }
 
-/** Omleti za popunjavanje: svaki drugi, prednost oni za koje imaš sastojke */
-function omPool(d: AppData, rng: () => number): OmSel[] {
-  return shuffle(omPresets(d), rng)
-    .map((p) => ({ p, miss: omMissing(d, p.sel).length }))
+/** Doručci za popunjavanje: recepti s vrstom Omlet ili Doručak, svaki drugi, prednost oni za koje imaš sastojke */
+function omPool(d: AppData, rng: () => number): string[] {
+  return shuffle(
+    allRecipes(d).filter((r) => r.kinds?.some((k) => k === "omlet" || k === "dorucak")),
+    rng,
+  )
+    .map((r) => ({ r, miss: missingFor(d, r.id).length }))
     .sort((a, b) => a.miss - b.miss)
-    .map((x) => x.p.sel);
+    .map((x) => x.r.id);
 }
 
 /** Očisti plan od danas nadalje (ono što je pojedeno ili skuhano ostaje) */

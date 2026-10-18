@@ -468,3 +468,14 @@ export const MAC: Record<string, [number, number]> = {
   "crni-grah": [1.3, 0.085],
   rikola: [0.25, 0.026],
 };
+
+/** Id ugrađenog omleta kao recepta ("Zeleni proteinski" → "om-zeleni-proteinski") */
+export const omPresetId = (p: OmPreset) =>
+  "om-" +
+  p.n
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");

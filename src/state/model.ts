@@ -1,4 +1,4 @@
-import { CATS, DEFAULT_SHOPS, GROUPS, ITEMS, OM_PRESETS } from "../data";
+import { CATS, DEFAULT_SHOPS, GROUPS, ITEMS, OM_PRESETS, omPresetId } from "../data";
 import { diffDays, todayKey, windowKeys } from "../logic/dates";
 import type { CustomPrep, CustomRecipe, Item, OmSel, Shop } from "../data";
 
@@ -173,7 +173,7 @@ export function defaultPlan(now = Date.now()): Plan {
   const keys = windowKeys(now).slice(1);
   const plan: Plan = { anchor: todayKey(now), days: {}, om: {}, extra: { juha: {}, salata: {}, voce1: {}, voce2: {} } };
   keys.forEach((k, i) => {
-    plan.om[k] = { sel: clone(OM_PRESETS[i % OM_PRESETS.length].sel), done: false };
+    plan.om[k] = { sel: null, r: omPresetId(OM_PRESETS[i % OM_PRESETS.length]), done: false };
     plan.extra.juha[k] = { r: "dod-miso", done: false };
     plan.extra.salata[k] = { r: "dod-salata", done: false };
   });

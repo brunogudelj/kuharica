@@ -46,10 +46,10 @@ export const keepOf = (p: PrepRecipe): Keep[] => {
 };
 
 /** Kvadratić s ikonom: boja po prilogu (obroci) ili vrsti */
-export function Thumb({ kind, carb }: { kind: Kind; carb: string }) {
+export function Thumb({ kind, carb, om }: { kind: Kind; carb: string; om?: boolean }) {
   return (
-    <span className={`thumb k-${kind} ${carbCls(carb)}`} aria-hidden="true">
-      <Icon name={KIND_ICON[kind]} size={20} />
+    <span className={`thumb k-${om ? "om" : kind} ${carbCls(carb)}`} aria-hidden="true">
+      <Icon name={om ? "omlet" : KIND_ICON[kind]} size={20} />
     </span>
   );
 }
@@ -72,7 +72,7 @@ function Row({
     <tr className="rowlink" onClick={onOpen}>
       <td className="sticky namecol">
         <div className="ent">
-          <Thumb kind={e.kind} carb={e.carb} />
+          <Thumb kind={e.kind} carb={e.carb} om={e.kinds.includes("omlet")} />
           <div className="ent-txt">
             <button
               type="button"
@@ -506,7 +506,7 @@ export function RecipeList({
               <span>
                 {isPrep
                   ? "Brojke su za jednu turu. Klik otvara prep sa strane."
-                  : "Brojke su po obroku, za omlet po omletu. Klik na recept otvara ga sa strane."}
+                  : "Brojke su po obroku, za doručak (omlet) po porciji. Klik na recept otvara ga sa strane."}
               </span>
             </div>
           </div>

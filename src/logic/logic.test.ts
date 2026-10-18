@@ -1,3 +1,4 @@
+import { recipeOf } from "./recipes";
 import { describe, expect, it } from "vitest";
 import { DAILY, DAILY_COOK, ITEMS, OM_PRESETS, PREP_INV, RBY, RECIPES, REC_USE_PREP } from "../data";
 import { defaultData } from "../state/model";
@@ -129,7 +130,8 @@ describe("pravilo 4: kupovina", () => {
     // nepojedeni omleti u sljedećih 7 dana traže jaja
     const eggs = aheadKeys(Date.now(), 7)
       .map((k) => d.plan.om[k])
-      .reduce((s, o) => s + (o.sel!.base === "klasik" ? 3 : o.sel!.base === "protein" ? 2 : 1), 0);
+      // omlet je recept: 1 porcija doručka = količine recepta / 1,5
+      .reduce((s, o) => s + (recipeOf(d, o.r!)!.use.jaja ?? 0) / 1.5, 0);
     close(need.jaja, eggs);
     const row = shopping(d).find((x) => x.i.id === "piletina")!;
     // potreba 250 + minimum 500 = 750 → 1 pakiranje od 1000 g
@@ -228,7 +230,7 @@ describe("omleti", () => {
     d.plan.days[addDays(todayKey(), 1)] = { r: "losos", done: false };
     const f = autoFillPlan(d);
     const ahead = windowKeys().slice(1);
-    expect(ahead.every((k) => f.plan.om[k]?.sel)).toBe(true);
+    expect(ahead.filter((k) => k !== todayKey()).every((k) => f.plan.om[k]?.r)).toBe(true);
     expect(ahead.every((k) => f.plan.days[k]?.r)).toBe(true);
     expect(f.plan.om[todayKey()]).toEqual(d.plan.om[todayKey()]);
     expect(f.plan.days[addDays(todayKey(), 1)].r).toBe("losos");

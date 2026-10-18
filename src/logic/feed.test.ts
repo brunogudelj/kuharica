@@ -11,7 +11,9 @@ describe("feed recepata", () => {
 
   it("recepti su obroci i omleti, a prep ima svoj popis s istim podacima", async () => {
     const kinds = new Set(all.map((e) => e.kind));
-    expect(kinds).toEqual(new Set(["meal", "om"]));
+    // omlet je recept s vrstom jela Omlet
+    expect(kinds).toEqual(new Set(["meal"]));
+    expect(all.filter((e) => e.kinds.includes("omlet")).length).toBeGreaterThan(10);
     const { prepFeed } = await import("./feed");
     expect(prepFeed(d).every((e) => e.kind === "prep")).toBe(true);
     expect(prepFeed(d).length).toBeGreaterThan(5);
@@ -19,7 +21,7 @@ describe("feed recepata", () => {
   });
 
   it("vrsta jela: omleti su omlet, a juha, salata, wok i varivo se prepoznaju iz ugrađenih recepata", () => {
-    expect(all.filter((e) => e.kind === "om").every((e) => e.kinds.includes("omlet"))).toBe(true);
+    expect(all.filter((e) => e.id.startsWith("om-")).every((e) => e.kinds.includes("omlet") && e.portion)).toBe(true);
     for (const k of ["juha", "salata", "wok", "varivo", "curry", "rezanci", "pasta"])
       expect(all.some((e) => e.kind === "meal" && e.kinds.includes(k))).toBe(true);
     const f = { ...emptyFilter(), kinds: ["juha"] };

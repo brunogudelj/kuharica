@@ -1,6 +1,6 @@
 import { Fragment, useState } from "react";
 import type { ReactNode } from "react";
-import { CYCLE, DEFAULT_OM } from "../data";
+import { CYCLE } from "../data";
 import { useApp } from "../state/AppContext";
 import { SLOT_KEYS, clone, cycleIx, getDay, getOm, getSlot } from "../state/model";
 import { dayDate, dayLabel, dayName, todayKey, windowKeys } from "../logic/dates";
@@ -23,7 +23,7 @@ import {
 } from "../logic/actions";
 import { allRecipes, recipeName, recipeOf } from "../logic/recipes";
 import { allItems, itemOf } from "../logic/items";
-import { omMacros, omMissing, omName, omPresets, omUse } from "../logic/omlet";
+import { omMacros, omMissing, omName, omUse } from "../logic/omlet";
 import { mealEntry } from "../logic/feed";
 import { eur, fmt, stavki } from "../logic/format";
 import { shopIndex, shopName } from "../logic/shops";
@@ -313,11 +313,10 @@ export function PlanTab() {
       c,
       list.filter((r) => r.c === c).map((r): Opt => [r.id, r.n]),
     ]);
-  const presets = omPresets(data);
+  const isBreakfast = (r: (typeof recipes)[number]) => !!r.kinds?.some((k) => k === "omlet" || k === "dorucak");
   const breakfastGroups: OptGroup[] = [
-    ["Omleti", presets.map((p, i): Opt => ["om:" + i, p.n])],
-    ["Recepti (1 porcija)", mains.map((r): Opt => ["r:" + r.id, r.n])],
-    ...(presets.length ? [["Složi sam", [["build", "Složi svoj omlet…"]]] as OptGroup] : []),
+    ["Doručak i omleti", mains.filter(isBreakfast).map((r): Opt => ["r:" + r.id, r.n])],
+    ["Ostali recepti (1 porcija)", mains.filter((r) => !isBreakfast(r)).map((r): Opt => ["r:" + r.id, r.n])],
   ];
   const isSide = (r: (typeof recipes)[number], k: "juha" | "salata") => r.side === k || !!r.kinds?.includes(k);
   const sideGroups = (k: "juha" | "salata"): OptGroup[] => {
@@ -345,11 +344,6 @@ export function PlanTab() {
     ["Ostalo voće", fruits.filter((i) => !(qty(data, i.id) > 0)).map((i): Opt => [i.id, i.n])],
   ];
   const pickBreakfast = (k: string, v: string) => {
-    if (v === "build") return open({ t: "om", sel: DEFAULT_OM, day: k });
-    if (v.startsWith("om:")) {
-      const p = presets[Number(v.slice(3))];
-      return apply(setOmDay(data, k, p.sel), `Doručak za ${dayLabel(k)}: ${p.n}.`);
-    }
     const id = v.slice(2);
     apply(setBreakfastRecipe(data, k, id), `Doručak za ${dayLabel(k)}: ${recipeName(data, id)}.`);
   };
@@ -364,8 +358,11 @@ export function PlanTab() {
   const cooked = lunches.filter((d) => d.done).length;
   const bfs = horizon.map((k) => getOm(plan, k)).filter((o) => o.sel || o.r);
   const eaten = bfs.filter((o) => o.done).length;
-  const oms = bfs.filter((o) => o.sel && !o.r);
-  const avgProt = oms.length ? Math.round(oms.reduce((s, o) => s + omMacros(data, o.sel!, 1).p, 0) / oms.length) : 0;
+  const bfProt = bfs
+    .map((o) => (o.sel && !o.r ? omMacros(data, o.sel, 1).p : o.r ? mealEntry(data, o.r)?.p : null))
+    .filter((x): x is number => x != null);
+  const oms = bfProt;
+  const avgProt = bfProt.length ? Math.round(bfProt.reduce((a, b) => a + b, 0) / bfProt.length) : 0;
   const extras = horizon.flatMap((k) => SLOT_KEYS.map((s) => getSlot(plan, s, k))).filter((x) => x.r || x.item);
   const weekCost =
     lunches.reduce((s, d) => s + dayCost(data, d.r).meals, 0) +
@@ -472,7 +469,7 @@ export function PlanTab() {
             </dd>
           </div>
           <div>
-            <dt>Protein u omletu</dt>
+            <dt>Protein u doručku</dt>
             <dd>{oms.length ? <b>{avgProt} g</b> : "–"}</dd>
           </div>
           <div>
@@ -590,12 +587,12 @@ export function PlanTab() {
                         m
                           ? `${m.p} g prot. · ${m.k} kcal`
                           : e?.kcal != null
-                            ? `${Math.round((e.kcal * 2) / 1.5)} kcal · 1 porcija`
+                            ? `${e.portion ? e.kcal : Math.round((e.kcal * 2) / 1.5)} kcal · 1 porcija`
                             : "1 porcija"
                       }
                       flag={o.done ? "" : miss.length ? `fali ${miss.length}` : "imaš sve"}
                       flagCls={o.done ? "done" : miss.length ? "miss" : "ready"}
-                      onOpen={() => (isOm ? open({ t: "om", day: k }) : open({ t: "meal", id: o.r! }))}
+                      onOpen={() => (isOm ? open({ t: "om", day: k }) : open({ t: "meal", id: o.r!, day: k }))}
                       swap={
                         <PickSelect
                           swap
