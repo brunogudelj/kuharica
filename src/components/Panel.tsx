@@ -5,12 +5,10 @@ import type { OmSel } from "../data";
 import { Icon } from "./icons";
 
 export type View =
-  | { t: "meal"; id: string; day?: number }
-  | { t: "om"; sel?: OmSel; day?: number; n?: string }
+  | { t: "meal"; id: string; day?: string }
+  | { t: "om"; sel?: OmSel; day?: string; n?: string }
   | { t: "prep"; id: string }
-  | { t: "pickMeal"; day: number }
-  | { t: "pickOm"; day: number }
-  | { t: "newRecipe"; day?: number }
+  | { t: "newRecipe"; day?: string }
   | { t: "editRecipe"; id: string }
   | { t: "importRecipe" }
   | { t: "newPrep" }

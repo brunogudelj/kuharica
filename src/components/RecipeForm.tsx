@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { DAYS } from "../data";
+import { dayLabel } from "../logic/dates";
 import { allPreps, prepInv, prepName } from "../logic/preps";
 import { plural } from "../logic/format";
 import type { Carb, CustomRecipe } from "../data";
@@ -38,7 +38,7 @@ export function RecipeForm({
   draft?: CustomRecipe;
   onDone: () => void;
   /** novi recept odmah ide na taj dan u planu */
-  planDay?: number;
+  planDay?: string;
 }) {
   const { data, apply } = useApp();
   const init = existing ?? draft;
@@ -102,7 +102,7 @@ export function RecipeForm({
     };
     const res = saveRecipe(data, r);
     if (planDay != null && !existing)
-      apply(setPlanDay(res.data, planDay, r.id), `${r.n} je dodan i stavljen na ${DAYS[planDay].toLowerCase()}.`);
+      apply(setPlanDay(res.data, planDay, r.id), `${r.n} je dodan i stavljen na ${dayLabel(planDay)}.`);
     else apply(res.data, res.msg);
     onDone();
   };

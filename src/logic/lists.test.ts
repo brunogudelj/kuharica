@@ -29,3 +29,37 @@ describe("popisi u Postavkama", () => {
     expect(removeEntry(d, "cats", "fri").data).toBe(d);
   });
 });
+
+describe("stari tjedni plan → datumi", () => {
+  it("pon–ned zadnjeg tjedna postaju datumi, ciklus se čuva", async () => {
+    const { addDays, dkey } = await import("./dates");
+    const { cycleIx } = await import("../state/model");
+    const t = Date.UTC(2026, 9, 14, 12); // srijeda 14. 10. 2026.
+    const old = {
+      version: 1,
+      updatedAt: t,
+      plan: {
+        start: 1,
+        days: [
+          { r: "teriyaki", done: true },
+          { r: "losos", done: false },
+          { r: "", done: false },
+          { r: "", done: false },
+          { r: "", done: false },
+          { r: "", done: false },
+          { r: "", done: false },
+        ],
+        om: Array.from({ length: 7 }, () => ({ sel: { base: "protein", fill: [], carb: "nista" }, done: false })),
+        extra: { juha: Array.from({ length: 7 }, () => ({ r: "dod-miso", done: false })) },
+      },
+    };
+    const d = migrate(old);
+    const mon = "2026-10-12";
+    expect(d.plan.days[mon]).toEqual({ r: "teriyaki", done: true });
+    expect(d.plan.days[addDays(mon, 1)].r).toBe("losos");
+    expect(d.plan.extra.juha[addDays(mon, 6)].r).toBe("dod-miso");
+    // ponedjeljak je bio 2. dan ciklusa (start 1)
+    expect(cycleIx(d.plan, mon)).toBe(1);
+    expect(dkey(new Date(2026, 9, 12))).toBe(mon);
+  });
+});

@@ -1,10 +1,11 @@
 /* Demo podaci za isprobavanje dizajna: izmišljene cijene, kalorije, zalihe i troškovi.
  * Spremaju se odvojeno od pravih podataka i ne sinkroniziraju se. */
-import { DAYS, ITEMS, MAC } from "../data";
+import { ITEMS, MAC } from "../data";
 import type { AppData } from "../state/model";
 import { SLOT_KEYS, clone, defaultData } from "../state/model";
 import { autoFillPlan } from "./actions";
-import { monthKey, round, todayIx } from "./format";
+import { monthKey, round } from "./format";
+import { windowKeys } from "./dates";
 
 /** Ponovljiv slučajni broj (isti demo svaki put) */
 function rng(seed: number) {
@@ -232,18 +233,20 @@ export function makeDemo(now = Date.now()): AppData {
   }
   d.prepStock = { riza: 2, krumpir: 1, "teriyaki-umak": 3, "miso-paketi": 4, "egg-muffini": 6, "dumbir-kocke": 10 };
 
-  // plan: popunjen tjedan, prvi dani skuhani, po jedan prazan dan
-  const filled = autoFillPlan(d);
+  // plan: 14 dana od jučer, jučer sve pojedeno, jedan prazan ručak i jedan doručak kao recept
+  const day = 86400000;
+  let filled = autoFillPlan(d, now - day, r);
+  filled = autoFillPlan(filled, now, r);
   d.plan = clone(filled.plan);
-  const t = todayIx(now);
-  d.plan.days.forEach((x, ix) => (x.done = ix < t && !!x.r));
-  d.plan.om.forEach((x, ix) => (x.done = ix < t));
-  for (const k of SLOT_KEYS) d.plan.extra[k].forEach((x, ix) => (x.done = ix < t && !!(x.r || x.item)));
-  d.plan.days[Math.min(6, t + 2)] = { r: "", done: false };
-  d.plan.om[Math.min(6, t + 3)] = { sel: null, done: false };
+  const y = windowKeys(now)[0];
+  if (d.plan.days[y]) d.plan.days[y].done = true;
+  if (d.plan.om[y]) d.plan.om[y].done = true;
+  for (const k of SLOT_KEYS) if (d.plan.extra[k][y]) d.plan.extra[k][y].done = true;
+  const keys = windowKeys(now);
+  delete d.plan.days[keys[4]];
+  d.plan.om[keys[3]] = { sel: null, r: "tuna", done: false };
 
   // troškovi ovaj i prošli mjesec
-  const day = 86400000;
   const shops = ["K", "K", "K", "s-lidl", "s-dolac", "BIO", "AZ"];
   const notes: Record<string, string> = {
     K: "Tjedna kupovina",
@@ -259,10 +262,7 @@ export function makeDemo(now = Date.now()): AppData {
     const amount = round(shop === "K" ? 35 + r() * 30 : 6 + r() * 18);
     (d.costs[mk] ||= []).push({ id: "demo" + k, t: tt, shop, amount, note: notes[shop], est: false });
   }
-  d.hist = DAYS.slice(0, t)
-    .map((_, ix) => d.plan.days[ix])
-    .filter((x) => x.r)
-    .map((x, k) => ({ r: x.r, t: now - (k + 1) * day }));
+  d.hist = d.plan.days[y]?.r ? [{ r: d.plan.days[y].r, t: now - day }] : [];
   d.updatedAt = now;
   return d;
 }

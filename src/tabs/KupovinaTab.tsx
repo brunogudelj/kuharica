@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type { CatId, GrpId, Item } from "../data";
 import { useApp } from "../state/AppContext";
@@ -108,7 +108,7 @@ export function parseAmount(t: string, u: string): number {
   return v;
 }
 
-function ShopTr({ x }: { x: ShopRow }) {
+function ShopTr({ x, hide }: { x: ShopRow; hide?: "shop" | "cat" }) {
   const { data, apply } = useApp();
   const def = x.packs * x.i.pack;
   const [amt, setAmt] = useState("");
@@ -138,10 +138,12 @@ function ShopTr({ x }: { x: ShopRow }) {
         <span className="iname">{x.i.n}</span>
         <small className={x.forPlan ? "tag-plan" : "muted"}>{x.forPlan ? "za plan" : "dopuna zalihe"}</small>
       </td>
-      <td className="muted">{shopName(data, x.i.src)}</td>
-      <td>
-        <span className={`label l-${x.i.cat}`}>{catName(data, x.i.cat)}</span>
-      </td>
+      {hide !== "shop" && <td className="muted">{shopName(data, x.i.src)}</td>}
+      {hide !== "cat" && (
+        <td>
+          <span className={`label l-${x.i.cat}`}>{catName(data, x.i.cat)}</span>
+        </td>
+      )}
       <td className="txt num">{fmt(x.short, x.i.u)}</td>
       <td className="txt num">
         {x.packs} × {fmt(x.i.pack, x.i.u)}
@@ -596,65 +598,100 @@ export function KupovinaTab() {
       {tab === "today" ? (
         <Basket />
       ) : list.length ? (
-        <div className="tablewrap">
-          <table className="grid" aria-label="Popis za kupovinu">
-            <thead>
-              <tr>
-                <th className="c" style={{ width: 52 }}>
-                  <span className="sr-only">Kupljeno</span>
-                </th>
-                <SortTh k="n" sort={sort} setSort={setSort} className="sticky">
-                  Namirnica
-                </SortTh>
-                <SortTh k="shop" sort={sort} setSort={setSort}>
-                  Dućan
-                </SortTh>
-                <SortTh k="cat" sort={sort} setSort={setSort}>
-                  Spremanje
-                </SortTh>
-                <SortTh k="short" sort={sort} setSort={setSort} className="num">
-                  Fali
-                </SortTh>
-                <th className="num">Predloženo</th>
-                <th className="num">Kupio</th>
-                <th className="num">Platio</th>
-                <SortTh k="cost" sort={sort} setSort={setSort} className="num">
-                  Procjena
-                </SortTh>
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map(([k, arr]) => {
-                const sub = arr.reduce((t, x) => t + (x.cost ?? 0), 0);
-                return (
-                  <Fragment key={k || "sve"}>
-                    {group !== "none" && (
-                      <tr className="grouprow">
-                        <td />
-                        <td className="sticky">{groupName(k)}</td>
-                        <td colSpan={7}>
-                          {stavki(arr.length)}
-                          {sub ? ` · ≈ ${eur(sub)}` : ""}
-                        </td>
-                      </tr>
+        <>
+          {groups.map(([k, arr]) => {
+            const sub = arr.reduce((t, x) => t + (x.cost ?? 0), 0);
+            const hide = group === "shop" ? "shop" : group === "cat" ? "cat" : undefined;
+            const shopInfo = group === "shop" ? data.shops.find((x) => x.id === k) : undefined;
+            return (
+              <section
+                key={k || "sve"}
+                className="shopgroup"
+                aria-label={group === "none" ? "Popis za kupovinu" : groupName(k)}
+              >
+                {group !== "none" && (
+                  <header className="shopgroup-head">
+                    <h2>{groupName(k)}</h2>
+                    <span className="count">
+                      {stavki(arr.length)}
+                      {sub ? ` · ≈ ${eur(sub)}` : ""}
+                    </span>
+                    {shopInfo?.addr && <span className="count">{shopInfo.addr}</span>}
+                    {shopInfo?.url && (
+                      <a
+                        className="mini"
+                        href={shopInfo.url}
+                        target="_blank"
+                        rel="noopener"
+                        aria-label={`Web: ${shopInfo.n}`}
+                      >
+                        <Icon name="link" size={16} />
+                      </a>
                     )}
-                    {arr.map((x) => (
-                      <ShopTr key={x.i.id + ":" + x.packs + ":" + (price(data, x.i.id) ?? "")} x={x} />
-                    ))}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-          <div className="tblfoot">
-            <span>Kvačica sprema predloženu količinu, ili ono što upišeš u Kupio (npr. „512” ili „0,512 kg”).</span>
+                  </header>
+                )}
+                <div className="tablewrap">
+                  <table
+                    className="grid"
+                    aria-label={group === "none" ? "Popis za kupovinu" : `Kupovina: ${groupName(k)}`}
+                  >
+                    <thead>
+                      <tr>
+                        <th className="c" style={{ width: 52 }}>
+                          <span className="sr-only">Kupljeno</span>
+                        </th>
+                        <SortTh k="n" sort={sort} setSort={setSort} className="sticky">
+                          Namirnica
+                        </SortTh>
+                        {hide !== "shop" && (
+                          <SortTh k="shop" sort={sort} setSort={setSort}>
+                            Dućan
+                          </SortTh>
+                        )}
+                        {hide !== "cat" && (
+                          <SortTh k="cat" sort={sort} setSort={setSort}>
+                            Spremanje
+                          </SortTh>
+                        )}
+                        <SortTh k="short" sort={sort} setSort={setSort} className="num">
+                          Fali
+                        </SortTh>
+                        <th className="num">Predloženo</th>
+                        <th className="num">Kupio</th>
+                        <th className="num">Platio</th>
+                        <SortTh k="cost" sort={sort} setSort={setSort} className="num">
+                          Procjena
+                        </SortTh>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {arr.map((x) => (
+                        <ShopTr key={x.i.id + ":" + x.packs + ":" + (price(data, x.i.id) ?? "")} x={x} hide={hide} />
+                      ))}
+                    </tbody>
+                  </table>
+                  {sub > 0 && (
+                    <div className="tblfoot">
+                      <span />
+                      <span className="tblsum">
+                        Ukupno: <b>{eur(sub)}</b>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </section>
+            );
+          })}
+          <p className="sub">
+            Kvačica sprema predloženu količinu, ili ono što upišeš u Kupio (npr. „512” ili „0,512 kg”).
             {priced > 0 && (
-              <span className="tblsum">
-                Procjena: <b>{eur(total)}</b> ({priced} od {list.length} ima cijenu)
-              </span>
+              <>
+                {" "}
+                Sve zajedno ≈ <b>{eur(total)}</b> ({priced} od {list.length} ima cijenu).
+              </>
             )}
-          </div>
-        </div>
+          </p>
+        </>
       ) : full.length ? (
         <div className="empty">
           <b>Nijedna stavka ne odgovara filterima.</b>

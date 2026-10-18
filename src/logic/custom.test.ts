@@ -1,3 +1,4 @@
+import { todayKey } from "./dates";
 import { describe, expect, it } from "vitest";
 import { defaultData } from "../state/model";
 import type { AppData } from "../state/model";
@@ -34,9 +35,9 @@ describe("vlastita namirnica u omletu", () => {
   });
   it("pojeo sam skida vlastitu namirnicu, a kupovina je računa", () => {
     const { d, id } = withKobasice();
-    d.plan.om[0] = { sel: { base: "protein", fill: [id], carb: "nista" }, done: false };
+    d.plan.om[todayKey()] = { sel: { base: "protein", fill: [id], carb: "nista" }, done: false };
     expect(planNeeds(d)[id]).toBe(50);
-    const r = eatOmlet(d, 0).data;
+    const r = eatOmlet(d, todayKey()).data;
     expect(qty(r, id)).toBe(350);
   });
   it("iznenadi me može odabrati vlastiti nadjev", () => {
@@ -68,9 +69,9 @@ describe("vlastiti recept", () => {
     expect(r.custom).toBe(true);
     expect(r.ing[0]).toContain("Pileće kobasice");
     expect(r.ing).toContain("sol");
-    d.plan.days[0] = { r: rec.id, done: false };
+    d.plan.days[todayKey()] = { r: rec.id, done: false };
     expect(planNeeds(d)[id]).toBe(150);
-    d = cook(d, rec.id, 0).data;
+    d = cook(d, rec.id, todayKey()).data;
     expect(qty(d, id)).toBe(250);
     expect(qty(d, "basmati")).toBe(895);
     d = removeRecipe(d, rec.id).data;
@@ -91,7 +92,7 @@ describe("vlastiti recept", () => {
     expect(recipeOf(back, "r-x-1")!.n).toBe("X");
     expect(back.items.custom[0].om!.role).toBe("prot");
     const filled = autoFillPlan(back);
-    expect(filled.plan.days.some((x) => x.r)).toBe(true);
+    expect(Object.values(filled.plan.days).some((x) => x.r)).toBe(true);
     expect(shopping(filled).length).toBeGreaterThan(0);
   });
 });

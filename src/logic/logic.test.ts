@@ -2,9 +2,22 @@ import { describe, expect, it } from "vitest";
 import { DAILY, DAILY_COOK, ITEMS, OM_PRESETS, PREP_INV, RBY, RECIPES, REC_USE_PREP } from "../data";
 import { defaultData } from "../state/model";
 import type { AppData } from "../state/model";
-import { addReceipt, buy, cook, eatOmlet, makePrep, newWeek, setBreakfastRecipe, setSlot, toggleSlot } from "./actions";
+import {
+  addReceipt,
+  autoFillPlan,
+  buy,
+  cook,
+  eatOmlet,
+  makePrep,
+  setBreakfastRecipe,
+  setCycleToday,
+  setSlot,
+  toggleSlot,
+} from "./actions";
+import { addDays, aheadKeys, todayKey, windowKeys } from "./dates";
+import { cycleIx } from "../state/model";
 import { effUse, planNeeds, qty, shopping, status } from "./inventory";
-import { autoOmWeek, omMacros, omNorm, validOm } from "./omlet";
+import { omMacros, validOm } from "./omlet";
 import { niceNum, plural, scaleText } from "./format";
 import { costSummary } from "./costs";
 
@@ -26,10 +39,10 @@ describe("pravilo 1: osnova je 1,5 porcija", () => {
   });
   it("plan (faktor 1) skida cijeli recept od 1,5 porcija", () => {
     const d = full();
-    d.plan.days[0] = { r: "teriyaki", done: false };
-    const r = cook(d, "teriyaki", 0).data;
+    d.plan.days[todayKey()] = { r: "teriyaki", done: false };
+    const r = cook(d, "teriyaki", todayKey()).data;
     close(qty(d, "piletina") - qty(r, "piletina"), 250);
-    expect(r.plan.days[0].done).toBe(true);
+    expect(r.plan.days[todayKey()].done).toBe(true);
   });
 });
 
@@ -41,23 +54,23 @@ describe("pravilo 2: dnevni dodaci se ne skaliraju", () => {
     close(qty(d, "posni") - qty(a, "posni"), DAILY_COOK.posni);
     close(qty(d, "posni") - qty(b, "posni"), DAILY_COOK.posni);
     close(qty(d, "miso") - qty(b, "miso"), 0);
-    const j = toggleSlot(d, "juha", 0).data;
+    const j = toggleSlot(d, "juha", todayKey()).data;
     close(qty(d, "miso") - qty(j, "miso"), DAILY.miso);
-    expect(j.plan.extra.juha[0].done).toBe(true);
+    expect(j.plan.extra.juha[todayKey()].done).toBe(true);
   });
 
   it("voće u slotu skida komad sa zalihe, doručak može biti recept", () => {
     let d = full();
     d.stock.banana = { qty: 3, price: null };
-    d = setSlot(d, "voce1", 2, { item: "banana", qty: 1 });
+    d = setSlot(d, "voce1", addDays(todayKey(), 2), { item: "banana", qty: 1 });
     expect(planNeeds(d).banana).toBe(1);
-    const r = toggleSlot(d, "voce1", 2).data;
+    const r = toggleSlot(d, "voce1", addDays(todayKey(), 2)).data;
     expect(qty(r, "banana")).toBe(2);
-    d = setBreakfastRecipe(d, 0, "teriyaki");
-    const e = eatOmlet(d, 0).data;
+    d = setBreakfastRecipe(d, todayKey(), "teriyaki");
+    const e = eatOmlet(d, todayKey()).data;
     // 1 porcija od recepta za 1,5 porcija
     close(qty(d, "piletina") - qty(e, "piletina"), 250 / 1.5);
-    expect(e.plan.om[0].done).toBe(true);
+    expect(e.plan.om[todayKey()].done).toBe(true);
   });
 });
 
@@ -106,13 +119,17 @@ describe("pravilo 3: pripremljeno se ne oduzima dvaput", () => {
 describe("pravilo 4: kupovina", () => {
   it("zbraja neskuhane dane, omlete i minimum pa zaokružuje na pakiranja", () => {
     const d = defaultData();
-    d.plan.days[0] = { r: "teriyaki", done: false };
-    d.plan.days[1] = { r: "teriyaki", done: true };
+    d.plan.days[todayKey()] = { r: "teriyaki", done: false };
+    d.plan.days[addDays(todayKey(), 1)] = { r: "teriyaki", done: true };
+    // izvan razdoblja popisa (7 dana) ne ulazi
+    d.plan.days[addDays(todayKey(), 9)] = { r: "teriyaki", done: false };
     const need = planNeeds(d);
     // jedan neskuhan teriyaki = 250 g piletine
     close(need.piletina, 250);
-    // 7 nepojedenih omleta u planu traže jaja
-    const eggs = d.plan.om.reduce((s, o) => s + (o.sel!.base === "klasik" ? 3 : o.sel!.base === "protein" ? 2 : 1), 0);
+    // nepojedeni omleti u sljedećih 7 dana traže jaja
+    const eggs = aheadKeys(Date.now(), 7)
+      .map((k) => d.plan.om[k])
+      .reduce((s, o) => s + (o.sel!.base === "klasik" ? 3 : o.sel!.base === "protein" ? 2 : 1), 0);
     close(need.jaja, eggs);
     const row = shopping(d).find((x) => x.i.id === "piletina")!;
     // potreba 250 + minimum 500 = 750 → 1 pakiranje od 1000 g
@@ -122,7 +139,7 @@ describe("pravilo 4: kupovina", () => {
 
   it("pojedeni omleti i skuhani dani ne ulaze u kupovinu", () => {
     const d = defaultData();
-    d.plan.om = d.plan.om.map((o) => ({ ...o, done: true }));
+    for (const k of Object.keys(d.plan.om)) d.plan.om[k].done = true;
     expect(planNeeds(d).jaja ?? 0).toBe(0);
   });
 
@@ -204,19 +221,24 @@ describe("pravilo 10: hrvatska množina", () => {
 });
 
 describe("omleti", () => {
-  it("novi tjedan omleta nema ponavljanja i čuva pojedene dane", () => {
+  it("popuni prazne dane: 14 dana od jučer, ručno odabrano i pojedeno ostaje", () => {
     const d = defaultData();
-    d.plan.om[0].done = true;
-    let seed = 1;
-    const rng = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
-    const w = autoOmWeek(d, true, rng);
-    expect(new Set(w.map((o) => omNorm(o.sel!))).size).toBe(7);
-    expect(w[0]).toEqual(d.plan.om[0]);
+    d.plan.om = {};
+    d.plan.om[todayKey()] = { sel: OM_PRESETS[3].sel, done: true };
+    d.plan.days[addDays(todayKey(), 1)] = { r: "losos", done: false };
+    const f = autoFillPlan(d);
+    const ahead = windowKeys().slice(1);
+    expect(ahead.every((k) => f.plan.om[k]?.sel)).toBe(true);
+    expect(ahead.every((k) => f.plan.days[k]?.r)).toBe(true);
+    expect(f.plan.om[todayKey()]).toEqual(d.plan.om[todayKey()]);
+    expect(f.plan.days[addDays(todayKey(), 1)].r).toBe("losos");
+    // jučer se ne popunjava
+    expect(f.plan.days[windowKeys()[0]]).toBeUndefined();
   });
   it("pojeo sam skida sastojke i označi dan", () => {
     const d = full();
-    const r = eatOmlet(d, 0).data;
-    expect(r.plan.om[0].done).toBe(true);
+    const r = eatOmlet(d, todayKey()).data;
+    expect(r.plan.om[todayKey()].done).toBe(true);
     expect(qty(r, "jaja")).toBeLessThan(qty(d, "jaja"));
   });
   it("gotove kombinacije imaju smislene proteine", () => {
@@ -230,9 +252,11 @@ describe("omleti", () => {
     expect(validOm({ base: "nema", fill: [], carb: "nista" }).base).toBe("protein");
     expect(validOm({ base: "klasik", fill: ["spinat", "xxx"], carb: "nista" }).fill).toEqual(["spinat"]);
   });
-  it("novi tjedan pomiče ciklus za 7 dana", () => {
-    const d = defaultData();
-    expect(newWeek(d).plan.start).toBe(2);
+  it("ciklus po datumu: danas je odabrani dan, dan ciklusa raste svaki dan", () => {
+    const d = setCycleToday(defaultData(), 2);
+    expect(cycleIx(d.plan, todayKey())).toBe(2);
+    expect(cycleIx(d.plan, addDays(todayKey(), 3))).toBe(0);
+    expect(cycleIx(d.plan, addDays(todayKey(), -1))).toBe(1);
   });
 });
 

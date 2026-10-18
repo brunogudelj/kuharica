@@ -1,16 +1,19 @@
 import { Fragment, useState } from "react";
-import { CYCLE, DAYS, DEFAULT_OM, OM_PRESETS } from "../data";
+import type { ReactNode } from "react";
+import { CYCLE, DEFAULT_OM, OM_PRESETS } from "../data";
 import { useApp } from "../state/AppContext";
-import { SLOT_KEYS, clone } from "../state/model";
+import { SLOT_KEYS, clone, cycleIx, getDay, getOm, getSlot } from "../state/model";
+import { dayDate, dayLabel, dayName, todayKey, windowKeys } from "../logic/dates";
 import type { AppData, SlotKey } from "../state/model";
 import { costOf, dayCost, missingFor, qty, shopping, slotUse, weekNeeds } from "../logic/inventory";
 import type { NeedRow } from "../logic/inventory";
 import {
   autoFillPlan,
+  clearAhead,
   cook,
   defaultFruitQty,
   eatOmlet,
-  newWeek,
+  setCycleToday,
   setBreakfastRecipe,
   setOmDay,
   setPlanDay,
@@ -22,11 +25,10 @@ import { allRecipes, recipeName, recipeOf } from "../logic/recipes";
 import { allItems, itemOf } from "../logic/items";
 import { omMacros, omMissing, omName, omUse } from "../logic/omlet";
 import { mealEntry } from "../logic/feed";
-import { eur, fmt, stavki, todayIx } from "../logic/format";
+import { eur, fmt, stavki } from "../logic/format";
 import { shopIndex, shopName } from "../logic/shops";
 import { Icon } from "../components/icons";
 import { usePanel } from "../components/Panel";
-import { dateOf } from "../components/RecipeViews";
 import { SortTh } from "../components/Cells";
 import { FGroup, Page } from "../components/Page";
 
@@ -216,33 +218,91 @@ function PickSelect({
   );
 }
 
+/** Popunjen slot u kalendaru: naziv (klik otvara recept), opis, oznaka stanja, zamjena, brisanje, kvačica */
+function Cell({
+  cls,
+  name,
+  tag,
+  meta,
+  flag,
+  flagCls,
+  onOpen,
+  swap,
+  onRemove,
+  done,
+  onTick,
+  tickLabel,
+}: {
+  cls: string;
+  name: string;
+  tag?: string;
+  meta?: string;
+  flag: string;
+  flagCls: string;
+  onOpen?: () => void;
+  swap: ReactNode;
+  onRemove: () => void;
+  done: boolean;
+  onTick: () => void;
+  tickLabel: string;
+}) {
+  return (
+    <div className={"cell slot " + cls + (done ? " done" : "")}>
+      {tag && <span className="ctag">{tag}</span>}
+      {onOpen ? (
+        <button type="button" className="cname linkname" title="Otvori recept" onClick={onOpen}>
+          {name}
+        </button>
+      ) : (
+        <span className="cname">{name}</span>
+      )}
+      {meta && <span className="cmeta">{meta}</span>}
+      {flag && <span className={"flag " + flagCls}>{flag}</span>}
+      <div className="crow">
+        {!done && swap}
+        {!done && (
+          <button type="button" className="mini" aria-label={`Makni: ${name}`} onClick={onRemove}>
+            <Icon name="close" size={14} />
+          </button>
+        )}
+        <button type="button" className="tick-btn small" aria-pressed={done} aria-label={tickLabel} onClick={onTick}>
+          <Icon name="check" size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function PlanTab() {
   const { data, apply, update } = useApp();
   const { open } = usePanel();
   const { plan } = data;
-  const tix = todayIx();
-  const next = ((plan.start || 0) + 7) % 5;
+  const now = Date.now();
+  const keys = windowKeys(now);
+  const today = todayKey(now);
+  const ahead = keys.filter((k) => k >= today);
+  const shopDays = data.settings.shopDays || 7;
 
-  const toggleCook = (ix: number) => {
-    const day = plan.days[ix];
+  const toggleCook = (k: string) => {
+    const day = getDay(plan, k);
     if (day.done)
       return update((d) => {
         const n = clone(d);
-        n.plan.days[ix] = { r: day.r, done: false };
+        n.plan.days[k] = { r: day.r, done: false };
         return n;
       });
-    const res = cook(data, day.r, ix);
+    const res = cook(data, day.r, k);
     apply(res.data, res.msg);
   };
-  const toggleOm = (ix: number) => {
-    const o = plan.om[ix];
+  const toggleOm = (k: string) => {
+    const o = getOm(plan, k);
     if (o.done)
       return update((d) => {
         const n = clone(d);
-        n.plan.om[ix] = { ...o, done: false };
+        n.plan.om[k] = { ...o, done: false };
         return n;
       });
-    const r = eatOmlet(data, ix);
+    const r = eatOmlet(data, k);
     apply(r.data, r.msg);
   };
 
@@ -273,49 +333,40 @@ export function PlanTab() {
     ],
     ["Ostalo voće", fruits.filter((i) => !(qty(data, i.id) > 0)).map((i): Opt => [i.id, i.n])],
   ];
-  const pickBreakfast = (ix: number, v: string) => {
-    if (v === "build") return open({ t: "om", sel: DEFAULT_OM, day: ix });
-    if (v.startsWith("om:"))
-      return apply(
-        setOmDay(data, ix, OM_PRESETS[Number(v.slice(3))].sel),
-        `Doručak za ${DAYS[ix].toLowerCase()}: ${OM_PRESETS[Number(v.slice(3))].n}.`,
-      );
+  const pickBreakfast = (k: string, v: string) => {
+    if (v === "build") return open({ t: "om", sel: DEFAULT_OM, day: k });
+    if (v.startsWith("om:")) {
+      const p = OM_PRESETS[Number(v.slice(3))];
+      return apply(setOmDay(data, k, p.sel), `Doručak za ${dayLabel(k)}: ${p.n}.`);
+    }
     const id = v.slice(2);
-    apply(setBreakfastRecipe(data, ix, id), `Doručak za ${DAYS[ix].toLowerCase()}: ${recipeName(data, id)}.`);
+    apply(setBreakfastRecipe(data, k, id), `Doručak za ${dayLabel(k)}: ${recipeName(data, id)}.`);
   };
-  const pickFruit = (k: SlotKey, ix: number, id: string) => {
+  const pickFruit = (s: SlotKey, k: string, id: string) => {
     const i = itemOf(data, id);
-    if (i) apply(setSlot(data, k, ix, { item: id, qty: defaultFruitQty(i) }), `${i.n} za ${DAYS[ix].toLowerCase()}.`);
+    if (i) apply(setSlot(data, s, k, { item: id, qty: defaultFruitQty(i) }), `${i.n} za ${dayLabel(k)}.`);
   };
 
-  const planned = plan.days.filter((d) => d.r).length;
-  const cooked = plan.days.filter((d) => d.r && d.done).length;
-  const bfPlanned = plan.om.filter((o) => o.sel || o.r);
-  const eaten = bfPlanned.filter((o) => o.done).length;
-  const omPlanned = plan.om.filter((o) => o.sel && !o.r);
-  const avgProt = omPlanned.length
-    ? Math.round(omPlanned.reduce((s, o) => s + omMacros(data, o.sel!, 1).p, 0) / omPlanned.length)
-    : 0;
-  const pc0 = {};
+  // brojke za razdoblje popisa za kupovinu (od danas)
+  const horizon = ahead.slice(0, shopDays);
+  const lunches = horizon.map((k) => getDay(plan, k)).filter((d) => d.r);
+  const cooked = lunches.filter((d) => d.done).length;
+  const bfs = horizon.map((k) => getOm(plan, k)).filter((o) => o.sel || o.r);
+  const eaten = bfs.filter((o) => o.done).length;
+  const oms = bfs.filter((o) => o.sel && !o.r);
+  const avgProt = oms.length ? Math.round(oms.reduce((s, o) => s + omMacros(data, o.sel!, 1).p, 0) / oms.length) : 0;
+  const extras = horizon.flatMap((k) => SLOT_KEYS.map((s) => getSlot(plan, s, k))).filter((x) => x.r || x.item);
   const weekCost =
-    plan.days.reduce((s, d) => s + (d.r ? dayCost(data, d.r).meals : 0), 0) +
-    plan.om.reduce(
+    lunches.reduce((s, d) => s + dayCost(data, d.r).meals, 0) +
+    bfs.reduce(
       (s, o) =>
         s +
-        (o.r
-          ? costOf(data, slotUse(data, { r: o.r, done: false }, { ...pc0 }).use).c
-          : o.sel
-            ? costOf(data, omUse(data, o.sel, 1)).c
-            : 0),
+        (o.r ? costOf(data, slotUse(data, { r: o.r, done: false }, {}).use).c : costOf(data, omUse(data, o.sel!, 1)).c),
       0,
     ) +
-    SLOT_KEYS.reduce(
-      (s, k) => s + plan.extra[k].reduce((t, x) => t + (x.item ? costOf(data, slotUse(data, x, {}).use).c : 0), 0),
-      0,
-    );
-  const extraDone = SLOT_KEYS.reduce((s, k) => s + plan.extra[k].filter((x) => x.done).length, 0);
-  const extraPlanned = SLOT_KEYS.reduce((s, k) => s + plan.extra[k].filter((x) => x.r || x.item).length, 0);
+    extras.reduce((s, x) => s + (x.item ? costOf(data, slotUse(data, x, {}).use).c : 0), 0);
   const shop = shopping(data).length;
+  const cyc = cycleIx(plan, today);
 
   const tab = data.ui.planView ?? "cal";
   const setView = (v: "cal" | "needs") =>
@@ -337,22 +388,16 @@ export function PlanTab() {
     <>
       <div className="fblock">
         <label htmlFor="cycleStart" className="flabel">
-          Ciklus kreće od
+          Danas je u ciklusu
         </label>
         <select
           id="cycleStart"
-          value={String(plan.start || 0)}
-          onChange={(e) =>
-            update((d) => {
-              const n = clone(d);
-              n.plan.start = Number(e.target.value);
-              return n;
-            })
-          }
+          value={String(cyc)}
+          onChange={(e) => apply(setCycleToday(data, Number(e.target.value)), "Ciklus je pomaknut.")}
         >
           {CYCLE.map((c, i) => (
             <option key={i} value={i}>
-              {i + 1}. {c}
+              {i + 1}. dan: {c}
             </option>
           ))}
         </select>
@@ -366,43 +411,61 @@ export function PlanTab() {
         <button
           className="btn ghost wide"
           type="button"
-          onClick={() => apply(newWeek(data), "Novi tjedan, ciklus pomaknut.")}
+          onClick={() => apply(clearAhead(data), "Plan od danas je očišćen.")}
         >
-          Novi tjedan
+          Očisti plan od danas
         </button>
-        <p className="fhint">
-          Sljedeći tjedan kreće od {next + 1}. dana ciklusa ({CYCLE[next].toLowerCase()}).
-        </p>
+        <label htmlFor="shopDays" className="flabel">
+          Popis za kupovinu pokriva
+        </label>
+        <select
+          id="shopDays"
+          value={String(shopDays)}
+          onChange={(e) =>
+            update((d) => {
+              const n = clone(d);
+              n.settings.shopDays = Number(e.target.value);
+              return n;
+            })
+          }
+        >
+          {[3, 5, 7, 10, 13].map((n) => (
+            <option key={n} value={n}>
+              {n} dana od danas
+            </option>
+          ))}
+        </select>
+        <p className="fhint">Plan ide 14 dana: jučer, danas i 12 dana unaprijed. Sutra se pomakne za jedan dan.</p>
       </div>
 
-      <FGroup title="Ovaj tjedan" open>
+      <FGroup title={`Sljedećih ${shopDays} dana`} open>
         <dl className="kv">
           <div>
             <dt>Ručak i večera</dt>
             <dd>
-              <b>{cooked}</b>/{planned} skuhano
-              {planned < 7 && <small> · {7 - planned} prazno</small>}
+              <b>{cooked}</b>/{lunches.length} skuhano
+              {lunches.length < shopDays && <small> · {shopDays - lunches.length} prazno</small>}
             </dd>
           </div>
           <div>
             <dt>Doručak</dt>
             <dd>
-              <b>{eaten}</b>/{bfPlanned.length} pojedeno
-              {bfPlanned.length < 7 && <small> · {7 - bfPlanned.length} prazno</small>}
+              <b>{eaten}</b>/{bfs.length} pojedeno
+              {bfs.length < shopDays && <small> · {shopDays - bfs.length} prazno</small>}
             </dd>
           </div>
           <div>
             <dt>Juha, salata i voće</dt>
             <dd>
-              <b>{extraDone}</b>/{extraPlanned} pojedeno
+              <b>{extras.filter((x) => x.done).length}</b>/{extras.length} pojedeno
             </dd>
           </div>
           <div>
             <dt>Protein u omletu</dt>
-            <dd>{omPlanned.length ? <b>{avgProt} g</b> : "–"}</dd>
+            <dd>{oms.length ? <b>{avgProt} g</b> : "–"}</dd>
           </div>
           <div>
-            <dt>Tjedan košta</dt>
+            <dt>Plan košta</dt>
             <dd>{weekCost > 0 ? <b>{eur(weekCost)}</b> : <small>upiši cijene u Zalihi</small>}</dd>
           </div>
           <div>
@@ -435,17 +498,25 @@ export function PlanTab() {
     </>
   );
 
+  const rowHead = (title: string, sub: string, small = false) => (
+    <div className={"rh" + (small ? " small" : "")} role="rowheader">
+      {title}
+      <small>{sub}</small>
+    </div>
+  );
+  const colCls = (k: string) => (k === today ? " today" : k < today ? " past" : "");
+
   return (
     <Page
       id="plan"
       title="Plan"
       count={
         <>
-          {dateOf(0)} – {dateOf(6)}
+          {dayDate(keys[0])} – {dayDate(keys[keys.length - 1])}
         </>
       }
       filters={side}
-      filterTitle="Tjedan"
+      filterTitle="Plan"
       tabs={
         <div className="seg" role="tablist" aria-label="Prikaz plana">
           <button
@@ -464,7 +535,7 @@ export function PlanTab() {
             aria-pressed={tab === "needs"}
             onClick={() => setView("needs")}
           >
-            Namirnice za tjedan <small>{needs.length}</small>
+            Namirnice za {shopDays} dana <small>{needs.length}</small>
             {needShort > 0 && <span className="badge">{needShort}</span>}
           </button>
         </div>
@@ -475,23 +546,22 @@ export function PlanTab() {
       ) : (
         <>
           <div className="calwrap">
-            <div className="cal" role="grid" aria-label="Tjedni kalendar obroka">
+            <div className="cal cal14" role="grid" aria-label="Kalendar obroka, 14 dana">
               <div className="corner" />
-              {DAYS.map((d, ix) => (
-                <div key={d} className={"ch" + (ix === tix ? " today" : "")} role="columnheader">
-                  <b>{d}</b>
-                  <small>{ix === tix ? "danas" : dateOf(ix)}</small>
+              {keys.map((k) => (
+                <div key={k} className={"ch" + colCls(k)} role="columnheader">
+                  <b>{k === today ? "Danas" : k < today ? "Jučer" : dayName(k)}</b>
+                  <small>{dayDate(k)}</small>
                 </div>
               ))}
 
-              <div className="rh" role="rowheader">
-                Doručak<small>bilo koji recept</small>
-              </div>
-              {plan.om.map((o, ix) => {
+              {rowHead("Doručak", "bilo koji recept")}
+              {keys.map((k) => {
+                const o = getOm(plan, k);
                 if (!o.sel && !o.r)
                   return (
-                    <div key={"o" + ix} role="gridcell">
-                      <PickSelect label="Dodaj doručak" groups={breakfastGroups} onPick={(v) => pickBreakfast(ix, v)} />
+                    <div key={"o" + k} role="gridcell" className={colCls(k)}>
+                      <PickSelect label="Dodaj doručak" groups={breakfastGroups} onPick={(v) => pickBreakfast(k, v)} />
                     </div>
                   );
                 const isOm = !!o.sel && !o.r;
@@ -500,66 +570,34 @@ export function PlanTab() {
                 const e = !isOm ? mealEntry(data, o.r!) : null;
                 const miss = o.done ? [] : isOm ? omMissing(data, o.sel!) : missingFor(data, o.r!, 1 / 1.5);
                 return (
-                  <div key={"o" + ix} role="gridcell">
-                    <div
-                      className={
-                        "cell " +
-                        (isOm ? "cc-Omlet" : `cc-${recipeOf(data, o.r!)?.c ?? "Ostalo"}`) +
-                        (o.done ? " done" : "")
-                      }
-                    >
-                      <div className="ctop">
-                        {isOm && <span className="ctag">omlet</span>}
-                        <button
-                          type="button"
-                          className="mini"
-                          aria-label={`Recept: ${name}`}
-                          onClick={() => (isOm ? open({ t: "om", day: ix }) : open({ t: "meal", id: o.r! }))}
-                        >
-                          <Icon name="info" size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          className="mini"
-                          aria-label={`Makni doručak: ${DAYS[ix]}`}
-                          onClick={() =>
-                            apply(setOmDay(data, ix, null), `Doručak maknut s dana ${DAYS[ix].toLowerCase()}.`)
-                          }
-                        >
-                          <Icon name="close" size={16} />
-                        </button>
-                      </div>
-                      <span className="cname">{name}</span>
-                      <span className="cmeta">
-                        {m
-                          ? `${m.p} g proteina · ${m.k} kcal`
-                          : e && e.kcal != null
+                  <div key={"o" + k} role="gridcell" className={colCls(k)}>
+                    <Cell
+                      cls={isOm ? "s-om" : `s-${recipeOf(data, o.r!)?.c ?? "Ostalo"}`}
+                      name={name}
+                      tag={isOm ? "omlet" : undefined}
+                      meta={
+                        m
+                          ? `${m.p} g prot. · ${m.k} kcal`
+                          : e?.kcal != null
                             ? `${Math.round((e.kcal * 2) / 1.5)} kcal · 1 porcija`
-                            : "1 porcija"}
-                      </span>
-                      <div className="crow">
-                        <span className={"flag " + (o.done ? "done" : miss.length ? "miss" : "ready")}>
-                          {o.done ? "" : miss.length ? `fali ${miss.length}` : "imaš sve"}
-                        </span>
-                        {!o.done && (
-                          <PickSelect
-                            swap
-                            label={`Zamijeni doručak: ${DAYS[ix]}`}
-                            groups={breakfastGroups}
-                            onPick={(v) => pickBreakfast(ix, v)}
-                          />
-                        )}
-                        <button
-                          type="button"
-                          className="tick-btn"
-                          aria-pressed={o.done}
-                          aria-label={`${o.done ? "Pojedeno" : "Pojeo sam"}: ${DAYS[ix]}, ${name}`}
-                          onClick={() => toggleOm(ix)}
-                        >
-                          <Icon name="check" size={16} />
-                        </button>
-                      </div>
-                    </div>
+                            : "1 porcija"
+                      }
+                      flag={o.done ? "" : miss.length ? `fali ${miss.length}` : "imaš sve"}
+                      flagCls={o.done ? "done" : miss.length ? "miss" : "ready"}
+                      onOpen={() => (isOm ? open({ t: "om", day: k }) : open({ t: "meal", id: o.r! }))}
+                      swap={
+                        <PickSelect
+                          swap
+                          label={`Zamijeni doručak: ${dayLabel(k)}`}
+                          groups={breakfastGroups}
+                          onPick={(v) => pickBreakfast(k, v)}
+                        />
+                      }
+                      onRemove={() => apply(setOmDay(data, k, null), `Doručak maknut (${dayLabel(k)}).`)}
+                      done={o.done}
+                      onTick={() => toggleOm(k)}
+                      tickLabel={`${o.done ? "Pojedeno" : "Pojeo sam"}: ${dayLabel(k)}, ${name}`}
+                    />
                   </div>
                 );
               })}
@@ -568,21 +606,20 @@ export function PlanTab() {
                 if (row === "lunch")
                   return (
                     <Fragment key="lunch">
-                      <div className="rh" role="rowheader">
-                        Ručak i večera<small>1,5 porcija</small>
-                      </div>
-                      {plan.days.map((d, ix) => {
-                        const cyc = CYCLE[((plan.start || 0) + ix) % 5];
+                      {rowHead("Ručak i večera", "1,5 porcija")}
+                      {keys.map((k) => {
+                        const cy = CYCLE[cycleIx(plan, k)];
+                        const d = getDay(plan, k);
                         const r = d.r ? recipeOf(data, d.r) : undefined;
-                        const groups = byCarb(mains).sort(([a], [b]) => (a === cyc ? -1 : b === cyc ? 1 : 0));
+                        const groups = byCarb(mains).sort(([a], [b]) => (a === cy ? -1 : b === cy ? 1 : 0));
                         const pick = (id: string) =>
-                          apply(setPlanDay(data, ix, id), `${recipeName(data, id)} za ${DAYS[ix].toLowerCase()}.`);
+                          apply(setPlanDay(data, k, id), `${recipeName(data, id)} za ${dayLabel(k)}.`);
                         if (!r)
                           return (
-                            <div key={"r" + ix} role="gridcell">
+                            <div key={"r" + k} role="gridcell" className={colCls(k)}>
                               <PickSelect
                                 label="Dodaj recept"
-                                hint={`ciklus: ${cyc.toLowerCase()}`}
+                                hint={`ciklus: ${cy.toLowerCase()}`}
                                 groups={groups}
                                 onPick={pick}
                               />
@@ -591,93 +628,62 @@ export function PlanTab() {
                         const m = !d.done ? missingFor(data, d.r) : [];
                         const e = mealEntry(data, d.r);
                         return (
-                          <div key={"r" + ix} role="gridcell">
-                            <div className={`cell cc-${r.c}` + (d.done ? " done" : "")}>
-                              <div className="ctop">
-                                <button
-                                  type="button"
-                                  className="mini"
-                                  aria-label={`Recept: ${r.n}`}
-                                  onClick={() => open({ t: "meal", id: r.id, day: ix })}
-                                >
-                                  <Icon name="info" size={16} />
-                                </button>
-                                <button
-                                  type="button"
-                                  className="mini"
-                                  aria-label={`Makni recept: ${DAYS[ix]}`}
-                                  onClick={() =>
-                                    apply(setPlanDay(data, ix, ""), `${r.n} maknut s dana ${DAYS[ix].toLowerCase()}.`)
-                                  }
-                                >
-                                  <Icon name="close" size={16} />
-                                </button>
-                              </div>
-                              <span className="cname">{r.n}</span>
-                              {e && (e.kcal != null || e.time != null) && (
-                                <span className="cmeta">
-                                  {e.kcal != null ? `${e.kcal} kcal · ${e.p} g prot.` : ""}
-                                  {e.kcal != null && e.time != null ? " · " : ""}
-                                  {e.time != null ? `${e.time} min` : ""}
-                                </span>
-                              )}
-                              <div className="crow">
-                                <span className={"flag " + (d.done ? "done" : m.length ? "miss" : "ready")}>
-                                  {d.done ? "" : m.length ? `fali ${m.length}` : "imaš sve"}
-                                </span>
-                                {!d.done && (
-                                  <PickSelect
-                                    swap
-                                    label={`Zamijeni recept: ${DAYS[ix]}`}
-                                    groups={groups}
-                                    onPick={pick}
-                                  />
-                                )}
-                                <button
-                                  type="button"
-                                  className="tick-btn"
-                                  aria-pressed={d.done}
-                                  aria-label={`${d.done ? "Skuhano" : "Skuhaj"}: ${DAYS[ix]}, ${r.n}`}
-                                  onClick={() => toggleCook(ix)}
-                                >
-                                  <Icon name="check" size={16} />
-                                </button>
-                              </div>
-                            </div>
+                          <div key={"r" + k} role="gridcell" className={colCls(k)}>
+                            <Cell
+                              cls={`s-${r.c}`}
+                              name={r.n}
+                              meta={
+                                e && e.kcal != null
+                                  ? `${e.kcal} kcal · ${e.p} g prot.${e.time != null ? ` · ${e.time} min` : ""}`
+                                  : e?.time != null
+                                    ? `${e.time} min`
+                                    : undefined
+                              }
+                              flag={d.done ? "" : m.length ? `fali ${m.length}` : "imaš sve"}
+                              flagCls={d.done ? "done" : m.length ? "miss" : "ready"}
+                              onOpen={() => open({ t: "meal", id: r.id, day: k })}
+                              swap={
+                                <PickSelect
+                                  swap
+                                  label={`Zamijeni recept: ${dayLabel(k)}`}
+                                  groups={groups}
+                                  onPick={pick}
+                                />
+                              }
+                              onRemove={() => apply(setPlanDay(data, k, ""), `${r.n} maknut (${dayLabel(k)}).`)}
+                              done={d.done}
+                              onTick={() => toggleCook(k)}
+                              tickLabel={`${d.done ? "Skuhano" : "Skuhaj"}: ${dayLabel(k)}, ${r.n}`}
+                            />
                           </div>
                         );
                       })}
                     </Fragment>
                   );
-                const k: SlotKey = row;
-                const isFruit = k === "voce1" || k === "voce2";
-                const groups = isFruit ? fruitGroups : sideGroups(k as "juha" | "salata");
-                const title = k === "juha" ? "Juha" : k === "salata" ? "Salata" : "Voće";
+                const s: SlotKey = row;
+                const isFruit = s === "voce1" || s === "voce2";
+                const groups = isFruit ? fruitGroups : sideGroups(s as "juha" | "salata");
+                const title = s === "juha" ? "Juha" : s === "salata" ? "Salata" : "Voće";
                 const sub =
-                  k === "juha"
+                  s === "juha"
                     ? "prije ručka"
-                    : k === "salata"
+                    : s === "salata"
                       ? "uz ručak i večeru"
-                      : k === "voce1"
+                      : s === "voce1"
                         ? "1. komad"
                         : "2. komad";
                 return (
-                  <Fragment key={k}>
-                    <div className="rh small" role="rowheader">
-                      {title}
-                      <small>{sub}</small>
-                    </div>
-                    {plan.extra[k].map((x, ix) => {
+                  <Fragment key={s}>
+                    {rowHead(title, sub, true)}
+                    {keys.map((k) => {
+                      const x = getSlot(plan, s, k);
                       const pick = (v: string) =>
                         isFruit
-                          ? pickFruit(k, ix, v)
-                          : apply(
-                              setSlot(data, k, ix, { r: v }),
-                              `${recipeName(data, v)} za ${DAYS[ix].toLowerCase()}.`,
-                            );
+                          ? pickFruit(s, k, v)
+                          : apply(setSlot(data, s, k, { r: v }), `${recipeName(data, v)} za ${dayLabel(k)}.`);
                       if (!x.r && !x.item)
                         return (
-                          <div key={k + ix} role="gridcell">
+                          <div key={s + k} role="gridcell" className={colCls(k)}>
                             <PickSelect label={`Dodaj ${title.toLowerCase()}`} groups={groups} onPick={pick} />
                           </div>
                         );
@@ -689,67 +695,37 @@ export function PlanTab() {
                             ([id, a]) => qty(data, id) + 1e-9 < a,
                           ).length;
                       return (
-                        <div key={k + ix} role="gridcell">
-                          <div className={"cell slot " + (isFruit ? "s-voce" : `s-${k}`) + (x.done ? " done" : "")}>
-                            {x.r ? (
-                              <button
-                                type="button"
-                                className="cname linkname"
-                                title="Otvori recept"
-                                onClick={() => open({ t: "meal", id: x.r! })}
-                              >
-                                {name}
-                              </button>
-                            ) : (
-                              <span className="cname">{name}</span>
-                            )}
-                            <div className="crow">
-                              <span className={"flag " + (x.done ? "done" : miss ? "miss" : "muted")}>
-                                {x.done
-                                  ? ""
-                                  : it
-                                    ? `${fmt(x.qty ?? 1, it.u)}${miss ? " · nema" : ""}`
-                                    : miss
-                                      ? `fali ${miss}`
-                                      : ""}
-                              </span>
-                              {!x.done && (
-                                <PickSelect
-                                  swap
-                                  label={`Zamijeni: ${title}, ${DAYS[ix]}`}
-                                  groups={groups}
-                                  onPick={pick}
-                                />
-                              )}
-                              {!x.done && (
-                                <button
-                                  type="button"
-                                  className="mini"
-                                  aria-label={`Makni: ${title}, ${DAYS[ix]}`}
-                                  onClick={() =>
-                                    apply(
-                                      setSlot(data, k, ix, null),
-                                      `${name} maknut s dana ${DAYS[ix].toLowerCase()}.`,
-                                    )
-                                  }
-                                >
-                                  <Icon name="close" size={14} />
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                className="tick-btn small"
-                                aria-pressed={x.done}
-                                aria-label={`${x.done ? "Pojedeno" : "Pojeo sam"}: ${DAYS[ix]}, ${name}`}
-                                onClick={() => {
-                                  const r = toggleSlot(data, k, ix);
-                                  apply(r.data, r.msg);
-                                }}
-                              >
-                                <Icon name="check" size={14} />
-                              </button>
-                            </div>
-                          </div>
+                        <div key={s + k} role="gridcell" className={colCls(k)}>
+                          <Cell
+                            cls={isFruit ? "s-voce" : `s-${s}`}
+                            name={name}
+                            flag={
+                              x.done
+                                ? ""
+                                : it
+                                  ? `${fmt(x.qty ?? 1, it.u)}${miss ? " · nema" : ""}`
+                                  : miss
+                                    ? `fali ${miss}`
+                                    : ""
+                            }
+                            flagCls={x.done ? "done" : miss ? "miss" : "muted"}
+                            onOpen={x.r ? () => open({ t: "meal", id: x.r! }) : undefined}
+                            swap={
+                              <PickSelect
+                                swap
+                                label={`Zamijeni: ${title}, ${dayLabel(k)}`}
+                                groups={groups}
+                                onPick={pick}
+                              />
+                            }
+                            onRemove={() => apply(setSlot(data, s, k, null), `${name} maknut (${dayLabel(k)}).`)}
+                            done={x.done}
+                            onTick={() => {
+                              const r = toggleSlot(data, s, k);
+                              apply(r.data, r.msg);
+                            }}
+                            tickLabel={`${x.done ? "Pojedeno" : "Pojeo sam"}: ${dayLabel(k)}, ${name}`}
+                          />
                         </div>
                       );
                     })}
@@ -759,7 +735,7 @@ export function PlanTab() {
             </div>
           </div>
           <p className="sub">
-            Kvačica znači skuhano ili pojedeno i skida sastojke sa zalihe. <Icon name="info" size={14} /> otvara recept,{" "}
+            Klik na naziv otvara recept. Kvačica znači skuhano ili pojedeno i skida sastojke sa zalihe.{" "}
             <Icon name="swap" size={14} /> mijenja jelo, <Icon name="close" size={14} /> ga miče s dana. Uz ručak se
             skida i posni sir za užinu.
           </p>

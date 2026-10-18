@@ -1,12 +1,13 @@
 /* Čiste funkcije koje iz stanja rade novo stanje. Poništavanje = povratak prethodnog stanja. */
-import { CYCLE, ITEMS } from "../data";
+import { CYCLE, ITEMS, OM_PRESETS } from "../data";
 import { prepInv, prepOf } from "./preps";
 import type { CustomRecipe, Item, OmSel } from "../data";
 import { allRecipes, recipeOf } from "./recipes";
 import type { AppData, CostEntry, Slot, SlotKey } from "../state/model";
-import { SLOT_KEYS, clone, defaultExtra, emptyPlanDays } from "../state/model";
+import { SLOT_KEYS, clone, cycleIx, getOm, getSlot } from "../state/model";
+import { todayKey, windowKeys } from "./dates";
 import { effUse, missingFor, pc, price, qty, slotUse } from "./inventory";
-import { autoOmWeek, omEff, omName } from "./omlet";
+import { omEff, omMissing, omName, shuffle } from "./omlet";
 import { allItems, defaultStep, isCustom, itemOf } from "./items";
 import { eur, fmt, monthKey, newId, pfmt, round, sameDay } from "./format";
 
@@ -25,15 +26,15 @@ function consume(d: AppData, use: Record<string, number>, consumed: [string, num
 }
 
 /** Skuhaj recept: skida sastojke × f (osnova 1,5 porcija), dnevne dodatke i prvo troši pripremljeno */
-export function cook(src: AppData, rid: string, dayIx: number | null, f = 1, now = Date.now()): Result {
+export function cook(src: AppData, rid: string, day: string | null, f = 1, now = Date.now()): Result {
   const d = clone(src);
   const r = recipeOf(src, rid);
   if (!r) return { data: src, msg: "Recept ne postoji." };
   const eff = effUse(r, { ...d.prepStock }, true, f, src);
   consume(d, eff.use, eff.consumed);
-  let ix = dayIx;
-  if (ix == null) ix = d.plan.days.findIndex((x) => x.r === rid && !x.done);
-  if (ix != null && ix >= 0) d.plan.days[ix] = { r: rid, done: true };
+  // bez dana: prvi neskuhani dan s tim receptom u prozoru plana
+  const k = day ?? windowKeys(now).find((x) => d.plan.days[x]?.r === rid && !d.plan.days[x]?.done);
+  if (k) d.plan.days[k] = { r: rid, done: true };
   d.hist = [{ r: rid, t: now }, ...d.hist].slice(0, 30);
   const np = eff.consumed.length;
   return { data: d, msg: `${r.n}: skinuto sa zalihe${np ? `, iskorišteno ${np} iz prepa` : ""}.` };
@@ -51,9 +52,9 @@ export function makePrep(src: AppData, pid: string, t = 1): Result {
 }
 
 /** Pojedi doručak: omlet ili recept (1 porcija) */
-export function eatOmlet(src: AppData, ix: number, f = 1): Result {
+export function eatOmlet(src: AppData, ix: string, f = 1): Result {
   const d = clone(src);
-  const day = d.plan.om[ix];
+  const day = getOm(d.plan, ix);
   if (day.r) {
     const r = recipeOf(src, day.r);
     if (!r) return { data: src, msg: "Recept ne postoji." };
@@ -69,10 +70,10 @@ export function eatOmlet(src: AppData, ix: number, f = 1): Result {
   return { data: d, msg: `${omName(src, day.sel)}: sastojci skinuti sa zalihe.` };
 }
 
-export function eatMuffins(src: AppData, ix: number): Result {
+export function eatMuffins(src: AppData, ix: string): Result {
   const d = clone(src);
   d.prepStock["egg-muffini"] = Math.max(0, pc(d, "egg-muffini") - 4);
-  d.plan.om[ix] = { sel: d.plan.om[ix].sel, done: true };
+  d.plan.om[ix] = { ...getOm(d.plan, ix), done: true };
   return { data: d, msg: "4 egg muffina pojedena." };
 }
 
@@ -113,60 +114,92 @@ export function removeCost(src: AppData, mk: string, id: string): AppData {
   return d;
 }
 
-/** Popuni prazne dane prema ciklusu, ravnomjerno, prednost imaju recepti za koje ima sastojaka.
- * Ručno odabrani recepti ostaju. Prazni omleti dobivaju novu kombinaciju. */
-export function autoFillPlan(src: AppData): AppData {
+/** Popuni prazne dane od danas do kraja prozora: ručak po ciklusu (prednost recepti za koje ima sastojaka),
+ * doručak omletom, juha i salata, voće koje imaš doma. Ručno odabrano ostaje. */
+export function autoFillPlan(src: AppData, now = Date.now(), rng: () => number = Math.random): AppData {
   const d = clone(src);
+  const keys = windowKeys(now).filter((k) => k >= todayKey(now));
   const used: Record<string, number> = {};
-  d.plan.days.forEach((day) => day.r && (used[day.r] = (used[day.r] || 0) + 1));
-  d.plan.days = d.plan.days.map((day, ix) => {
-    if (day.done || day.r) return day;
-    const c = CYCLE[((d.plan.start || 0) + ix) % 5];
-    const pool = allRecipes(d).filter((r) => r.c === c);
-    pool.sort(
-      (a, b) => (used[a.id] || 0) - (used[b.id] || 0) || missingFor(d, a.id).length - missingFor(d, b.id).length,
-    );
-    const pick = pool[0];
-    if (!pick) return day;
-    used[pick.id] = (used[pick.id] || 0) + 1;
-    return { r: pick.id, done: false };
-  });
-  if (d.plan.om.some((o) => !o.sel && !o.r)) {
-    const fresh = autoOmWeek(d, true);
-    d.plan.om = d.plan.om.map((o, i) => (o.sel || o.r ? o : fresh[i]));
+  for (const k of windowKeys(now)) {
+    const r = d.plan.days[k]?.r;
+    if (r) used[r] = (used[r] || 0) + 1;
   }
-  const empty = (s: Slot) => !s.r && !s.item && !s.done;
-  d.plan.extra.juha = d.plan.extra.juha.map((s) => (empty(s) ? { r: "dod-miso", done: false } : s));
-  d.plan.extra.salata = d.plan.extra.salata.map((s) => (empty(s) ? { r: "dod-salata", done: false } : s));
+  const oms = omPool(d, rng);
+  let oi = 0;
   const fruits = fruitPool(d);
-  if (fruits.length) {
-    let n = 0;
-    for (const k of ["voce1", "voce2"] as SlotKey[])
-      d.plan.extra[k] = d.plan.extra[k].map((s) => {
-        if (!empty(s)) return s;
-        const i = fruits[n++ % fruits.length];
-        return { item: i.id, qty: defaultFruitQty(i), done: false };
-      });
+  let fi = 0;
+  const empty = (s?: Slot) => !s || (!s.r && !s.item && !s.done);
+  for (const k of keys) {
+    const day = d.plan.days[k];
+    if (!day?.r && !day?.done) {
+      const c = CYCLE[cycleIx(d.plan, k)];
+      const pool = allRecipes(d).filter((r) => r.c === c && !r.side);
+      pool.sort(
+        (a, b) => (used[a.id] || 0) - (used[b.id] || 0) || missingFor(d, a.id).length - missingFor(d, b.id).length,
+      );
+      if (pool[0]) {
+        used[pool[0].id] = (used[pool[0].id] || 0) + 1;
+        d.plan.days[k] = { r: pool[0].id, done: false };
+      }
+    }
+    const o = d.plan.om[k];
+    if (!o || (!o.sel && !o.r && !o.done)) d.plan.om[k] = { sel: clone(oms[oi++ % oms.length]), done: false };
+    if (empty(d.plan.extra.juha[k])) d.plan.extra.juha[k] = { r: "dod-miso", done: false };
+    if (empty(d.plan.extra.salata[k])) d.plan.extra.salata[k] = { r: "dod-salata", done: false };
+    if (fruits.length)
+      for (const s of ["voce1", "voce2"] as SlotKey[])
+        if (empty(d.plan.extra[s][k])) {
+          const i = fruits[fi++ % fruits.length];
+          d.plan.extra[s][k] = { item: i.id, qty: defaultFruitQty(i), done: false };
+        }
   }
   return d;
 }
 
+/** Omleti za popunjavanje: svaki drugi, prednost oni za koje imaš sastojke */
+function omPool(d: AppData, rng: () => number): OmSel[] {
+  return shuffle(OM_PRESETS, rng)
+    .map((p) => ({ p, miss: omMissing(d, p.sel).length }))
+    .sort((a, b) => a.miss - b.miss)
+    .map((x) => x.p.sel);
+}
+
+/** Očisti plan od danas nadalje (ono što je pojedeno ili skuhano ostaje) */
+export function clearAhead(src: AppData, now = Date.now()): AppData {
+  const d = clone(src);
+  for (const k of windowKeys(now).filter((x) => x >= todayKey(now))) {
+    if (!d.plan.days[k]?.done) delete d.plan.days[k];
+    if (!d.plan.om[k]?.done) delete d.plan.om[k];
+    for (const s of SLOT_KEYS) if (!d.plan.extra[s][k]?.done) delete d.plan.extra[s][k];
+  }
+  return d;
+}
+
+/** Ciklus: danas je dan `ix` (0–4) ciklusa */
+export function setCycleToday(src: AppData, ix: number, now = Date.now()): AppData {
+  const d = clone(src);
+  const t = new Date(now);
+  t.setDate(t.getDate() - ix);
+  d.plan.anchor = todayKey(t.getTime());
+  return d;
+}
+
 /** Stavi recept na dan (ili makni s r = "") */
-export function setPlanDay(src: AppData, ix: number, r: string): AppData {
+export function setPlanDay(src: AppData, ix: string, r: string): AppData {
   const d = clone(src);
   d.plan.days[ix] = { r, done: false };
   return d;
 }
 
 /** Stavi omlet na dan (ili makni sa sel = null) */
-export function setOmDay(src: AppData, ix: number, sel: OmSel | null): AppData {
+export function setOmDay(src: AppData, ix: string, sel: OmSel | null): AppData {
   const d = clone(src);
   d.plan.om[ix] = { sel: sel ? clone(sel) : null, done: false };
   return d;
 }
 
 /** Doručak je recept (1 porcija) */
-export function setBreakfastRecipe(src: AppData, ix: number, r: string): AppData {
+export function setBreakfastRecipe(src: AppData, ix: string, r: string): AppData {
   const d = clone(src);
   d.plan.om[ix] = r ? { sel: null, r, done: false } : { sel: null, done: false };
   return d;
@@ -175,7 +208,7 @@ export function setBreakfastRecipe(src: AppData, ix: number, r: string): AppData
 const SLOT_NAME: Record<SlotKey, string> = { juha: "Juha", salata: "Salata", voce1: "Voće", voce2: "Voće" };
 
 /** Postavi slot (juha, salata, voće) ili ga isprazni */
-export function setSlot(src: AppData, k: SlotKey, ix: number, slot: Omit<Slot, "done"> | null): AppData {
+export function setSlot(src: AppData, k: SlotKey, ix: string, slot: Omit<Slot, "done"> | null): AppData {
   const d = clone(src);
   d.plan.extra[k][ix] = slot ? { ...slot, done: false } : { done: false };
   return d;
@@ -189,9 +222,9 @@ export function slotLabel(d: AppData, s: Slot): string {
 }
 
 /** Pojedi slot: skida sastojke ili namirnicu sa zalihe. Ponovni klik samo vraća kvačicu. */
-export function toggleSlot(src: AppData, k: SlotKey, ix: number): Result {
+export function toggleSlot(src: AppData, k: SlotKey, ix: string): Result {
   const d = clone(src);
-  const s = d.plan.extra[k][ix];
+  const s = getSlot(d.plan, k, ix);
   if (!s.r && !s.item) return { data: src, msg: "" };
   if (s.done) {
     d.plan.extra[k][ix] = { ...s, done: false };
@@ -208,19 +241,6 @@ function fruitPool(d: AppData): Item[] {
   return allItems(d).filter((i) => i.grp === "voce" && !d.items.hidden.includes(i.id) && qty(d, i.id) > 0);
 }
 export const defaultFruitQty = (i: Item) => (i.u === "g" || i.u === "ml" ? 150 : 1);
-
-/** Novi tjedan: ciklus se pomiče za 7 dana, plan se prazni, slažu se novi omleti */
-export function newWeek(src: AppData, rng: () => number = Math.random): AppData {
-  const d = clone(src);
-  d.plan = {
-    start: ((d.plan.start || 0) + 7) % 5,
-    days: emptyPlanDays(),
-    om: d.plan.om.map((o) => ({ ...o, done: false })),
-    extra: defaultExtra(),
-  };
-  d.plan.om = autoOmWeek(d, false, rng);
-  return d;
-}
 
 /** Dodaj vlastitu namirnicu, po želji s početnom količinom */
 export function addItem(src: AppData, item: Item, startQty = 0): Result {
@@ -287,10 +307,10 @@ export function removeRecipe(src: AppData, id: string): Result {
   const d = clone(src);
   const r = d.recipes.find((x) => x.id === id);
   d.recipes = d.recipes.filter((x) => x.id !== id);
-  d.plan.days = d.plan.days.map((x) => (x.r === id && !x.done ? { r: "", done: false } : x));
-  d.plan.om = d.plan.om.map((x) => (x.r === id && !x.done ? { sel: null, done: false } : x));
-  for (const k of SLOT_KEYS)
-    d.plan.extra[k] = d.plan.extra[k].map((x) => (x.r === id && !x.done ? { done: false } : x));
+  for (const [k, x] of Object.entries(d.plan.days)) if (x.r === id && !x.done) delete d.plan.days[k];
+  for (const [k, x] of Object.entries(d.plan.om)) if (x.r === id && !x.done) delete d.plan.om[k];
+  for (const s of SLOT_KEYS)
+    for (const [k, x] of Object.entries(d.plan.extra[s])) if (x.r === id && !x.done) delete d.plan.extra[s][k];
   return { data: d, msg: `${r?.n ?? "Recept"} je obrisan.` };
 }
 

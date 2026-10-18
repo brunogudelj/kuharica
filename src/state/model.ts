@@ -1,4 +1,5 @@
-import { CATS, DAYS, DEFAULT_SHOPS, GROUPS, OM_PRESETS } from "../data";
+import { CATS, DEFAULT_SHOPS, GROUPS, OM_PRESETS } from "../data";
+import { diffDays, todayKey, windowKeys } from "../logic/dates";
 import type { CustomPrep, CustomRecipe, Item, OmSel, Shop } from "../data";
 
 export interface StockEntry {
@@ -27,13 +28,19 @@ export interface Slot {
   qty?: number;
   done: boolean;
 }
+/** Plan po datumima (YYYY-MM-DD). Prikazuje se rolling 14 dana: jučer, danas i 12 dana unaprijed. */
 export interface Plan {
-  /** dan ciklusa (0–4) kojim počinje tjedan */
-  start: number;
-  days: PlanDay[];
-  om: OmDay[];
-  extra: Record<SlotKey, Slot[]>;
+  /** datum koji je 1. dan ciklusa riža → krumpir → tjestenina → riža → krumpir */
+  anchor: string;
+  days: Record<string, PlanDay>;
+  om: Record<string, OmDay>;
+  extra: Record<SlotKey, Record<string, Slot>>;
 }
+export const getDay = (p: Plan, k: string): PlanDay => p.days[k] ?? { r: "", done: false };
+export const getOm = (p: Plan, k: string): OmDay => p.om[k] ?? { sel: null, done: false };
+export const getSlot = (p: Plan, s: SlotKey, k: string): Slot => p.extra[s]?.[k] ?? { done: false };
+/** Dan ciklusa (0–4) za datum */
+export const cycleIx = (p: Plan, k: string) => ((diffDays(p.anchor, k) % 5) + 5) % 5;
 export interface CostEntry {
   id: string;
   t: number;
@@ -57,6 +64,8 @@ export interface ItemsState {
 }
 export interface Settings {
   dostava: number;
+  /** za koliko dana unaprijed plan ide na popis za kupovinu */
+  shopDays: number;
 }
 export interface UiState {
   servings: Record<string, number>;
@@ -127,17 +136,17 @@ export const defaultLists = (): Lists => ({
 
 export const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
-export const defaultOmWeek = (): OmDay[] => OM_PRESETS.slice(0, 7).map((p) => ({ sel: clone(p.sel), done: false }));
-
-export const emptyPlanDays = (): PlanDay[] => DAYS.map(() => ({ r: "", done: false }));
-
-/** Juha i salata su po defaultu miso i velika salata, voće je prazno */
-export const defaultExtra = (): Record<SlotKey, Slot[]> => ({
-  juha: DAYS.map(() => ({ r: "dod-miso", done: false })),
-  salata: DAYS.map(() => ({ r: "dod-salata", done: false })),
-  voce1: DAYS.map(() => ({ done: false })),
-  voce2: DAYS.map(() => ({ done: false })),
-});
+/** Početni plan: omleti i juha/salata od danas za 14 dana */
+export function defaultPlan(now = Date.now()): Plan {
+  const keys = windowKeys(now).slice(1);
+  const plan: Plan = { anchor: todayKey(now), days: {}, om: {}, extra: { juha: {}, salata: {}, voce1: {}, voce2: {} } };
+  keys.forEach((k, i) => {
+    plan.om[k] = { sel: clone(OM_PRESETS[i % OM_PRESETS.length].sel), done: false };
+    plan.extra.juha[k] = { r: "dod-miso", done: false };
+    plan.extra.salata[k] = { r: "dod-salata", done: false };
+  });
+  return plan;
+}
 
 export function defaultData(): AppData {
   return {
@@ -145,10 +154,10 @@ export function defaultData(): AppData {
     updatedAt: 0,
     stock: {},
     prepStock: {},
-    plan: { start: 0, days: emptyPlanDays(), om: defaultOmWeek(), extra: defaultExtra() },
+    plan: defaultPlan(),
     hist: [],
     costs: {},
-    settings: { dostava: 12 },
+    settings: { dostava: 12, shopDays: 7 },
     items: { v: 2, custom: [], hidden: [], over: {} },
     recipes: [],
     preps: [],

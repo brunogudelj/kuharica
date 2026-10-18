@@ -2,8 +2,8 @@ import { isMass } from "./lists";
 import { prepInv } from "./preps";
 import { DEFAULT_OM, MAC, OFBY, OM_BASE, OM_CARB, OM_PRESETS, OM_PROT, OM_VEG } from "../data";
 import type { OmFill, OmSel, Use } from "../data";
-import type { AppData, ItemsState, OmDay } from "../state/model";
-import { clone, defaultOmWeek } from "../state/model";
+import type { AppData, ItemsState } from "../state/model";
+import { clone } from "../state/model";
 import { qty } from "./inventory";
 import { allItems, itemName, itemOf } from "./items";
 
@@ -140,21 +140,6 @@ export function shuffle<T>(a: T[], rng: () => number = Math.random): T[] {
 }
 
 /** Popuni nepojedene dane različitim kombinacijama; prednost imaju one za koje imaš sastojke */
-export function autoOmWeek(data: AppData, keepDone: boolean, rng: () => number = Math.random): OmDay[] {
-  const cur = data.plan.om && data.plan.om.length === 7 ? data.plan.om : defaultOmWeek();
-  const used = new Set(keepDone ? cur.filter((o) => o.done && o.sel).map((o) => omNorm(o.sel!)) : []);
-  const pool = shuffle(OM_PRESETS, rng)
-    .filter((p) => !used.has(omNorm(p.sel)))
-    .map((p) => ({ p, miss: omMissing(data, p.sel).length }))
-    .sort((a, b) => a.miss - b.miss);
-  let k = 0;
-  return cur.map((o) => {
-    if (keepDone && o.done) return o;
-    const pick = pool.length ? pool[k++ % pool.length].p : OM_PRESETS[0];
-    return { sel: clone(pick.sel), done: false };
-  });
-}
-
 /** Nasumičan omlet: 1 protein i 2 povrća (i vlastiti nadjevi), prednost ima ono što je na zalihi */
 export function surpriseSel(data: AppData, rng: () => number = Math.random): OmSel {
   const ok = (id: string) =>

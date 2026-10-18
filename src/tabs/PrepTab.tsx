@@ -6,7 +6,7 @@ import type { PrepCat, PrepRecipe } from "../data";
 import { useApp } from "../state/AppContext";
 import { itemName } from "../logic/items";
 import { clone } from "../state/model";
-import { pc, qty } from "../logic/inventory";
+import { pc, planPreps, qty } from "../logic/inventory";
 import { makePrep } from "../logic/actions";
 import { pfmt, scaleText } from "../logic/format";
 import { Html, Stepper } from "../components/ui";
@@ -143,6 +143,8 @@ export function PrepTab() {
   const [fKeep, setFKeep] = useState<Keep[]>([]);
   const [fAvail, setFAvail] = useState(false);
   const [fHave, setFHave] = useState(false);
+  const [fPlan, setFPlan] = useState(false);
+  const inPlan = planPreps(data);
   const term = q.trim().toLowerCase();
   const preps = allPreps(data);
   const pass = (p: PrepRecipe, skip?: "k" | "keep") =>
@@ -150,7 +152,8 @@ export function PrepTab() {
     (skip === "k" || !fK.length || fK.includes(p.k)) &&
     (skip === "keep" || !fKeep.length || keepOf(p).some((k) => fKeep.includes(k))) &&
     (!fAvail || !prepMeta(data, p).miss.length) &&
-    (!fHave || pc(data, p.id) > 0);
+    (!fHave || pc(data, p.id) > 0) &&
+    (!fPlan || (inPlan[p.id] ?? 0) > 0);
   const list = preps.filter((p) => pass(p));
   const cats = Object.keys(PREP_K) as PrepCat[];
   const chips: Chip[] = [
@@ -158,6 +161,7 @@ export function PrepTab() {
     ...fKeep.map((k): Chip => [KEEP_LABEL[k], () => setFKeep(toggle(fKeep, k))]),
     ...(fAvail ? [["Imam sastojke", () => setFAvail(false)] as Chip] : []),
     ...(fHave ? [["Već pripremljeno", () => setFHave(false)] as Chip] : []),
+    ...(fPlan ? [["Treba za tekući plan", () => setFPlan(false)] as Chip] : []),
   ];
 
   const search = <FSearch value={q} onChange={setQ} placeholder="Traži prep recept" />;
@@ -187,7 +191,13 @@ export function PrepTab() {
           />
         ))}
       </FGroup>
-      <FGroup title="Dostupnost" count={(fAvail ? 1 : 0) + (fHave ? 1 : 0)}>
+      <FGroup title="Dostupnost" count={(fAvail ? 1 : 0) + (fHave ? 1 : 0) + (fPlan ? 1 : 0)}>
+        <FCheck
+          on={fPlan}
+          label="Treba mi za tekući plan"
+          count={preps.filter((p) => (inPlan[p.id] ?? 0) > 0).length}
+          onChange={() => setFPlan(!fPlan)}
+        />
         <FCheck
           on={fAvail}
           label="Imam sve sastojke"
@@ -225,6 +235,7 @@ export function PrepTab() {
         setFKeep([]);
         setFAvail(false);
         setFHave(false);
+        setFPlan(false);
       }}
       chips={tab === "list" ? chips : []}
       actions={
@@ -277,6 +288,7 @@ export function PrepTab() {
                 <th>Količina</th>
                 <th>Čuvanje</th>
                 <th className="num">Imaš</th>
+                <th className="num">Za plan</th>
                 <th>Sastojci</th>
               </tr>
             </thead>
@@ -337,6 +349,9 @@ export function PrepTab() {
                     </td>
                     <td data-l="Imaš" className="num strong">
                       {have > 0 ? pfmt(have, inv.unit) : "–"}
+                    </td>
+                    <td data-l="Za plan" className={"num" + ((inPlan[p.id] ?? 0) > have + 1e-9 ? " t-out" : "")}>
+                      {inPlan[p.id] ? pfmt(inPlan[p.id], inv.unit) : "–"}
                     </td>
                     <td data-l="Sastojci">
                       <div className={"avail" + (!miss.length ? " full" : "")}>

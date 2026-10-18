@@ -3306,3 +3306,76 @@ ol.steps {
 .mkprep {
   border-color: var(--orange);
 }
+
+/* Kupovina: tablica po dućanu ili mjestu */
+.shopgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.shopgroup-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+}
+.shopgroup-head h2 {
+  font-size: 18px;
+}
+
+/* Plan: 14 dana, svi slotovi iste vrste ćelije */
+.cal.cal14 {
+  grid-template-columns: 76px repeat(14, minmax(118px, 1fr));
+  min-width: calc(76px + 14 * 118px);
+}
+.cal .ch.past,
+.cal > div.past {
+  background: color-mix(in srgb, var(--sunk) 70%, var(--card));
+}
+.cal > div.past .cell {
+  opacity: 0.75;
+}
+.cal .ch.past b {
+  color: var(--muted);
+}
+.cell.slot.s-om::before {
+  background: var(--c-om);
+}
+.cell.slot.s-Riža::before {
+  background: var(--c-riza);
+}
+.cell.slot.s-Krumpir::before {
+  background: var(--c-krumpir);
+}
+.cell.slot.s-Tjestenina::before {
+  background: var(--c-tjest);
+}
+.cell.slot.s-Ostalo::before {
+  background: var(--c-ost);
+}
+.cell.slot {
+  min-height: 0;
+  height: 100%;
+}
+.cell.slot .ctag {
+  align-self: flex-start;
+  margin: 0 0 1px;
+}
+.cell.slot .cmeta {
+  font-size: 11px;
+  line-height: 1.25;
+}
+.cell.slot .crow {
+  margin-top: auto;
+  padding-top: 3px;
+}
+
+.cell.slot .crow {
+  justify-content: flex-end;
+  gap: 2px;
+}
+.cell.slot > .flag {
+  font-size: 12px;
+  white-space: nowrap;
+}

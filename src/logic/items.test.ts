@@ -1,3 +1,4 @@
+import { todayKey } from "./dates";
 import { describe, expect, it } from "vitest";
 import { defaultData } from "../state/model";
 import { migrate } from "../storage/storage";
@@ -54,7 +55,7 @@ describe("ugrađene namirnice", () => {
     let d = setHidden(defaultData(), "piletina", true).data;
     expect(hiddenItems(d).map((x) => x.id)).toContain("piletina");
     expect(shopping(d).some((r) => r.i.id === "piletina")).toBe(false);
-    d.plan.days[0] = { r: "teriyaki", done: false };
+    d.plan.days[todayKey()] = { r: "teriyaki", done: false };
     expect(shopping(d).find((r) => r.i.id === "piletina")!.short).toBeCloseTo(250);
     d = setHidden(d, "piletina", false).data;
     expect(visibleItems(d).some((x) => x.id === "piletina")).toBe(true);
@@ -83,9 +84,9 @@ describe("kreni od nule", () => {
     expect(d.costs["2026-10"].length).toBe(1);
     // bez minimuma; na popisu je samo ono što traže isplanirani omleti
     expect(shopping(d).every((r) => r.forPlan)).toBe(true);
-    d.plan.om = d.plan.om.map((o) => ({ ...o, done: true }));
+    for (const k of Object.keys(d.plan.om)) d.plan.om[k].done = true;
     for (const k of ["juha", "salata", "voce1", "voce2"] as const)
-      d.plan.extra[k] = d.plan.extra[k].map((x) => ({ ...x, done: true }));
+      for (const x of Object.values(d.plan.extra[k])) x.done = true;
     expect(shopping(d)).toEqual([]);
     d = restoreItem(d, "jaja", 10).data;
     expect(visibleItems(d).map((i) => i.id)).toEqual(["jaja"]);

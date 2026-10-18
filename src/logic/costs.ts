@@ -2,6 +2,7 @@ import type { AppData } from "../state/model";
 import { dayCost } from "./inventory";
 import { allRecipes, recipeOf } from "./recipes";
 import { monthKey } from "./format";
+import { windowKeys } from "./dates";
 
 /** Sažetak troškova za karticu Troškovi */
 export function costSummary(d: AppData, now = Date.now()) {
@@ -13,7 +14,9 @@ export function costSummary(d: AppData, now = Date.now()) {
   const spent = entries.reduce((s, e) => s + (e.amount || 0), 0);
 
   // Procjena iz plana: prosjek planiranih dana (ili svih recepata ako plan nije složen)
-  const planned = d.plan.days.filter((x) => x.r && recipeOf(d, x.r)).map((x) => x.r);
+  const planned = windowKeys(now)
+    .map((k) => d.plan.days[k]?.r)
+    .filter((r): r is string => !!r && !!recipeOf(d, r));
   const pool = planned.length
     ? planned
     : allRecipes(d)

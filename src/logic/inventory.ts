@@ -4,6 +4,7 @@ import type { Item, Recipe, Use } from "../data";
 import { recipeOf } from "./recipes";
 import type { AppData, Slot } from "../state/model";
 import { SLOT_KEYS } from "../state/model";
+import { aheadKeys, windowKeys } from "./dates";
 import { omEff, omUse } from "./omlet";
 import { allItems, itemName, itemOf } from "./items";
 
@@ -76,23 +77,47 @@ export function slotUse(d: AppData, s: Slot, pcopy: Record<string, number>): Eff
 }
 
 /** Potreba za tjedan: neskuhani dani (s posnim sirom i prepom), nepojedeni doručci i dodatni slotovi */
-export function planNeeds(d: AppData): Use {
+export function planNeeds(d: AppData, now = Date.now()): Use {
   const need: Use = {};
   const add = (u: Use) => {
     for (const [id, a] of Object.entries(u)) need[id] = (need[id] || 0) + a;
   };
   const pcopy = { ...d.prepStock };
-  d.plan.days.forEach((day) => {
-    const r = day.r && !day.done ? recipeOf(d, day.r) : undefined;
+  for (const k of aheadKeys(now, d.settings.shopDays || 7)) {
+    const day = d.plan.days[k];
+    const r = day?.r && !day.done ? recipeOf(d, day.r) : undefined;
     if (r) add(effUse(r, pcopy, true, 1, d).use);
-  });
-  (d.plan.om || []).forEach((o) => {
-    if (o.done) return;
-    if (o.r) add(slotUse(d, { r: o.r, done: false }, pcopy).use);
-    else if (o.sel) add(omEff(d, o.sel, 1, pcopy).use);
-  });
-  for (const k of SLOT_KEYS) for (const s of d.plan.extra?.[k] || []) if (!s.done) add(slotUse(d, s, pcopy).use);
+    const o = d.plan.om[k];
+    if (o && !o.done) {
+      if (o.r) add(slotUse(d, { r: o.r, done: false }, pcopy).use);
+      else if (o.sel) add(omEff(d, o.sel, 1, pcopy).use);
+    }
+    for (const s of SLOT_KEYS) {
+      const x = d.plan.extra[s]?.[k];
+      if (x && !x.done) add(slotUse(d, x, pcopy).use);
+    }
+  }
   return need;
+}
+
+/** Prep koji traži tekući plan (od danas do kraja prozora): id → potrebne jedinice */
+export function planPreps(d: AppData, now = Date.now()): Record<string, number> {
+  const out: Record<string, number> = {};
+  const add = (e: EffUse) => {
+    for (const p of e.prep) out[p.id] = (out[p.id] || 0) + p.need;
+  };
+  for (const k of windowKeys(now).slice(1)) {
+    const day = d.plan.days[k];
+    const r = day?.r && !day.done ? recipeOf(d, day.r) : undefined;
+    if (r) add(effUse(r, {}, false, 1, d));
+    const o = d.plan.om[k];
+    if (o?.r && !o.done) add(slotUse(d, { r: o.r, done: false }, {}));
+    for (const s of SLOT_KEYS) {
+      const x = d.plan.extra[s]?.[k];
+      if (x?.r && !x.done) add(slotUse(d, x, {}));
+    }
+  }
+  return out;
 }
 
 export interface ShopRow {
@@ -191,7 +216,9 @@ export function costOf(d: AppData, use: Use) {
 export function dayCost(d: AppData, rid: string) {
   const r = costOf(d, recipeOf(d, rid)?.use ?? {});
   const dl = costOf(d, DAILY);
-  const oms = (d.plan.om || []).filter((o) => o.sel && !o.r);
+  const oms = windowKeys()
+    .map((k) => d.plan.om[k])
+    .filter((o) => o?.sel && !o.r);
   const om = oms.length ? oms.reduce((s, o) => s + costOf(d, omUse(d, o.sel!, 1)).c, 0) / oms.length : 0;
   return {
     meals: r.c + dl.c,

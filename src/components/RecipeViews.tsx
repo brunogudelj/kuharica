@@ -1,19 +1,20 @@
 /* Sadržaj panela: recept, omlet, prep, odabir recepta ili omleta za dan */
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { FormEvent } from "react";
 import { fetchPage, parseIngredient, parseRecipeHtml, parseRecipeText } from "../logic/importRecipe";
 import { ImportReview } from "./ImportReview";
 import { CLAUDE_MODEL, claudeRecipe, loadClaudeKey } from "../logic/claude";
 import type { IngLine, ParsedRecipe } from "../logic/importRecipe";
-import { CYCLE, DAYS, DEFAULT_OM, OM_BASE, OM_CARB, OM_PRESETS, PBY, REC_PREP } from "../data";
+import { DEFAULT_OM, OM_BASE, OM_CARB, OM_PRESETS, PBY, REC_PREP } from "../data";
 import type { OmSel } from "../data";
 import { useApp } from "../state/AppContext";
-import { clone } from "../state/model";
+import { clone, getDay, getOm } from "../state/model";
+import { dayDate, dayLabel, dayName, todayKey, windowKeys } from "../logic/dates";
 import type { AppData } from "../state/model";
 import { BASE_SERVINGS, effUse, pc, qty } from "../logic/inventory";
 import type { EffUse } from "../logic/inventory";
 import { cook, eatMuffins, eatOmlet, removeRecipe, setOmDay, setPlanDay } from "../logic/actions";
-import { allRecipes, recipeOf } from "../logic/recipes";
+import { recipeOf } from "../logic/recipes";
 import { itemOf } from "../logic/items";
 import {
   fillOf,
@@ -27,9 +28,9 @@ import {
   surpriseSel,
   validOm,
 } from "../logic/omlet";
-import { KIND_LABEL, mealEntry, omEntry, prepEntry, sortFeed } from "../logic/feed";
+import { KIND_LABEL, mealEntry, omEntry, prepEntry } from "../logic/feed";
 import type { FeedEntry } from "../logic/feed";
-import { eur, fmt, pfmt, porcTxt, scaleText, todayIx } from "../logic/format";
+import { eur, fmt, pfmt, porcTxt, scaleText } from "../logic/format";
 import { shopName } from "../logic/shops";
 import { Html, Stepper } from "./ui";
 import { Icon } from "./icons";
@@ -39,13 +40,6 @@ import { isCustomPrep, prepInv, prepName, prepOf, removeCustomPrep } from "../lo
 import { PrepBody } from "../tabs/PrepTab";
 import { usePanel } from "./Panel";
 import type { View } from "./Panel";
-
-/** Datum za dan u tjednu (0 = ponedjeljak ovog tjedna) */
-export function dateOf(ix: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - todayIx() + ix);
-  return d.toLocaleDateString("hr-HR", { day: "numeric", month: "numeric" });
-}
 
 const num = (v: number | null, suf = "") => (v == null ? "–" : v.toLocaleString("hr-HR") + suf);
 
@@ -130,31 +124,25 @@ export function FeedCard({ e, onOpen }: { e: FeedEntry; onOpen: () => void }) {
   );
 }
 
-/** Odabir dana u tjednu */
-function DayPicker({
-  on,
-  onPick,
-  label,
-}: {
-  on: (ix: number) => boolean;
-  onPick: (ix: number) => void;
-  label: string;
-}) {
-  const t = todayIx();
+/** Odabir dana u planu: danas i sljedećih 12 dana */
+function DayPicker({ on, onPick, label }: { on: (k: string) => boolean; onPick: (k: string) => void; label: string }) {
+  const t = todayKey();
   return (
     <div className="daypick" role="group" aria-label={label}>
-      {DAYS.map((d, ix) => (
-        <button
-          key={d}
-          type="button"
-          aria-pressed={on(ix)}
-          className={ix === t ? "today" : ""}
-          onClick={() => onPick(ix)}
-        >
-          <b>{d}</b>
-          <small>{dateOf(ix)}</small>
-        </button>
-      ))}
+      {windowKeys()
+        .slice(1)
+        .map((k) => (
+          <button
+            key={k}
+            type="button"
+            aria-pressed={on(k)}
+            className={k === t ? "today" : ""}
+            onClick={() => onPick(k)}
+          >
+            <b>{k === t ? "Danas" : dayName(k)}</b>
+            <small>{dayDate(k)}</small>
+          </button>
+        ))}
     </div>
   );
 }
@@ -230,7 +218,7 @@ function Head({ e, kicker }: { e: FeedEntry; kicker?: string }) {
   );
 }
 
-export function MealView({ id, day }: { id: string; day?: number }) {
+export function MealView({ id, day }: { id: string; day?: string }) {
   const { data, apply, update } = useApp();
   const { open, close } = usePanel();
   const [confirmDel, setConfirmDel] = useState(false);
@@ -251,17 +239,17 @@ export function MealView({ id, day }: { id: string; day?: number }) {
 
   return (
     <div className="pbody">
-      <Head e={e} kicker={day != null ? DAYS[day] : undefined} />
+      <Head e={e} kicker={day != null ? dayLabel(day) : undefined} />
       <Stats e={e} />
       <section className="psec">
         <h3>U planu</h3>
         <DayPicker
           label="Stavi recept na dan"
-          on={(ix) => data.plan.days[ix].r === id}
-          onPick={(ix) =>
-            data.plan.days[ix].r === id
-              ? update((d) => setPlanDay(d, ix, ""))
-              : apply(setPlanDay(data, ix, id), `${r.n} je na planu za ${DAYS[ix].toLowerCase()}.`)
+          on={(k) => getDay(data.plan, k).r === id}
+          onPick={(k) =>
+            getDay(data.plan, k).r === id
+              ? update((d) => setPlanDay(d, k, ""))
+              : apply(setPlanDay(data, k, id), `${r.n} je na planu za ${dayLabel(k)}.`)
           }
         />
       </section>
@@ -369,7 +357,7 @@ export function MealView({ id, day }: { id: string; day?: number }) {
   );
 }
 
-export function OmView({ sel: initSel, day, n }: { sel?: OmSel; day?: number; n?: string }) {
+export function OmView({ sel: initSel, day, n }: { sel?: OmSel; day?: string; n?: string }) {
   const { data, apply, update } = useApp();
   const { close } = usePanel();
   const [local, setLocal] = useState<OmSel>(() => clone(initSel ?? DEFAULT_OM));
@@ -382,7 +370,7 @@ export function OmView({ sel: initSel, day, n }: { sel?: OmSel; day?: number; n?
     if (day != null && planDay?.sel)
       update((d) => {
         const x = clone(d);
-        x.plan.om[day] = { sel: v, done: x.plan.om[day].done };
+        x.plan.om[day] = { sel: v, done: getOm(x.plan, day).done };
         return x;
       });
     else setLocal(v);
@@ -406,14 +394,14 @@ export function OmView({ sel: initSel, day, n }: { sel?: OmSel; day?: number; n?
 
   return (
     <div className="pbody">
-      <Head e={e} kicker={day != null ? `doručak, ${DAYS[day].toLowerCase()}` : undefined} />
+      <Head e={e} kicker={day != null ? `doručak, ${dayLabel(day)}` : undefined} />
       <Stats e={e} />
       <section className="psec">
         <h3>U planu</h3>
         <DayPicker
           label="Stavi omlet na dan"
-          on={(ix) => !!data.plan.om[ix].sel && omNorm(data.plan.om[ix].sel!) === omNorm(sel)}
-          onPick={(ix) => apply(setOmDay(data, ix, sel), `${e.n} je doručak za ${DAYS[ix].toLowerCase()}.`)}
+          on={(k) => !!getOm(data.plan, k).sel && omNorm(getOm(data.plan, k).sel!) === omNorm(sel)}
+          onPick={(k) => apply(setOmDay(data, k, sel), `${e.n} je doručak za ${dayLabel(k)}.`)}
         />
       </section>
       <details className="psec builder" open={day != null && !planDay?.sel}>
@@ -603,148 +591,6 @@ function PrepFormView({ id }: { id?: string }) {
   );
 }
 
-/** Odabir recepta za dan u planu */
-export function PickMeal({ day }: { day: number }) {
-  const { data, apply, update } = useApp();
-  const { open, close } = usePanel();
-  const [q, setQ] = useState("");
-  const cyc = CYCLE[((data.plan.start || 0) + day) % 5];
-  const cur = data.plan.days[day];
-  const list = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    const all = sortFeed(
-      allRecipes(data)
-        .map((r) => mealEntry(data, r.id))
-        .filter((e): e is FeedEntry => !!e && (!t || e.n.toLowerCase().includes(t))),
-      "pre",
-    );
-    return [...all.filter((e) => e.carb === cyc), ...all.filter((e) => e.carb !== cyc)];
-  }, [data, q, cyc]);
-
-  return (
-    <div className="pbody">
-      <header className="phead">
-        <p className="kicker">
-          Ručak i večera · {DAYS[day]} {dateOf(day)}
-        </p>
-        <h2 className="pname">Odaberi recept</h2>
-        <p className="sub">Dan ciklusa: {cyc.toLowerCase()}. Recepti s tim prilogom su prvi.</p>
-      </header>
-      <div className="searchbox">
-        <Icon name="search" size={18} />
-        <input
-          type="search"
-          placeholder="Traži recept"
-          aria-label="Traži recept"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          autoFocus
-        />
-      </div>
-      <div className="picklist">
-        {list.map((e) => (
-          <button
-            key={e.key}
-            type="button"
-            className={"pickrow" + (cur.r === e.id ? " on" : "")}
-            onClick={() => {
-              apply(setPlanDay(data, day, e.id), `${e.n} je na planu za ${DAYS[day].toLowerCase()}.`);
-              close();
-            }}
-          >
-            <span className="pickname">{e.n}</span>
-            <span className="pickmeta">
-              {e.carb} · {e.kcal != null ? `${e.kcal} kcal · ` : ""}
-              {e.p != null ? `${e.p} g proteina · ` : ""}
-              {e.d}
-            </span>
-            <Avail e={e} />
-          </button>
-        ))}
-      </div>
-      <div className="pactions">
-        <button type="button" className="btn ghost" onClick={() => open({ t: "newRecipe", day })}>
-          <Icon name="plus" size={18} /> Novi recept za ovaj dan
-        </button>
-        {cur.r && (
-          <button
-            type="button"
-            className="btn ghost danger"
-            onClick={() => {
-              update((d) => setPlanDay(d, day, ""));
-              close();
-            }}
-          >
-            Makni s dana
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/** Odabir omleta za dan */
-export function PickOm({ day }: { day: number }) {
-  const { data, apply, update } = useApp();
-  const { open, close } = usePanel();
-  const cur = data.plan.om[day];
-  const list = OM_PRESETS.map((p, i) => omEntry(data, p.sel, "o:" + i, p.n, p.d, String(i)));
-  return (
-    <div className="pbody">
-      <header className="phead">
-        <p className="kicker">
-          Doručak · {DAYS[day]} {dateOf(day)}
-        </p>
-        <h2 className="pname">Odaberi omlet</h2>
-      </header>
-      <div className="picklist">
-        {sortFeed(list, "pre").map((e) => (
-          <button
-            key={e.key}
-            type="button"
-            className={"pickrow" + (cur.sel && omNorm(cur.sel) === omNorm(e.sel!) ? " on" : "")}
-            onClick={() => {
-              apply(setOmDay(data, day, e.sel!), `${e.n} je doručak za ${DAYS[day].toLowerCase()}.`);
-              close();
-            }}
-          >
-            <span className="pickname">{e.n}</span>
-            <span className="pickmeta">
-              {e.kcal} kcal · {e.p} g proteina · {e.d}
-            </span>
-            <Avail e={e} />
-          </button>
-        ))}
-      </div>
-      <div className="pactions">
-        <button
-          type="button"
-          className="btn ghost"
-          onClick={() => {
-            const s = surpriseSel(data);
-            update((d) => setOmDay(d, day, s));
-            open({ t: "om", day });
-          }}
-        >
-          <Icon name="plus" size={18} /> Složi svoj omlet
-        </button>
-        {cur.sel && (
-          <button
-            type="button"
-            className="btn ghost danger"
-            onClick={() => {
-              update((d) => setOmDay(d, day, null));
-              close();
-            }}
-          >
-            Makni s dana
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
 /** Što panel prikazuje */
 export function renderView(v: View) {
   switch (v.t) {
@@ -754,10 +600,6 @@ export function renderView(v: View) {
       return <OmView key={(v.day ?? "x") + (v.sel ? omNorm(v.sel) : "")} sel={v.sel} day={v.day} n={v.n} />;
     case "prep":
       return <PrepView key={v.id} id={v.id} />;
-    case "pickMeal":
-      return <PickMeal key={v.day} day={v.day} />;
-    case "pickOm":
-      return <PickOm key={v.day} day={v.day} />;
     case "newRecipe":
       return <NewRecipe day={v.day} />;
     case "editRecipe":
@@ -924,12 +766,12 @@ function ImportRecipe() {
   );
 }
 
-function NewRecipe({ day }: { day?: number }) {
+function NewRecipe({ day }: { day?: string }) {
   const { close } = usePanel();
   return (
     <div className="pbody">
       <header className="phead">
-        <p className="kicker">{day != null ? `Ručak i večera · ${DAYS[day]}` : "Recepti"}</p>
+        <p className="kicker">{day != null ? `Ručak i večera · ${dayLabel(day)}` : "Recepti"}</p>
         <h2 className="pname">Novi recept</h2>
         <p className="sub">Namirnice biraš iz zalihe, pa recept zna što skinuti kad ga skuhaš.</p>
       </header>
