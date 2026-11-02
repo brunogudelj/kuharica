@@ -3520,3 +3520,48 @@ ul.parts li {
 .cal14 .crow .porcsel {
   width: auto !important;
 }
+
+/* Skeniranje barkoda */
+.scanflow {
+  display: grid;
+  gap: 10px;
+}
+.scanview {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #000;
+}
+.scanview video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+.scanline {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 50%;
+  height: 2px;
+  background: var(--orange);
+  box-shadow: 0 0 8px var(--orange);
+}
+.inlineform {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.inlineform input,
+.inlineform select {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.scanres {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}

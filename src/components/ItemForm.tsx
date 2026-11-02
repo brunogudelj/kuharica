@@ -140,20 +140,38 @@ export function omPatch(
 }
 
 /** Obrazac za novu namirnicu. `onDone` dobije novu namirnicu ili ništa ako se odustane. */
-export function ItemForm({ onDone, initialName = "" }: { onDone: (item?: Item) => void; initialName?: string }) {
+/** Početne vrijednosti nove namirnice (npr. iz skeniranog barkoda) */
+export interface ItemDraft {
+  n?: string;
+  u?: Unit;
+  pack?: number;
+  have?: number;
+  info?: InfoPatch;
+}
+
+export function ItemForm({
+  onDone,
+  initialName = "",
+  initial,
+}: {
+  onDone: (item?: Item) => void;
+  initialName?: string;
+  initial?: ItemDraft;
+}) {
   const { data, apply } = useApp();
-  const [n, setN] = useState(initialName);
+  const show = (v?: number) => (v == null ? "" : String(v).replace(".", ","));
+  const [n, setN] = useState(initial?.n ?? initialName);
   const [cat, setCat] = useState<CatId>("fri");
   const [grp, setGrp] = useState<GrpId>("ostalo");
-  const [u, setU] = useState<Unit>("g");
-  const [pack, setPack] = useState("");
+  const [u, setU] = useState<Unit>(initial?.u ?? "g");
+  const [pack, setPack] = useState(show(initial?.pack));
   const [min, setMin] = useState("0");
   const [src, setSrc] = useState<ShopId>("K");
-  const [have, setHave] = useState("");
+  const [have, setHave] = useState(show(initial?.have));
   const [role, setRole] = useState<OmRole>("");
   const [amt, setAmt] = useState("");
   const [pre, setPre] = useState("");
-  const [info, setInfo] = useState<InfoPatch>({});
+  const [info, setInfo] = useState<InfoPatch>(initial?.info ?? {});
   const [err, setErr] = useState("");
   // "+ Nova…" u padajućem izborniku: doda stavku popisa (vidi Postavke) i odmah je odabere
   const addNew = (kind: ListKind, set: (id: string) => void) => {

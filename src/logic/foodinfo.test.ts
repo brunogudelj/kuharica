@@ -65,3 +65,15 @@ describe("prepoznavanje namirnica pri uvozu", () => {
     expect(learnAliases(l.data, [[it.id, "1 cup Mexican vegetable mix"]]).n).toBe(0);
   });
 });
+
+describe("barkod", () => {
+  it("namirnica se pronađe po barkodu, i skrivena", async () => {
+    const { itemByEan } = await import("./items");
+    const { editItem, setHidden } = await import("./actions");
+    let d = editItem(defaultData(), "jaja", { ean: "3850104222337" });
+    d = setHidden(d, "jaja", true).data;
+    expect(itemByEan(d, "3850104222337")?.id).toBe("jaja");
+    expect(itemByEan(d, " 3850104222337 ")?.id).toBe("jaja");
+    expect(itemByEan(d, "4000000000000")).toBeUndefined();
+  });
+});

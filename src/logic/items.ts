@@ -28,6 +28,11 @@ export const allItems = (d: AppData) => build(d.items).all;
 export const visibleItems = (d: AppData) => build(d.items).all.filter((i) => !d.items.hidden.includes(i.id));
 export const hiddenItems = (d: AppData) => build(d.items).all.filter((i) => d.items.hidden.includes(i.id));
 export const itemOf = (d: AppData, id: string) => build(d.items).map.get(id);
+/** Namirnica po barkodu (i skrivena) */
+export const itemByEan = (d: AppData, ean: string) => {
+  const code = ean.replace(/\D/g, "");
+  return code ? build(d.items).all.find((i) => i.ean === code) : undefined;
+};
 export const itemName = (d: AppData, id: string) => itemOf(d, id)?.n ?? id;
 export const isCustom = (id: string) => id.startsWith("c-");
 

@@ -30,6 +30,7 @@ const P = {
   copy: "M8 8h11v12H8zM5 16V4h11",
   gear: "M12 15a3 3 0 1 0 0-6a3 3 0 1 0 0 6zM19 12l2-1-1-3-2 .3-1.2-1.2L17 5l-3-1-1 2h-2L10 4 7 5l.2 2.1L6 8.3 4 8 3 11l2 1-2 1 1 3 2-.3 1.2 1.2L7 19l3 1 1-2h2l1 2 3-1-.2-2.1 1.2-1.2 2 .3 1-3z",
   flask: "M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3M7.5 15h9",
+  barcode: "M4 6v12M7 6v12M10 6v12M14 6v12M16 6v12M20 6v12M3 4h3M18 4h3M3 20h3M18 20h3",
 } as const;
 
 export type IconName = keyof typeof P;

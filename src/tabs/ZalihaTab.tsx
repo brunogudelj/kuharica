@@ -12,6 +12,7 @@ import type { Status } from "../logic/inventory";
 import { hiddenItems, isCustom, visibleItems } from "../logic/items";
 import { buy, editItem, removeItem, resetItems, setHidden, setQty } from "../logic/actions";
 import { ItemInfo } from "../components/ItemInfo";
+import { ScanFlow } from "../components/ScanFlow";
 import { macDisplay } from "../logic/omlet";
 import { fmt, pfmt } from "../logic/format";
 import { Note, StatusPill } from "../components/ui";
@@ -326,6 +327,7 @@ export function ZalihaTab() {
   const [fShop, setFShop] = useState<string[]>([]);
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [sort, setSort] = useState<{ k: SortK; dir: 1 | -1 }>({ k: "mjesto", dir: 1 });
   const items = visibleItems(data);
@@ -486,13 +488,20 @@ export function ZalihaTab() {
         </div>
       }
       actions={
-        !adding && (
-          <button type="button" className="btn" onClick={() => setAdding(true)}>
-            <Icon name="plus" size={18} /> Dodaj namirnicu
-          </button>
+        !adding &&
+        !scanning && (
+          <>
+            <button type="button" className="btn ghost" onClick={() => setScanning(true)}>
+              <Icon name="barcode" size={18} /> Skeniraj
+            </button>
+            <button type="button" className="btn" onClick={() => setAdding(true)}>
+              <Icon name="plus" size={18} /> Dodaj namirnicu
+            </button>
+          </>
         )
       }
     >
+      {scanning && <ScanFlow onDone={() => setScanning(false)} />}
       {adding && <ItemForm initialName={q.trim()} onDone={() => setAdding(false)} />}
 
       {tab === "prep" &&

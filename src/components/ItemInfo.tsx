@@ -7,6 +7,7 @@ import type { FoodHit } from "../logic/foodinfo";
 import { loadClaudeKey } from "../logic/claude";
 import { isMass } from "../logic/lists";
 import { Icon } from "./icons";
+import { Scanner } from "./Scanner";
 
 export type InfoPatch = Partial<Pick<Item, "kcal" | "prot" | "carb" | "fat" | "brand" | "ean" | "pack" | "alias">>;
 
@@ -15,68 +16,6 @@ const parse = (s: string) => {
   const v = parseFloat(s.replace(",", "."));
   return isNaN(v) ? undefined : v;
 };
-
-interface BarcodeDetectorLike {
-  detect(src: CanvasImageSource): Promise<{ rawValue: string }[]>;
-}
-declare global {
-  interface Window {
-    BarcodeDetector?: new (o?: { formats: string[] }) => BarcodeDetectorLike;
-  }
-}
-
-/** Kamera i čitanje barkoda (Chrome na Androidu i noviji preglednici) */
-function Scanner({ onCode, onClose }: { onCode: (c: string) => void; onClose: () => void }) {
-  const video = useRef<HTMLVideoElement>(null);
-  const [err, setErr] = useState("");
-  const cb = useRef(onCode);
-  useEffect(() => {
-    cb.current = onCode;
-  }, [onCode]);
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    let alive = true;
-    const Det = window.BarcodeDetector;
-    if (!Det) {
-      setErr("Ovaj preglednik ne zna čitati barkod. Upiši brojeve ispod slike barkoda.");
-      return;
-    }
-    const det = new Det({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] });
-    navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: "environment" } })
-      .then(async (s) => {
-        stream = s;
-        if (!video.current) return;
-        video.current.srcObject = s;
-        await video.current.play();
-        while (alive) {
-          try {
-            const got = await det.detect(video.current);
-            if (got[0]?.rawValue) {
-              cb.current(got[0].rawValue);
-              return;
-            }
-          } catch {
-            /* sljedeća slika */
-          }
-          await new Promise((r) => setTimeout(r, 250));
-        }
-      })
-      .catch(() => setErr("Kamera nije dopuštena. Upiši barkod ručno."));
-    return () => {
-      alive = false;
-      stream?.getTracks().forEach((t) => t.stop());
-    };
-  }, []);
-  return (
-    <div className="scanner">
-      {err ? <p className="miss">{err}</p> : <video ref={video} muted playsInline aria-label="Kamera za barkod" />}
-      <button type="button" className="btn ghost small" onClick={onClose}>
-        Zatvori kameru
-      </button>
-    </div>
-  );
-}
 
 /**
  * Polja i pretraga. `item` su trenutne vrijednosti (postojeća ili nova namirnica),
