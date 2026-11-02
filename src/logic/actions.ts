@@ -379,7 +379,14 @@ export function restoreItem(src: AppData, id: string, startQty = 0): Result {
  * a trošak se bilježi po upisanoj cijeni ili procjeni iz cijene pakiranja.
  * Upisana cijena se pamti kao nova cijena pakiranja. Ukupni iznos s računa kasnije zamjenjuje ove zapise.
  */
-export function purchase(src: AppData, id: string, amount: number, paid: number | null, now = Date.now()): Result {
+export function purchase(
+  src: AppData,
+  id: string,
+  amount: number,
+  paid: number | null,
+  now = Date.now(),
+  shop?: string,
+): Result {
   const d = clone(src);
   const i = itemOf(d, id);
   if (!i || !(amount > 0)) return { data: src, msg: "Upiši količinu veću od 0." };
@@ -392,9 +399,39 @@ export function purchase(src: AppData, id: string, amount: number, paid: number 
   const mk = monthKey(now);
   d.costs[mk] = [
     ...(d.costs[mk] || []),
-    { id: newId(), t: now, shop: i.src, amount: round(cost ?? 0), note: i.n, est: true, item: id, qty: round(amount) },
+    {
+      id: newId(),
+      t: now,
+      shop: shop ?? i.src,
+      amount: round(cost ?? 0),
+      note: i.n,
+      est: true,
+      item: id,
+      qty: round(amount),
+    },
   ];
   return { data: d, msg: `${i.n}: +${fmt(amount, i.u)} u zalihi${cost != null ? `, ${eur(cost)}` : ""}.` };
+}
+
+/** Više kupnji odjednom (račun ili ručni unos): svaka stavka ide u zalihu i u troškove */
+export function bulkPurchase(
+  src: AppData,
+  rows: { id: string; amount: number; price: number | null }[],
+  shop?: string,
+  now = Date.now(),
+): Result {
+  let d = src;
+  let n = 0;
+  for (const r of rows) {
+    if (!itemOf(d, r.id) || !(r.amount > 0)) continue;
+    d = purchase(d, r.id, r.amount, r.price, now, shop).data;
+    n++;
+  }
+  const sum = rows.reduce((s, r) => s + (r.price ?? 0), 0);
+  return {
+    data: d,
+    msg: `${n} ${n === 1 ? "stavka dodana" : "stavki dodano"} u zalihu${sum > 0 ? `, ${eur(sum)}` : ""}.`,
+  };
 }
 
 /** Vrati kupnju s popisa: makni količinu iz zalihe i obriši zapis troška */

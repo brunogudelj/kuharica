@@ -3565,3 +3565,45 @@ ul.parts li {
   gap: 8px;
   justify-items: start;
 }
+
+/* Mobitel: QR kod */
+.phonelink {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+.qr {
+  width: 200px;
+  height: 200px;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  image-rendering: pixelated;
+}
+.phonetxt {
+  flex: 1 1 260px;
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+.bulkadd {
+  display: grid;
+  gap: 10px;
+}
+.bulktable input[type="text"] {
+  width: 76px;
+}
+.bulktable select {
+  min-width: 170px;
+  max-width: 240px;
+}
+.bulktable .rawcell {
+  max-width: 180px;
+  font-size: 0.8rem;
+  white-space: normal;
+}
+.bulktable tr.off td {
+  opacity: 0.5;
+}

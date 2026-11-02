@@ -37,7 +37,7 @@ export function App() {
     update((d) => {
       const n = clone(d);
       n.ui.tab = t;
-      if (anchor === "sinkronizacija") n.ui.psTab = "sync";
+      if (anchor === "sinkronizacija" || anchor === "mobitel") n.ui.psTab = "sync";
       return n;
     });
     if (anchor) setTimeout(() => document.getElementById(anchor)?.scrollIntoView({ block: "start" }), 50);
@@ -84,6 +84,17 @@ export function App() {
             ))}
           </div>
           <div className="rail-foot">
+            <button
+              type="button"
+              className="railitem small"
+              title="QR kod za mobitel i sinkronizacija"
+              onClick={() => setTab("postavke", "mobitel")}
+            >
+              <span className="railicon">
+                <Icon name="phone" size={20} />
+              </span>
+              <span className="raillabel">Mobitel</span>
+            </button>
             <button
               type="button"
               className="railitem small"

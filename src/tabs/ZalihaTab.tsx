@@ -13,6 +13,7 @@ import { hiddenItems, isCustom, visibleItems } from "../logic/items";
 import { buy, editItem, removeItem, resetItems, setHidden, setQty } from "../logic/actions";
 import { ItemInfo } from "../components/ItemInfo";
 import { ScanFlow } from "../components/ScanFlow";
+import { BulkAdd } from "../components/BulkAdd";
 import { macDisplay } from "../logic/omlet";
 import { fmt, pfmt } from "../logic/format";
 import { Note, StatusPill } from "../components/ui";
@@ -328,6 +329,7 @@ export function ZalihaTab() {
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [bulk, setBulk] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [sort, setSort] = useState<{ k: SortK; dir: 1 | -1 }>({ k: "mjesto", dir: 1 });
   const items = visibleItems(data);
@@ -489,8 +491,12 @@ export function ZalihaTab() {
       }
       actions={
         !adding &&
-        !scanning && (
+        !scanning &&
+        !bulk && (
           <>
+            <button type="button" className="btn ghost" onClick={() => setBulk(true)}>
+              <Icon name="receipt" size={18} /> Račun / više odjednom
+            </button>
             <button type="button" className="btn ghost" onClick={() => setScanning(true)}>
               <Icon name="barcode" size={18} /> Skeniraj
             </button>
@@ -502,6 +508,7 @@ export function ZalihaTab() {
       }
     >
       {scanning && <ScanFlow onDone={() => setScanning(false)} />}
+      {bulk && <BulkAdd onDone={() => setBulk(false)} />}
       {adding && <ItemForm initialName={q.trim()} onDone={() => setAdding(false)} />}
 
       {tab === "prep" &&

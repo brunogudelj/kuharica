@@ -11,6 +11,7 @@ import { cleanStart, setBuiltin } from "../logic/actions";
 import { Page } from "../components/Page";
 import { TextCell } from "../components/Cells";
 import { SyncPanel } from "../components/SyncPanel";
+import { PhoneLink } from "../components/PhoneLink";
 import { Icon } from "../components/icons";
 import { Backup } from "./TroskoviTab";
 
@@ -303,7 +304,7 @@ export function PostavkeTab() {
             [
               ["lists", "Popisi"],
               ["claude", "Claude"],
-              ["sync", "Sinkronizacija"],
+              ["sync", "Mobitel i sinkronizacija"],
               ["backup", "Backup"],
               ["other", "Ostalo"],
             ] as [PTab, string][]
@@ -333,6 +334,7 @@ export function PostavkeTab() {
       {tab === "claude" && <ClaudeSettings />}
       {tab === "sync" && (
         <div className="setcol">
+          <PhoneLink />
           <SyncPanel />
         </div>
       )}

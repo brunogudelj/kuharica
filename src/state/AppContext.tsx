@@ -4,6 +4,7 @@ import type { AppData } from "./model";
 import { defaultData } from "./model";
 import type { Storage } from "../storage/storage";
 import type { SyncConfig } from "../storage/gistSync";
+import { readLinkToken } from "../storage/link";
 import { SyncError, connect, decide, loadSyncConfig, pull, push, saveSyncConfig, toRemote } from "../storage/gistSync";
 
 interface ToastState {
@@ -32,7 +33,8 @@ interface Ctx {
   closeToast: () => void;
   sync: SyncStatus;
   syncConfigured: boolean;
-  connectSync: (token: string) => Promise<void>;
+  /** `fromLink`: mobitel povezan QR kodom uvijek preuzima podatke s GitHuba */
+  connectSync: (token: string, fromLink?: boolean) => Promise<void>;
   disconnectSync: () => void;
   syncNow: () => void;
   /** demo način s izmišljenim podacima */
@@ -229,7 +231,7 @@ export function AppProvider({
   const closeToast = useCallback(() => setToast(null), []);
 
   const connectSync = useCallback(
-    async (token: string) => {
+    async (token: string, fromLink = false) => {
       if (demo) throw new SyncError("U demo načinu sinkronizacija je isključena.");
       setSync({ state: "syncing" });
       try {
@@ -238,7 +240,7 @@ export function AppProvider({
         if (remote && remote.updatedAt > 0) {
           // Drugi uređaj: podaci s GitHuba zamjenjuju prazne lokalne
           const local = dataRef.current;
-          if (decide(local, remote) === "pull" || local.updatedAt === 0) {
+          if (fromLink || decide(local, remote) === "pull" || local.updatedAt === 0) {
             const merged = { ...remote, ui: local.ui };
             dataRef.current = merged;
             setData(merged);
@@ -258,6 +260,21 @@ export function AppProvider({
     },
     [fail, demo],
   );
+  // Link s laptopa (QR kod): #povezi=<token> poveže ovaj uređaj i preuzme podatke s GitHuba
+  const linked = useRef(false);
+  useEffect(() => {
+    if (!loaded || linked.current) return;
+    const m = location.hash.match(/^#povezi=([A-Za-z0-9_-]+)$/);
+    if (!m) return;
+    linked.current = true;
+    history.replaceState(null, "", location.pathname + location.search);
+    const token = readLinkToken(m[1]);
+    if (!token || demo) return;
+    connectSync(token, true)
+      .then(() => show({ msg: "Mobitel je povezan, podaci su preuzeti s laptopa.", undo: null }))
+      .catch(() => undefined);
+  }, [loaded, demo, connectSync, show]);
+
   const disconnectSync = useCallback(() => {
     saveSyncConfig(null);
     setCfg(null);
