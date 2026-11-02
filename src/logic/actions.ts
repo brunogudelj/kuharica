@@ -428,10 +428,9 @@ export function bulkPurchase(
     n++;
   }
   const sum = rows.reduce((s, r) => s + (r.price ?? 0), 0);
-  return {
-    data: d,
-    msg: `${n} ${n === 1 ? "stavka dodana" : "stavki dodano"} u zalihu${sum > 0 ? `, ${eur(sum)}` : ""}.`,
-  };
+  const few = n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14);
+  const word = n % 10 === 1 && n % 100 !== 11 ? "stavka dodana" : few ? "stavke dodane" : "stavki dodano";
+  return { data: d, msg: `${n} ${word} u zalihu${sum > 0 ? `, ${eur(sum)}` : ""}.` };
 }
 
 /** Vrati kupnju s popisa: makni količinu iz zalihe i obriši zapis troška */
