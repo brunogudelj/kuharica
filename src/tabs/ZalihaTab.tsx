@@ -10,7 +10,8 @@ import type { AppData } from "../state/model";
 import { pc, price, qty, status } from "../logic/inventory";
 import type { Status } from "../logic/inventory";
 import { hiddenItems, isCustom, visibleItems } from "../logic/items";
-import { buy, editItem, removeItem, resetItems, setHidden, setQty } from "../logic/actions";
+import { buy, editItem, makePrep, removeItem, resetItems, setHidden, setQty } from "../logic/actions";
+import { usePanel } from "../components/Panel";
 import { ItemInfo } from "../components/ItemInfo";
 import { ScanFlow } from "../components/ScanFlow";
 import { BulkAdd } from "../components/BulkAdd";
@@ -34,8 +35,13 @@ const OM_OPTS: ["" | "prot" | "veg", string][] = [
 const BUILTIN_OM = new Set(OM_FILL.flatMap((f) => Object.keys(f.use)));
 const ST_ORDER: Record<Status, number> = { out: 0, low: 1, ok: 2, none: 3 };
 
+/** Pripremljeno: svi prep recepti, prvo oni kojih imaš; količinu upisuješ ili klikneš Napravio sam */
 function PrepStock({ data, update }: { data: AppData; update: (fn: (d: AppData) => AppData) => void }) {
-  const have = allPreps(data).filter((p) => pc(data, p.id) > 0);
+  const { apply } = useApp();
+  const { open } = usePanel();
+  const have = allPreps(data)
+    .slice()
+    .sort((a, b) => Number(pc(data, b.id) > 0) - Number(pc(data, a.id) > 0) || a.n.localeCompare(b.n, "hr"));
   if (!have.length) return null;
   const set = (id: string, v: number) =>
     update((d) => {
@@ -53,13 +59,16 @@ function PrepStock({ data, update }: { data: AppData; update: (fn: (d: AppData) 
               <th className="num">Imam</th>
               <th>Jedinica</th>
               <th>Čuvanje</th>
+              <th />
             </tr>
           </thead>
           <tbody>
             {have.map((p) => (
-              <tr key={p.id}>
+              <tr key={p.id} className={pc(data, p.id) > 0 ? "" : "st-none"}>
                 <td className="sticky txt">
-                  <b>{p.n}</b>
+                  <button type="button" className="linkbtn" onClick={() => open({ t: "prep", id: p.id })}>
+                    <b>{p.n}</b>
+                  </button>
                 </td>
                 <td style={{ width: 90 }}>
                   <NumCell label={`Imam: ${p.n}`} value={pc(data, p.id)} onCommit={(v) => set(p.id, v ?? 0)} />
@@ -68,6 +77,19 @@ function PrepStock({ data, update }: { data: AppData; update: (fn: (d: AppData) 
                   {pfmt(pc(data, p.id), prepInv(data, p.id)?.unit ?? "porcija").replace(/^[\d,.]+ /, "")}
                 </td>
                 <td className="txt">{p.keep}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="btn small ghost"
+                    title="Skida namirnice sa zalihe i dodaje jednu turu"
+                    onClick={() => {
+                      const r = makePrep(data, p.id, 1);
+                      apply(r.data, r.msg);
+                    }}
+                  >
+                    Napravio sam
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -512,10 +534,19 @@ export function ZalihaTab() {
       {adding && <ItemForm initialName={q.trim()} onDone={() => setAdding(false)} />}
 
       {tab === "prep" &&
-        (prepHave.length ? (
-          <PrepStock data={data} update={update} />
+        (allPreps(data).length ? (
+          <>
+            <PrepStock data={data} update={update} />
+            <p className="sub">
+              Koliko imaš upiši izravno ili klikni „Napravio sam”, što skida namirnice sa zalihe i dodaje jednu turu.
+              Novi prep dodaješ u Prepu, a postojeći recept prebaciš gumbom „Prebaci u prep” na receptu.
+            </p>
+          </>
         ) : (
-          <Note>Nemaš ništa pripremljeno. Recepte za prep nađeš u Receptima.</Note>
+          <Note>
+            Još nemaš nijedan prep. Na receptu klikni „Prebaci u prep” ili dodaj novi u Prepu; ovdje onda upisuješ
+            koliko ga imaš pripremljenog.
+          </Note>
         ))}
 
       {tab === "hidden" &&
