@@ -150,8 +150,8 @@ export function RecipeForm(props: Props) {
       else if (p.id.startsWith("p:")) prep[p.id.slice(2)] = round((prep[p.id.slice(2)] || 0) + a * f);
       else partMap[p.id] = (partMap[p.id] || 0) + a;
     }
-    if (![use, prep, prepIn, partMap].some((x) => Object.keys(x).length))
-      return setErr("Dodaj barem jednu namirnicu ili dio.");
+    if (![use, prep, prepIn, partMap].some((x) => Object.keys(x).length) && !lines(extra).length)
+      return setErr("Dodaj barem jednu namirnicu, dio ili sastojak u „Ostalo”.");
 
     if (isPrep) {
       const m = parse(make);

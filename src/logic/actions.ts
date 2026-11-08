@@ -189,7 +189,7 @@ export function setSlot(src: AppData, k: string, id: string, x: Partial<Omit<Slo
   const d = clone(src);
   d.plan.slots[k] = daySlots(d.plan, k).map((y) => {
     if (y.id !== id) return y;
-    const swap = "r" in x || "item" in x;
+    const swap = "r" in x || "p" in x || "item" in x;
     const n: Slot = swap ? { id, done: false, ...x } : { ...y, ...x };
     if (n.s === 1) delete n.s;
     return n;
@@ -219,8 +219,9 @@ export function moveSlot(src: AppData, k: string, id: string, dir: -1 | 1): AppD
 }
 
 /** Naziv sadržaja obroka */
-export function slotLabel(d: AppData, s: Pick<Slot, "r" | "item">): string {
+export function slotLabel(d: AppData, s: Pick<Slot, "r" | "p" | "item">): string {
   if (s.item) return itemOf(d, s.item)?.n ?? "Obrisana namirnica";
+  if (s.p) return prepOf(d, s.p)?.n ?? "Obrisani prep";
   if (s.r) return recipeOf(d, s.r)?.n ?? "Obrisani recept";
   return "";
 }
@@ -229,7 +230,7 @@ export function slotLabel(d: AppData, s: Pick<Slot, "r" | "item">): string {
 export function toggleSlot(src: AppData, k: string, id: string, now = Date.now()): Result {
   const d = clone(src);
   const s = daySlots(d.plan, k).find((y) => y.id === id);
-  if (!s || (!s.r && !s.item)) return { data: src, msg: "" };
+  if (!s || (!s.r && !s.p && !s.item)) return { data: src, msg: "" };
   if (s.done) {
     s.done = false;
     return { data: d, msg: `${slotLabel(src, s)}: kvačica maknuta, sastojci se ne vraćaju.` };
@@ -413,6 +414,16 @@ export function prepToRecipe(src: AppData, id: string): Result & { recipeId?: st
     return { ...x, prep, parts: { ...(x.parts ?? {}), [rid]: round(n / make) } };
   });
   delete d.prepStock[id];
+  // obroci u planu: n jedinica prepa = n/make tura = n/make·1,5 porcija recepta
+  for (const list of Object.values(d.plan.slots))
+    for (const x of list)
+      if (x.p === id) {
+        const sv = round(((x.s ?? 1) / make) * 1.5);
+        delete x.p;
+        x.r = rid;
+        if (sv !== 1) x.s = sv;
+        else delete x.s;
+      }
   return { data: d, recipeId: rid, msg: `${p.n} je sada recept i može ići u plan kao obrok.` };
 }
 

@@ -10,7 +10,9 @@ export interface StockEntry {
 export interface Slot {
   id: string;
   r?: string;
-  /** porcije recepta; 1 ako nije upisano */
+  /** prep (pripremljeno), npr. čufte: troši se pripremljeno, a kad ga nema, njegove namirnice */
+  p?: string;
+  /** porcije recepta ili jedinice prepa; 1 ako nije upisano */
   s?: number;
   /** namirnica i količina */
   item?: string;

@@ -161,3 +161,32 @@ describe("prep u recept i složeni obrok", () => {
     expect(recipeOf(back.data, "r-cp")!.use[meso.id]).toBeCloseTo(450);
   });
 });
+
+describe("prep u planu", () => {
+  it("čufte kao obrok: troše pripremljeno, a bez njega meso; nakon prebacivanja u recept slot ostaje", async () => {
+    const { recipeToPrep, addSlot, toggleSlot, makePrep, prepToRecipe } = await import("./actions");
+    const { pc, qty, planNeeds } = await import("./inventory");
+    const { daySlots } = await import("../state/model");
+    const { todayKey, addDays } = await import("./dates");
+    let d = wipeState(defaultData());
+    const meso = newCustomItem({ n: "Meso", cat: "fri", src: "K", u: "g", pack: 500, min: 0 });
+    d = addItem(d, meso, 1000).data;
+    d = saveRecipe(d, { id: "r-c", n: "Čufta", c: "Ostalo", d: "", use: { [meso.id]: 450 }, extra: [], st: [] }).data;
+    const conv = recipeToPrep(d, "r-c");
+    const pid = conv.prepId!;
+    d = conv.data;
+    // tura = 1,5 porcija = 450 g → 1 porcija prepa = 300 g mesa
+    d = addSlot(d, todayKey(), { p: pid });
+    expect(planNeeds(d)[meso.id]).toBeCloseTo(300);
+    d = makePrep(d, pid, 1).data;
+    expect(planNeeds(d)[meso.id] ?? 0).toBe(0);
+    const sid = daySlots(d.plan, todayKey())[0].id;
+    const t = toggleSlot(d, todayKey(), sid).data;
+    expect(pc(t, pid)).toBe(0.5);
+    expect(qty(t, meso.id)).toBe(qty(d, meso.id));
+    d = addSlot(d, addDays(todayKey(), 1), { p: pid, s: 1.5 });
+    const back = prepToRecipe(d, pid);
+    const s1 = daySlots(back.data.plan, addDays(todayKey(), 1))[0];
+    expect(s1).toMatchObject({ r: back.recipeId, s: 1.5 });
+  });
+});

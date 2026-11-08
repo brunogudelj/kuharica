@@ -5,7 +5,8 @@ import { useApp } from "../state/AppContext";
 import { clone, cycleIx, daySlots } from "../state/model";
 import { dayDate, dayLabel, dayName, todayKey, windowKeys } from "../logic/dates";
 import type { AppData, Slot } from "../state/model";
-import { dayCost, qty, shopping, slotUse, weekNeeds } from "../logic/inventory";
+import { dayCost, pc, qty, shopping, slotUse, weekNeeds } from "../logic/inventory";
+import { allPreps, prepInv } from "../logic/preps";
 import type { NeedRow } from "../logic/inventory";
 import {
   addSlot,
@@ -21,8 +22,8 @@ import {
 } from "../logic/actions";
 import { allRecipes, recipeName, recipeOf } from "../logic/recipes";
 import { allItems, itemOf } from "../logic/items";
-import { mealEntry } from "../logic/feed";
-import { eur, fmt, porcTxt, stavki } from "../logic/format";
+import { mealEntry, prepEntry } from "../logic/feed";
+import { eur, fmt, pfmt, porcTxt, stavki } from "../logic/format";
 import { shopIndex, shopName } from "../logic/shops";
 import { Icon } from "../components/icons";
 import { usePanel } from "../components/Panel";
@@ -305,6 +306,14 @@ export function PlanTab() {
       ]),
       ["Salate", salads.map((r): Opt => ["r:" + r.id, r.n])],
       [
+        "Prep (pripremljeno)",
+        allPreps(data).map((p): Opt => {
+          const have = pc(data, p.id);
+          const unit = prepInv(data, p.id)?.unit ?? "porcija";
+          return ["p:" + p.id, have > 0 ? `${p.n} (imaš ${pfmt(have, unit)})` : p.n];
+        }),
+      ],
+      [
         "Voće",
         fruits.map((i): Opt => ["i:" + i.id, qty(data, i.id) > 0 ? `${i.n} (imaš ${fmt(qty(data, i.id), i.u)})` : i.n]),
       ],
@@ -312,10 +321,12 @@ export function PlanTab() {
   };
   const parse = (v: string): Omit<Slot, "id" | "done"> | null => {
     if (v.startsWith("r:")) return { r: v.slice(2) };
+    if (v.startsWith("p:")) return { p: v.slice(2) };
     const i = itemOf(data, v.slice(2));
     return i ? { item: i.id, qty: defaultFruitQty(i) } : null;
   };
   const add = (k: string, v: string) => {
+    if (v === "new") return open({ t: "newRecipe", day: k });
     const x = parse(v);
     if (x) apply(addSlot(data, k, x), `${slotLabel(data, x)} za ${dayLabel(k)}.`);
   };
@@ -486,22 +497,47 @@ export function PlanTab() {
     const it = x.item ? itemOf(data, x.item) : undefined;
     const sv = x.s ?? 1;
     const e = x.r ? mealEntry(data, x.r) : null;
+    const pe = x.p ? prepEntry(data, x.p) : null;
+    const punit = x.p ? (prepInv(data, x.p)?.unit ?? "porcija") : "porcija";
+    const pmake = x.p ? (prepInv(data, x.p)?.make ?? 1) : 1;
     const miss = x.done
       ? 0
       : Object.entries(slotUse(data, x, { ...data.prepStock }).use).filter(([id, a]) => qty(data, id) + 1e-9 < a)
           .length;
     return (
       <Cell
-        cls={it ? "s-voce" : r?.side ? `s-${r.side}` : `s-${r?.c ?? "Ostalo"}`}
+        cls={it ? "s-voce" : x.p ? "s-prep" : r?.side ? `s-${r.side}` : `s-${r?.c ?? "Ostalo"}`}
         name={name}
         meta={
           it
             ? fmt(x.qty ?? 1, it.u)
-            : [e?.kcal != null ? `${Math.round(e.kcal * sv)} kcal` : "", porcTxt(sv)].filter(Boolean).join(" · ")
+            : x.p
+              ? [pe?.kcal != null ? `${Math.round((pe.kcal / pmake) * sv)} kcal` : "", pfmt(sv, punit), "prep"]
+                  .filter(Boolean)
+                  .join(" · ")
+              : [e?.kcal != null ? `${Math.round(e.kcal * sv)} kcal` : "", porcTxt(sv)].filter(Boolean).join(" · ")
         }
-        flag={x.done ? "" : miss ? (it ? "nema" : `fali ${miss}`) : it ? "" : "imaš sve"}
+        flag={
+          x.done
+            ? ""
+            : x.p
+              ? pc(data, x.p) + 1e-9 >= sv
+                ? "pripremljeno"
+                : miss
+                  ? `fali ${miss}`
+                  : "napravi"
+              : miss
+                ? it
+                  ? "nema"
+                  : `fali ${miss}`
+                : it
+                  ? ""
+                  : "imaš sve"
+        }
         flagCls={x.done ? "done" : miss ? "miss" : "ready"}
-        onOpen={x.r ? () => open({ t: "meal", id: x.r!, day: k }) : undefined}
+        onOpen={
+          x.r ? () => open({ t: "meal", id: x.r!, day: k }) : x.p ? () => open({ t: "prep", id: x.p! }) : undefined
+        }
         tools={
           <>
             {ix > 0 && (
@@ -516,17 +552,17 @@ export function PlanTab() {
                 </span>
               </button>
             )}
-            {x.r && (
-              <label className="mini porcsel" title="Porcije">
+            {(x.r || x.p) && (
+              <label className="mini porcsel" title={x.p ? "Koliko" : "Porcije"}>
                 <span>{String(sv).replace(".", ",")}×</span>
                 <select
                   aria-label={`Porcije: ${name}`}
                   value={String(sv)}
                   onChange={(ev) => update((d) => setSlot(d, k, x.id, { s: Number(ev.target.value) }))}
                 >
-                  {PORC.map((p) => (
+                  {(x.p ? [0.5, 1, 1.5, 2, 3, 4, 5, 6] : PORC).map((p) => (
                     <option key={p} value={p}>
-                      {porcTxt(p)}
+                      {x.p ? pfmt(p, punit) : porcTxt(p)}
                     </option>
                   ))}
                 </select>
@@ -614,7 +650,11 @@ export function PlanTab() {
                         {x ? (
                           slotCell(k, x, ix)
                         ) : ix === list.length ? (
-                          <PickSelect label="Dodaj obrok" groups={groupsFor(k)} onPick={(v) => add(k, v)} />
+                          <PickSelect
+                            label="Dodaj obrok"
+                            groups={[["Novo", [["new", "+ Novi recept…"]]], ...groupsFor(k)]}
+                            onPick={(v) => add(k, v)}
+                          />
                         ) : null}
                       </div>
                     );

@@ -103,8 +103,23 @@ export const recipeBase = (r: Recipe) => (r.side ? 1 : BASE_SERVINGS);
 export const portionF = (r: Recipe, s = 1) => s / recipeBase(r);
 
 /** Što troši obrok u planu (recept u porcijama ili namirnica), s pripremljenim iz `pcopy` */
-export function slotUse(d: AppData, s: Pick<Slot, "r" | "s" | "item" | "qty">, pcopy: Record<string, number>): EffUse {
+export function slotUse(
+  d: AppData,
+  s: Pick<Slot, "r" | "p" | "s" | "item" | "qty">,
+  pcopy: Record<string, number>,
+): EffUse {
   if (s.item) return { use: { [s.item]: s.qty ?? 1 }, consumed: [], prep: [] };
+  if (s.p) {
+    // prep kao obrok: prvo pripremljeno, za ostatak njegove namirnice
+    const inv = prepInv(d, s.p);
+    if (!inv) return { use: {}, consumed: [], prep: [] };
+    const n = s.s ?? 1;
+    const k = Math.max(0, Math.min(n, pcopy[s.p] || 0));
+    if (k > 0) pcopy[s.p] -= k;
+    const use: Use = {};
+    for (const [id, a] of Object.entries(inv.per)) if (n - k > 0) use[id] = a * (n - k);
+    return { use, consumed: k > 0 ? [[s.p, k]] : [], prep: [{ id: s.p, need: n, used: k }] };
+  }
   const r = s.r ? recipeOf(d, s.r) : undefined;
   return r ? effUse(r, pcopy, false, portionF(r, s.s ?? 1), d) : { use: {}, consumed: [], prep: [] };
 }
@@ -124,7 +139,7 @@ export function planPreps(d: AppData, now = Date.now()): Record<string, number> 
   const out: Record<string, number> = {};
   for (const k of windowKeys(now).slice(1))
     for (const x of daySlots(d.plan, k))
-      if (x.r && !x.done) for (const p of slotUse(d, x, {}).prep) out[p.id] = (out[p.id] || 0) + p.need;
+      if ((x.r || x.p) && !x.done) for (const p of slotUse(d, x, {}).prep) out[p.id] = (out[p.id] || 0) + p.need;
   return out;
 }
 

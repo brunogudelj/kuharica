@@ -158,6 +158,11 @@ export function removeCustomPrep(src: AppData, id: string): { data: AppData; msg
   if (isBuiltinPrep(id)) return { data: d, msg: `${p.n} je vraćen na original.` };
   const per = (a: number) => a / (p.make || 1);
   delete d.prepStock[id];
+  for (const [k, list] of Object.entries(d.plan.slots)) {
+    const left = list.filter((x) => x.p !== id || x.done);
+    if (left.length) d.plan.slots[k] = left;
+    else delete d.plan.slots[k];
+  }
   d.recipes = d.recipes.map((r) => {
     const k = r.prep?.[id];
     if (!k) return r;

@@ -3047,6 +3047,9 @@ textarea,
 .cell.s-voce::before {
   background: var(--c-riza);
 }
+.cell.s-prep::before {
+  background: var(--orange);
+}
 .cell.slot .cname {
   font-size: 13px;
   flex: 1;

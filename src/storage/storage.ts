@@ -117,6 +117,10 @@ function parsePlan(p: Record<string, unknown>, updatedAt: number): Plan {
       const sv = num(o.s, s ?? 1);
       return { id, r: o.r, ...(sv !== 1 && sv > 0 ? { s: Math.min(6, sv) } : {}), done };
     }
+    if (typeof o.p === "string" && o.p) {
+      const sv = num(o.s, 1);
+      return { id, p: o.p, ...(sv !== 1 && sv > 0 ? { s: Math.min(50, sv) } : {}), done };
+    }
     if (typeof o.item === "string" && o.item) return { id, item: o.item, qty: Math.max(0, num(o.qty, 1)), done };
     // stari omlet: ugrađeni je sada recept
     if (o.sel) {
