@@ -2,7 +2,7 @@ import { del, get, set } from "idb-keyval";
 import { ITEMS, NEW_ITEMS, OM_PRESETS, PBY, RBY, UNITS, omPresetId } from "../data";
 import { isBuiltin } from "../logic/lists";
 import type { Carb, CatId, GrpId, PrepCat, Shop, Unit, UnitId } from "../data";
-import type { AppData, Plan, Slot } from "../state/model";
+import type { AppData, Comp, Plan, Slot } from "../state/model";
 import { WIPE_EPOCH, defaultData, slotId, wipeState } from "../state/model";
 import { addDays, dkey } from "../logic/dates";
 
@@ -130,10 +130,40 @@ function parsePlan(p: Record<string, unknown>, updatedAt: number): Plan {
     }
     return null;
   };
+  // obrok od više dijelova
+  const slotFull = (x: unknown): Slot | null => {
+    const o = obj(x);
+    const more = Array.isArray(o.more)
+      ? o.more.map((c) => slotOf({ ...obj(c), id: "x" })).filter((c): c is Slot => !!c)
+      : [];
+    const main = slotOf(x);
+    const n = typeof o.n === "string" && o.n.trim() ? o.n.trim().slice(0, 80) : undefined;
+    if (!main && !more.length) return null;
+    const comps: Comp[] = more.map((c) => {
+      const out: Comp = {};
+      if (c.r) out.r = c.r;
+      if (c.p) out.p = c.p;
+      if (c.item) out.item = c.item;
+      if (c.s != null) out.s = c.s;
+      if (c.qty != null) out.qty = c.qty;
+      return out;
+    });
+    if (!main) {
+      const [first, ...rest] = comps;
+      return {
+        id: typeof o.id === "string" ? o.id : slotId(),
+        done: !!o.done,
+        ...first,
+        ...(rest.length ? { more: rest } : {}),
+        ...(n ? { n } : {}),
+      };
+    }
+    return { ...main, ...(comps.length ? { more: comps } : {}), ...(n ? { n } : {}) };
+  };
   if (p.slots && typeof p.slots === "object") {
     for (const [k, v] of Object.entries(obj(p.slots)))
       if (fresh(k) && Array.isArray(v)) {
-        const list = v.map((x) => slotOf(x)).filter((x): x is Slot => !!x);
+        const list = v.map((x) => slotFull(x)).filter((x): x is Slot => !!x);
         if (list.length) plan.slots[k] = list;
       }
     return plan;

@@ -277,3 +277,66 @@ describe("napravit ću prep", () => {
     expect(setPrepTodo(d, "pp-bol", 0).data.prepTodo).toEqual({});
   });
 });
+
+describe("obrok od više dijelova", () => {
+  it("čufte (prep) + riža + gyoza: popis, kvačica, spremanje i brisanje recepta", async () => {
+    const { addSlot, setSlotComps, toggleSlot, slotLabel, removeRecipe } = await import("./actions");
+    const { saveCustomPrep } = await import("./preps");
+    const { planNeeds, qty, pc } = await import("./inventory");
+    const { daySlots } = await import("../state/model");
+    const { migrate } = await import("../storage/storage");
+    const { todayKey } = await import("./dates");
+    let d = wipeState(defaultData());
+    const meso = newCustomItem({ n: "Meso", cat: "fri", src: "K", u: "g", pack: 500, min: 0 });
+    const riza = newCustomItem({ n: "Riža", cat: "pan", src: "K", u: "g", pack: 1000, min: 0 });
+    const gyoza = newCustomItem({ n: "Gyoza", cat: "frz", src: "K", u: "kom", pack: 12, min: 0 });
+    d = addItem(d, meso, 0).data;
+    d = addItem(d, riza, 1000).data;
+    d = addItem(d, gyoza, 0).data;
+    d = saveCustomPrep(d, {
+      id: "pp-c",
+      n: "Čufte",
+      k: "Gotovo",
+      time: "",
+      keep: "",
+      make: 4,
+      unit: "porcija",
+      use: { [meso.id]: 400 },
+      extra: [],
+      st: [],
+    }).data;
+    d = saveRecipe(d, { id: "r-sal", n: "Salata", c: "Ostalo", d: "", use: {}, extra: ["zelena"], st: [] }).data;
+    d = addSlot(d, todayKey(), { p: "pp-c" });
+    const sid = daySlots(d.plan, todayKey())[0].id;
+    d = setSlotComps(
+      d,
+      todayKey(),
+      sid,
+      [{ p: "pp-c" }, { item: riza.id, qty: 80 }, { item: gyoza.id, qty: 5 }, { r: "r-sal" }],
+      "Čufte s rižom",
+    );
+    const x = daySlots(d.plan, todayKey())[0];
+    expect(slotLabel(d, x)).toBe("Čufte s rižom");
+    const need = planNeeds(d);
+    expect(need[riza.id]).toBeCloseTo(80);
+    expect(need[gyoza.id]).toBeCloseTo(5);
+    expect(need[meso.id]).toBeCloseTo(400);
+    // spremanje i učitavanje
+    const back = migrate(JSON.parse(JSON.stringify(d)));
+    expect(daySlots(back.plan, todayKey())[0]).toMatchObject({
+      p: "pp-c",
+      n: "Čufte s rižom",
+      more: [{ item: riza.id, qty: 80 }, { item: gyoza.id, qty: 5 }, { r: "r-sal" }],
+    });
+    // pojedeno: riža se skida, pripremljene čufte se troše
+    d.prepStock["pp-c"] = 2;
+    d.stock[gyoza.id] = { qty: 12, price: null };
+    const t = toggleSlot(d, todayKey(), sid).data;
+    expect(qty(t, riza.id)).toBe(920);
+    expect(qty(t, gyoza.id)).toBe(7);
+    expect(pc(t, "pp-c")).toBe(1);
+    // obrisani recept nestaje iz obroka, ostalo ostaje
+    const r = removeRecipe(d, "r-sal").data;
+    expect(daySlots(r.plan, todayKey())[0].more?.length).toBe(2);
+  });
+});

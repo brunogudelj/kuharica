@@ -23,6 +23,7 @@ import { shopName } from "../logic/shops";
 import { Html, Stepper } from "./ui";
 import { Icon } from "./icons";
 import { RecipeForm } from "./RecipeForm";
+import { SlotEditor } from "./SlotEditor";
 import { isCustomPrep, prepInv, prepName, prepOf, removeCustomPrep, toCustomPrep } from "../logic/preps";
 import { usePanel } from "./Panel";
 import type { View } from "./Panel";
@@ -625,6 +626,8 @@ export function renderView(v: View) {
       return <MealView key={v.id} id={v.id} day={v.day} />;
     case "prep":
       return <PrepView key={v.id} id={v.id} />;
+    case "slot":
+      return <SlotEditor key={v.day + v.id} day={v.day} id={v.id} />;
     case "newRecipe":
       return <NewRecipe day={v.day} draft={v.draft} />;
     case "editRecipe":

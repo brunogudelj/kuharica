@@ -2,7 +2,7 @@ import { Fragment, useState } from "react";
 import type { ReactNode } from "react";
 import { CYCLE } from "../data";
 import { useApp } from "../state/AppContext";
-import { clone, cycleIx, daySlots } from "../state/model";
+import { clone, cycleIx, daySlots, slotComps } from "../state/model";
 import { dayDate, dayLabel, dayName, todayKey, windowKeys } from "../logic/dates";
 import type { AppData, Slot } from "../state/model";
 import { dayCost, pc, planDetail, qty, shopping, slotUse, weekNeeds } from "../logic/inventory";
@@ -22,7 +22,7 @@ import {
 } from "../logic/actions";
 import { allRecipes, recipeName, recipeOf } from "../logic/recipes";
 import { allItems, itemOf } from "../logic/items";
-import { mealEntry, prepEntry } from "../logic/feed";
+import { macrosOf, mealEntry, prepEntry } from "../logic/feed";
 import { eur, fmt, pfmt, porcTxt, stavki } from "../logic/format";
 import { shopIndex, shopName } from "../logic/shops";
 import { Icon } from "../components/icons";
@@ -345,10 +345,9 @@ export function PlanTab() {
     .map((k) =>
       daySlots(plan, k).reduce(
         (t, x) => {
-          if (!x.r) return t;
-          const e = mealEntry(data, x.r);
-          const sv = x.s ?? 1;
-          return { k: t.k + (e?.kcal ?? 0) * sv, p: t.p + (e?.p ?? 0) * sv };
+          // sve na tanjuru: recepti, prep i namirnice
+          const m = macrosOf(data, slotUse(data, x, {}).use);
+          return { k: t.k + m.k, p: t.p + m.p };
         },
         { k: 0, p: 0 },
       ),
@@ -519,6 +518,9 @@ export function PlanTab() {
     const pe = x.p ? prepEntry(data, x.p) : null;
     const punit = x.p ? (prepInv(data, x.p)?.unit ?? "porcija") : "porcija";
     const pmake = x.p ? (prepInv(data, x.p)?.make ?? 1) : 1;
+    // obrok od više dijelova (npr. čufte + riža + gyoza)
+    const multi = !!x.more?.length || !!x.n;
+    const mm = multi ? macrosOf(data, slotUse(data, x, {}).use) : null;
     const miss = x.done
       ? 0
       : Object.entries(slotUse(data, x, { ...data.prepStock }).use).filter(([id, a]) => qty(data, id) + 1e-9 < a)
@@ -528,13 +530,15 @@ export function PlanTab() {
         cls={it ? "s-voce" : x.p ? "s-prep" : r?.side ? `s-${r.side}` : `s-${r?.c ?? "Ostalo"}`}
         name={name}
         meta={
-          it
-            ? fmt(x.qty ?? 1, it.u)
-            : x.p
-              ? [pe?.kcal != null ? `${Math.round((pe.kcal / pmake) * sv)} kcal` : "", pfmt(sv, punit), "prep"]
-                  .filter(Boolean)
-                  .join(" · ")
-              : [e?.kcal != null ? `${Math.round(e.kcal * sv)} kcal` : "", porcTxt(sv)].filter(Boolean).join(" · ")
+          multi
+            ? [mm?.known ? `${Math.round(mm.k)} kcal` : "", `${slotComps(x).length} dijela`].filter(Boolean).join(" · ")
+            : it
+              ? fmt(x.qty ?? 1, it.u)
+              : x.p
+                ? [pe?.kcal != null ? `${Math.round((pe.kcal / pmake) * sv)} kcal` : "", pfmt(sv, punit), "prep"]
+                    .filter(Boolean)
+                    .join(" · ")
+                : [e?.kcal != null ? `${Math.round(e.kcal * sv)} kcal` : "", porcTxt(sv)].filter(Boolean).join(" · ")
         }
         flag={
           x.done
@@ -555,7 +559,13 @@ export function PlanTab() {
         }
         flagCls={x.done ? "done" : miss ? "miss" : "ready"}
         onOpen={
-          x.r ? () => open({ t: "meal", id: x.r!, day: k }) : x.p ? () => open({ t: "prep", id: x.p! }) : undefined
+          multi || it
+            ? () => open({ t: "slot", day: k, id: x.id })
+            : x.r
+              ? () => open({ t: "meal", id: x.r!, day: k })
+              : x.p
+                ? () => open({ t: "prep", id: x.p! })
+                : undefined
         }
         tools={
           <>
@@ -571,7 +581,16 @@ export function PlanTab() {
                 </span>
               </button>
             )}
-            {(x.r || x.p) && (
+            <button
+              type="button"
+              className="mini"
+              title="Dodaj još na tanjur (npr. riža, gyoza)"
+              aria-label={`Uredi obrok: ${name}`}
+              onClick={() => open({ t: "slot", day: k, id: x.id })}
+            >
+              <Icon name="plus" size={14} />
+            </button>
+            {!multi && (x.r || x.p) && (
               <label className="mini porcsel" title={x.p ? "Koliko" : "Porcije"}>
                 <span>{String(sv).replace(".", ",")}×</span>
                 <select
@@ -683,9 +702,9 @@ export function PlanTab() {
             </div>
           </div>
           <p className="sub">
-            Svaki obrok je recept ili voće, po defaultu 1 porcija (1,5 porcija = ručak i večera iz jednog kuhanja). Klik
-            na naziv otvara recept, kvačica znači pojedeno i skida sastojke sa zalihe. <Icon name="swap" size={14} />{" "}
-            mijenja jelo, <Icon name="close" size={14} /> ga miče s dana.
+            Obrok je tanjur: recept, prep ili namirnica, a s <Icon name="plus" size={14} /> na obroku dodaješ još (npr.
+            čufte + riža + gyoza). Kvačica znači pojedeno i skida sve sa zalihe. <Icon name="swap" size={14} /> mijenja
+            glavno jelo, <Icon name="close" size={14} /> miče obrok s dana.
           </p>
         </>
       )}

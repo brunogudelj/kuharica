@@ -7,6 +7,7 @@ import { Icon } from "./icons";
 export type View =
   | { t: "meal"; id: string; day?: string }
   | { t: "prep"; id: string }
+  | { t: "slot"; day: string; id: string }
   | { t: "newRecipe"; day?: string; draft?: CustomRecipe }
   | { t: "editRecipe"; id: string }
   | { t: "importRecipe" }

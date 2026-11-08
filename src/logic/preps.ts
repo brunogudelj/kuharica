@@ -5,6 +5,7 @@ import type { CustomPrep, PrepInv, PrepRecipe, UnitId } from "../data";
 import type { AppData } from "../state/model";
 import { clone } from "../state/model";
 import { itemOf } from "./items";
+import { dropComps } from "./actions";
 import { plural, round } from "./format";
 
 export const isCustomPrep = (id: string) => id.startsWith("pp-");
@@ -159,7 +160,7 @@ export function removeCustomPrep(src: AppData, id: string): { data: AppData; msg
   const per = (a: number) => a / (p.make || 1);
   delete d.prepStock[id];
   for (const [k, list] of Object.entries(d.plan.slots)) {
-    const left = list.filter((x) => x.p !== id || x.done);
+    const left = dropComps(list, (c) => c.p === id);
     if (left.length) d.plan.slots[k] = left;
     else delete d.plan.slots[k];
   }

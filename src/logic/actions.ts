@@ -3,8 +3,8 @@ import { CYCLE, ITEMS } from "../data";
 import { newPrepId, prepInv, prepOf } from "./preps";
 import type { CustomPrep, CustomRecipe, Item } from "../data";
 import { allRecipes, isBuiltinRecipe, newRecipeId, recipeOf } from "./recipes";
-import type { AppData, CostEntry, Slot } from "../state/model";
-import { clone, cycleIx, daySlots, slotId, wipeState } from "../state/model";
+import type { AppData, Comp, CostEntry, Slot } from "../state/model";
+import { clone, cycleIx, daySlots, slotComps, slotId, wipeState, withComps } from "../state/model";
 import { todayKey, windowKeys } from "./dates";
 import { effUse, missingFor, pc, portionF, prepEff, price, qty, slotUse } from "./inventory";
 import { shuffle } from "./omlet";
@@ -208,9 +208,40 @@ export function setSlot(src: AppData, k: string, id: string, x: Partial<Omit<Slo
   d.plan.slots[k] = daySlots(d.plan, k).map((y) => {
     if (y.id !== id) return y;
     const swap = "r" in x || "p" in x || "item" in x;
-    const n: Slot = swap ? { id, done: false, ...x } : { ...y, ...x };
+    // zamjena mijenja glavni dio, ostali dijelovi obroka ostaju
+    const n: Slot = swap
+      ? { id, done: false, ...x, ...(y.more ? { more: y.more } : {}), ...(y.n ? { n: y.n } : {}) }
+      : { ...y, ...x };
     if (n.s === 1) delete n.s;
     return n;
+  });
+  return d;
+}
+
+/** Makni dijelove obroka (npr. obrisani recept) iz nepojedenih obroka; prazni obroci nestaju */
+export function dropComps(list: Slot[], hit: (c: Comp) => boolean): Slot[] {
+  return list.flatMap((x) => {
+    if (x.done) return [x];
+    const comps = slotComps(x);
+    const left = comps.filter((c) => !hit(c));
+    if (left.length === comps.length) return [x];
+    return left.length ? [withComps(x, left)] : [];
+  });
+}
+
+/** Dijelovi obroka (recepti, prep, namirnice) i vlastiti naziv */
+export function setSlotComps(src: AppData, k: string, id: string, list: Comp[], n?: string): AppData {
+  const d = clone(src);
+  const cur = daySlots(d.plan, k);
+  if (!list.length) return removeSlot(src, k, id);
+  d.plan.slots[k] = cur.map((y) => {
+    if (y.id !== id) return y;
+    const out = withComps(y, list);
+    if (n != null) {
+      if (n.trim()) out.n = n.trim();
+      else delete out.n;
+    }
+    return out;
   });
   return d;
 }
@@ -237,7 +268,14 @@ export function moveSlot(src: AppData, k: string, id: string, dir: -1 | 1): AppD
 }
 
 /** Naziv sadržaja obroka */
-export function slotLabel(d: AppData, s: Pick<Slot, "r" | "p" | "item">): string {
+export function slotLabel(d: AppData, s: Comp & { more?: Comp[]; n?: string }): string {
+  if (s.n) return s.n;
+  if (s.more?.length) return [...(s.r || s.p || s.item ? [s] : []), ...s.more].map((c) => compLabel(d, c)).join(" + ");
+  return compLabel(d, s);
+}
+
+/** Naziv jednog dijela obroka */
+export function compLabel(d: AppData, s: Comp): string {
   if (s.item) return itemOf(d, s.item)?.n ?? "Obrisana namirnica";
   if (s.p) return prepOf(d, s.p)?.n ?? "Obrisani prep";
   if (s.r) return recipeOf(d, s.r)?.n ?? "Obrisani recept";
@@ -379,7 +417,7 @@ export function recipeToPrep(src: AppData, id: string): Result & { prepId?: stri
     });
   let removed = 0;
   for (const [k, list] of Object.entries(d.plan.slots)) {
-    const left = list.filter((x) => x.r !== id || x.done);
+    const left = dropComps(list, (c) => c.r === id);
     removed += list.length - left.length;
     if (left.length) d.plan.slots[k] = left;
     else delete d.plan.slots[k];
@@ -433,15 +471,17 @@ export function prepToRecipe(src: AppData, id: string): Result & { recipeId?: st
   });
   delete d.prepStock[id];
   // obroci u planu: n jedinica prepa = n/make tura = n/make·1,5 porcija recepta
-  for (const list of Object.values(d.plan.slots))
-    for (const x of list)
-      if (x.p === id) {
-        const sv = round(((x.s ?? 1) / make) * 1.5);
-        delete x.p;
-        x.r = rid;
-        if (sv !== 1) x.s = sv;
-        else delete x.s;
-      }
+  for (const [k, list] of Object.entries(d.plan.slots))
+    d.plan.slots[k] = list.map((x) =>
+      withComps(
+        x,
+        slotComps(x).map((c) => {
+          if (c.p !== id) return c;
+          const sv = round(((c.s ?? 1) / make) * 1.5);
+          return { r: rid, ...(sv !== 1 ? { s: sv } : {}) };
+        }),
+      ),
+    );
   return { data: d, recipeId: rid, msg: `${p.n} je sada recept i može ići u plan kao obrok.` };
 }
 
@@ -459,7 +499,7 @@ export function removeRecipe(src: AppData, id: string): Result {
     return { ...x, parts };
   });
   for (const [k, list] of Object.entries(d.plan.slots)) {
-    const left = list.filter((x) => x.r !== id || x.done);
+    const left = dropComps(list, (c) => c.r === id);
     if (left.length) d.plan.slots[k] = left;
     else delete d.plan.slots[k];
   }

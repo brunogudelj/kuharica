@@ -17,8 +17,31 @@ export interface Slot {
   /** namirnica i količina */
   item?: string;
   qty?: number;
+  /** ostalo u istom obroku: npr. čufte (prep) + riža + gyoza, bez posebnog recepta */
+  more?: Comp[];
+  /** vlastiti naziv obroka */
+  n?: string;
   done: boolean;
 }
+/** Dio obroka: recept (porcije), prep (jedinice) ili namirnica (količina) */
+export type Comp = Pick<Slot, "r" | "p" | "s" | "item" | "qty">;
+/** Svi dijelovi obroka, prvi je glavni */
+export const slotComps = (x: Slot): Comp[] => {
+  const main: Comp = {};
+  if (x.r) main.r = x.r;
+  if (x.p) main.p = x.p;
+  if (x.item) main.item = x.item;
+  if (x.s != null) main.s = x.s;
+  if (x.qty != null) main.qty = x.qty;
+  return [...(main.r || main.p || main.item ? [main] : []), ...(x.more ?? [])];
+};
+/** Obrok s novim popisom dijelova (prvi postaje glavni) */
+export const withComps = (x: Slot, list: Comp[]): Slot => {
+  const [main, ...more] = list;
+  const out: Slot = { id: x.id, done: x.done, ...(x.n ? { n: x.n } : {}), ...(main ?? {}) };
+  if (more.length) out.more = more;
+  return out;
+};
 /** Plan po datumima (YYYY-MM-DD). Prikazuje se rolling 14 dana: jučer, danas i 12 dana unaprijed. */
 export interface Plan {
   /** datum koji je 1. dan ciklusa riža → krumpir → tjestenina → riža → krumpir */

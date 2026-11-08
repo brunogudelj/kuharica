@@ -2,7 +2,7 @@ import { DAILY_COOK, REC_USE_PREP } from "../data";
 import { prepInv } from "./preps";
 import type { Item, PrepRecipe, Recipe, Use } from "../data";
 import { allRecipes, recipeOf } from "./recipes";
-import type { AppData, Slot } from "../state/model";
+import type { AppData, Comp } from "../state/model";
 import { daySlots } from "../state/model";
 import { aheadKeys, windowKeys } from "./dates";
 import { allItems, itemName, itemOf } from "./items";
@@ -103,11 +103,21 @@ export const recipeBase = (r: Recipe) => (r.side ? 1 : BASE_SERVINGS);
 export const portionF = (r: Recipe, s = 1) => s / recipeBase(r);
 
 /** Što troši obrok u planu (recept u porcijama ili namirnica), s pripremljenim iz `pcopy` */
-export function slotUse(
-  d: AppData,
-  s: Pick<Slot, "r" | "p" | "s" | "item" | "qty">,
-  pcopy: Record<string, number>,
-): EffUse {
+export function slotUse(d: AppData, x: Comp & { more?: Comp[] }, pcopy: Record<string, number>): EffUse {
+  if (!x.more?.length) return compUse(d, x, pcopy);
+  // obrok od više dijelova: zbroj
+  const out: EffUse = { use: {}, consumed: [], prep: [] };
+  for (const c of [...(x.r || x.p || x.item ? [x] : []), ...x.more]) {
+    const e = compUse(d, c, pcopy);
+    for (const [id, a] of Object.entries(e.use)) out.use[id] = (out.use[id] || 0) + a;
+    out.consumed.push(...e.consumed);
+    out.prep.push(...e.prep);
+  }
+  return out;
+}
+
+/** Što troši jedan dio obroka */
+function compUse(d: AppData, s: Comp, pcopy: Record<string, number>): EffUse {
   if (s.item) return { use: { [s.item]: s.qty ?? 1 }, consumed: [], prep: [] };
   if (s.p) {
     // prep kao obrok: prvo pripremljeno, za ostatak njegove namirnice
