@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { defaultData } from "../state/model";
+import { WIPE_EPOCH, defaultData } from "../state/model";
 import { GIST_FILE, connect, decide, pull, push, toRemote } from "./gistSync";
 
-const withTime = (t: number) => ({ ...defaultData(), updatedAt: t });
+const withTime = (t: number) => ({ ...defaultData(), updatedAt: t, epoch: WIPE_EPOCH });
 
 describe("sinkronizacija: zadnja promjena pobjeđuje", () => {
   it("decide", () => {

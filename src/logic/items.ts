@@ -3,19 +3,28 @@ import { GRP_OF, ITEMS } from "../data";
 import type { CatId, GrpId, Item, ShopId, Unit } from "../data";
 import type { AppData, ItemsState } from "../state/model";
 
-const cache = new WeakMap<ItemsState, { all: Item[]; map: Map<string, Item> }>();
+const caches = [
+  new WeakMap<ItemsState, { all: Item[]; map: Map<string, Item> }>(),
+  new WeakMap<ItemsState, { all: Item[]; map: Map<string, Item> }>(),
+];
 
-function build(s: ItemsState) {
+/** Katalog: ugrađene namirnice (ako nisu isključene u Postavkama) + vlastite */
+function build(d: AppData) {
+  const s = d.items;
+  const builtin = d.settings?.builtin !== false;
+  const cache = caches[builtin ? 1 : 0];
   let c = cache.get(s);
   if (!c) {
-    const all = ITEMS.map((i) => {
-      const o = s.over[i.id];
-      const base: Item = i.grp ? i : { ...i, grp: GRP_OF[i.id] ?? "ostalo" };
-      if (!o) return base;
-      const n: Item = { ...base, ...o };
-      if (o.pack != null && o.pack !== i.pack) n.step = defaultStep(i.u, o.pack);
-      return n;
-    }).concat(s.custom.map((i) => (i.grp ? i : { ...i, grp: "ostalo" as GrpId })));
+    const all = (builtin ? ITEMS : [])
+      .map((i) => {
+        const o = s.over[i.id];
+        const base: Item = i.grp ? i : { ...i, grp: GRP_OF[i.id] ?? "ostalo" };
+        if (!o) return base;
+        const n: Item = { ...base, ...o };
+        if (o.pack != null && o.pack !== i.pack) n.step = defaultStep(i.u, o.pack);
+        return n;
+      })
+      .concat(s.custom.map((i) => (i.grp ? i : { ...i, grp: "ostalo" as GrpId })));
     c = { all, map: new Map(all.map((i) => [i.id, i])) };
     cache.set(s, c);
   }
@@ -23,15 +32,15 @@ function build(s: ItemsState) {
 }
 
 /** Sve namirnice, i skrivene */
-export const allItems = (d: AppData) => build(d.items).all;
+export const allItems = (d: AppData) => build(d).all;
 /** Namirnice koje korisnik koristi (bez skrivenih) */
-export const visibleItems = (d: AppData) => build(d.items).all.filter((i) => !d.items.hidden.includes(i.id));
-export const hiddenItems = (d: AppData) => build(d.items).all.filter((i) => d.items.hidden.includes(i.id));
-export const itemOf = (d: AppData, id: string) => build(d.items).map.get(id);
+export const visibleItems = (d: AppData) => build(d).all.filter((i) => !d.items.hidden.includes(i.id));
+export const hiddenItems = (d: AppData) => build(d).all.filter((i) => d.items.hidden.includes(i.id));
+export const itemOf = (d: AppData, id: string) => build(d).map.get(id);
 /** Namirnica po barkodu (i skrivena) */
 export const itemByEan = (d: AppData, ean: string) => {
   const code = ean.replace(/\D/g, "");
-  return code ? build(d.items).all.find((i) => i.ean === code) : undefined;
+  return code ? build(d).all.find((i) => i.ean === code) : undefined;
 };
 export const itemName = (d: AppData, id: string) => itemOf(d, id)?.n ?? id;
 export const isCustom = (id: string) => id.startsWith("c-");

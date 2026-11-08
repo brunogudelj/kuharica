@@ -1,4 +1,4 @@
-import { CATS, DEFAULT_SHOPS, GROUPS, ITEMS, OM_PRESETS, omPresetId } from "../data";
+import { CATS, DEFAULT_SHOPS, GROUPS, OM_PRESETS, omPresetId } from "../data";
 import { diffDays, todayKey, windowKeys } from "../logic/dates";
 import type { CustomPrep, CustomRecipe, Item, Shop } from "../data";
 
@@ -85,6 +85,8 @@ export interface UiState {
 }
 export interface AppData {
   version: 1;
+  /** brisanje svega: podaci starijeg "epoch" se jednom isprazne (vidi WIPE_EPOCH) */
+  epoch?: number;
   /** vrijeme zadnje promjene podataka (ms); za sinkronizaciju, zadnja promjena pobjeđuje */
   updatedAt: number;
   stock: Record<string, StockEntry>;
@@ -173,16 +175,27 @@ export function defaultPlan(now = Date.now()): Plan {
 /** Prazan plan od danas */
 export const emptyPlan = (now = Date.now()): Plan => ({ anchor: todayKey(now), slots: {} });
 
+/** Povećaj kad sve treba obrisati na svim uređajima (8. 11. 2026: kreće se od nule) */
+export const WIPE_EPOCH = 2;
+
 /**
- * Namirnice od nule: sve ugrađene namirnice skrivene, prazna zaliha i pripremljeno.
- * Recepti, omleti, prep, plan, dućani, troškovi i vlastite namirnice ostaju.
+ * Sve od nule: bez namirnica (ni ugrađenih), recepata, prepa, omleta, zalihe, plana, povijesti i troškova.
+ * Ostaju samo dućani, popisi (jedinice, mjesta, skupine, vrste jela) i postavke.
  */
-export function cleanState(src: AppData): AppData {
+export function wipeState(src: AppData, now = Date.now()): AppData {
   const d = clone(src);
-  d.items.hidden = ITEMS.map((i) => i.id);
+  d.items = { v: 2, custom: [], hidden: [], over: {} };
   d.stock = {};
   d.prepStock = {};
-  d.settings.builtin = true;
+  d.recipes = [];
+  d.preps = [];
+  d.plan = emptyPlan(now);
+  d.hist = [];
+  d.costs = {};
+  d.settings.builtin = false;
+  d.ui.servings = {};
+  d.ui.ture = {};
+  d.epoch = WIPE_EPOCH;
   return d;
 }
 

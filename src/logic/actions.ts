@@ -4,7 +4,7 @@ import { prepInv, prepOf } from "./preps";
 import type { CustomRecipe, Item } from "../data";
 import { allRecipes, isBuiltinRecipe, recipeOf } from "./recipes";
 import type { AppData, CostEntry, Slot } from "../state/model";
-import { cleanState, clone, cycleIx, daySlots, slotId } from "../state/model";
+import { clone, cycleIx, daySlots, slotId, wipeState } from "../state/model";
 import { todayKey, windowKeys } from "./dates";
 import { effUse, missingFor, pc, portionF, prepEff, price, qty, slotUse } from "./inventory";
 import { shuffle } from "./omlet";
@@ -342,9 +342,9 @@ export function removeRecipe(src: AppData, id: string): Result {
   return { data: d, msg: `${r?.n ?? "Recept"} je obrisan.` };
 }
 
-/** Namirnice od nule: sve ugrađene namirnice skrivene, prazna zaliha; recepti i plan ostaju */
+/** Sve od nule: briše namirnice, recepte, prep, zalihu, plan, povijest i troškove */
 export function cleanStart(src: AppData): Result {
-  return { data: cleanState(src), msg: "Namirnice kreću od nule. Recepti i plan su ostali." };
+  return { data: wipeState(src), msg: "Sve je obrisano. Krećeš od nule." };
 }
 
 /** Uključi ili isključi ugrađene recepte, omlete i prep */

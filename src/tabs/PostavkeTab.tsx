@@ -205,7 +205,7 @@ function Other() {
   return (
     <div className="setcol">
       <div className="group">
-        <h2>Ugrađeni recepti</h2>
+        <h2>Ugrađeni katalog</h2>
         <label className="checkrow">
           <input
             type="checkbox"
@@ -215,23 +215,22 @@ function Other() {
               apply(r.data, r.msg);
             }}
           />
-          <span>Prikaži ugrađene recepte, omlete i prep</span>
+          <span>Prikaži ugrađene namirnice, recepte, omlete i prep</span>
         </label>
-        <p className="sub">
-          Kad je isključeno, vidiš samo recepte i prep koje si sam dodao. Ugrađene namirnice vraćaš u Zalihi preko
-          tražilice.
-        </p>
+        <p className="sub">Kad je isključeno, vidiš samo namirnice, recepte i prep koje si sam dodao.</p>
       </div>
       <div className="group">
-        <h2>Namirnice od nule</h2>
+        <h2>Obriši sve</h2>
         <p className="sub">
-          Sakrij sve ugrađene namirnice i isprazni zalihu i pripremljeno. Recepti, omleti, prep, plan, tvoje dodane
-          namirnice, dućani i troškovi ostaju.
+          Briše sve namirnice, recepte, prep, zalihu, plan, povijest i troškove. Ostaju dućani, popisi (jedinice,
+          mjesta, skupine, vrste jela) i postavke.
         </p>
         {confirm ? (
           <div className="confirm" role="alertdialog" aria-label="Potvrda">
-            <b>Namirnice od nule?</b>
-            <span className="sub">Sve količine se brišu. Prije toga možeš spremiti backup.</span>
+            <b>Obrisati sve?</b>
+            <span className="sub">
+              To se ne može poništiti nakon zatvaranja poruke. Prije toga možeš spremiti backup.
+            </span>
             <div className="btnrow">
               <button
                 type="button"
@@ -242,7 +241,7 @@ function Other() {
                   setConfirm(false);
                 }}
               >
-                Da, isprazni namirnice
+                Da, obriši sve
               </button>
               <button type="button" className="btn ghost" onClick={() => setConfirm(false)}>
                 Odustani
@@ -251,7 +250,7 @@ function Other() {
           </div>
         ) : (
           <button type="button" className="btn ghost" onClick={() => setConfirm(true)}>
-            Namirnice od nule…
+            Obriši sve…
           </button>
         )}
       </div>

@@ -3,7 +3,7 @@ import { ITEMS, NEW_ITEMS, OM_PRESETS, PBY, RBY, UNITS, omPresetId } from "../da
 import { isBuiltin } from "../logic/lists";
 import type { Carb, CatId, GrpId, PrepCat, Shop, Unit, UnitId } from "../data";
 import type { AppData, Plan, Slot } from "../state/model";
-import { cleanState, defaultData, slotId } from "../state/model";
+import { WIPE_EPOCH, defaultData, slotId, wipeState } from "../state/model";
 import { addDays, dkey } from "../logic/dates";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -20,7 +20,7 @@ const KEY = "kuharica-podaci";
 export const indexedDbStorage: Storage = {
   async load() {
     const raw = await get(KEY);
-    return raw ? fromStored(raw, true) : cleanState(defaultData());
+    return raw ? fromStored(raw, true) : wipeState(defaultData());
   },
   async save(data) {
     await set(KEY, data);
@@ -74,10 +74,12 @@ const obj = (v: unknown): Record<string, unknown> =>
  */
 export function fromStored(raw: unknown, bump = false): AppData {
   const d = migrate(raw);
-  if (obj(obj(raw).settings).builtin !== undefined) return d;
-  const c = cleanState(d);
-  // na uređaju: novije od starog stanja na GitHubu, da se čisto stanje pošalje dalje
-  if (bump) c.updatedAt = Date.now();
+  if (num(obj(raw).epoch, 0) >= WIPE_EPOCH) return d;
+  // sve se briše (krećemo od nule); ostaju dućani, popisi i postavke
+  const c = wipeState(d);
+  // na uređaju: novije od starog stanja na GitHubu, da se prazno stanje pošalje dalje.
+  // S GitHuba: najstarije, da ga ne pregazi ono što je na uređaju već dodano nakon brisanja.
+  c.updatedAt = bump ? Date.now() : 0;
   return c;
 }
 
@@ -213,6 +215,7 @@ export function migrate(raw: unknown): AppData {
   const builtin = obj(r.settings).builtin;
   d.settings.builtin = typeof builtin === "boolean" ? builtin : true;
   d.updatedAt = num(r.updatedAt, 0);
+  if (num(r.epoch, 0) > 0) d.epoch = num(r.epoch, 0);
 
   const ls = obj(r.lists);
   for (const k of ["cats", "grps", "units", "kinds"] as const) {
@@ -408,5 +411,6 @@ export function exportJson(data: AppData): Blob {
 
 export async function importJson(file: File): Promise<AppData> {
   const text = await file.text();
-  return migrate(JSON.parse(text));
+  // backup koji namjerno vraćaš se ne briše, ni kad je stariji od brisanja
+  return { ...migrate(JSON.parse(text)), epoch: WIPE_EPOCH };
 }
