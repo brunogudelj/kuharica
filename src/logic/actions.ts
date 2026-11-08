@@ -1,7 +1,7 @@
 /* Čiste funkcije koje iz stanja rade novo stanje. Poništavanje = povratak prethodnog stanja. */
 import { CYCLE, ITEMS } from "../data";
-import { prepInv, prepOf } from "./preps";
-import type { CustomRecipe, Item } from "../data";
+import { newPrepId, prepInv, prepOf } from "./preps";
+import type { CustomPrep, CustomRecipe, Item } from "../data";
 import { allRecipes, isBuiltinRecipe, recipeOf } from "./recipes";
 import type { AppData, CostEntry, Slot } from "../state/model";
 import { clone, cycleIx, daySlots, slotId, wipeState } from "../state/model";
@@ -319,6 +319,57 @@ export function saveRecipe(src: AppData, r: CustomRecipe): Result {
   if (i >= 0) d.recipes[i] = r;
   else d.recipes.push(r);
   return { data: d, msg: i >= 0 ? `${r.n} je spremljen.` : `${r.n} je dodan u recepte.` };
+}
+
+/**
+ * Vlastiti recept postaje prep: radi se unaprijed, a ono što napraviš vidiš u Zalihi pod Pripremljeno.
+ * Jedna tura = cijeli recept (1,5 porcija). Dijelovi se pretvaraju u namirnice i prep, obroci s tim receptom
+ * se miču iz plana, a recepti koji ga imaju kao dio sada imaju prep.
+ */
+export function recipeToPrep(src: AppData, id: string): Result & { prepId?: string } {
+  const own = src.recipes.find((x) => x.id === id);
+  const r = recipeOf(src, id);
+  if (!own || !r || isBuiltinRecipe(id)) return { data: src, msg: "Samo vlastiti recept može postati prep." };
+  const d = clone(src);
+  const pid = newPrepId(own.n);
+  const time = own.d.match(/(\d+)\s*min/)?.[0] ?? "";
+  const prep: CustomPrep = {
+    id: pid,
+    n: own.n,
+    k: "Gotovo",
+    time,
+    keep: "Hladnjak 3 dana",
+    make: 1.5,
+    unit: "porcija",
+    use: Object.fromEntries(Object.entries(r.use).map(([k, a]) => [k, round(a)])),
+    extra: own.extra,
+    st: own.st,
+    ...(own.kinds?.length ? { kinds: own.kinds } : {}),
+    ...(r.prep?.length ? { prep: Object.fromEntries(r.prep) } : {}),
+  };
+  d.preps.push(prep);
+  d.recipes = d.recipes
+    .filter((x) => x.id !== id)
+    .map((x) => {
+      const k = x.parts?.[id];
+      if (!k) return x;
+      const parts = { ...x.parts };
+      delete parts[id];
+      // k porcija po porciji = 1,5·k porcija prepa za 1,5 porcija recepta
+      return { ...x, parts, prep: { ...(x.prep ?? {}), [pid]: round(k * 1.5) } };
+    });
+  let removed = 0;
+  for (const [k, list] of Object.entries(d.plan.slots)) {
+    const left = list.filter((x) => x.r !== id || x.done);
+    removed += list.length - left.length;
+    if (left.length) d.plan.slots[k] = left;
+    else delete d.plan.slots[k];
+  }
+  return {
+    data: d,
+    prepId: pid,
+    msg: `${own.n} je sada prep${removed ? `, maknut iz ${removed} obroka u planu` : ""}. Upiši koliko daje jedna tura.`,
+  };
 }
 
 /** Obriši vlastiti recept; makni ga i iz plana i iz složenih recepata.

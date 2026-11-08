@@ -58,3 +58,45 @@ describe("sve od nule", () => {
     expect(fromStored(JSON.parse(JSON.stringify(b))).settings.builtin).toBe(true);
   });
 });
+
+describe("recept u prep", () => {
+  it("čufte postaju prep: iste namirnice, plan bez njih, složeni recept dobiva prep", async () => {
+    const { recipeToPrep, addSlot, makePrep } = await import("./actions");
+    const { prepOf, prepInv } = await import("./preps");
+    const { pc } = await import("./inventory");
+    const { todayKey } = await import("./dates");
+    let d = wipeState(defaultData());
+    const meso = newCustomItem({ n: "Mljeveno meso", cat: "fri", src: "K", u: "g", pack: 500, min: 0 });
+    d = addItem(d, meso, 1000).data;
+    d = saveRecipe(d, {
+      id: "r-cufta-1",
+      n: "Čufta",
+      c: "Ostalo",
+      d: "Tava · 30 min",
+      use: { [meso.id]: 450 },
+      extra: ["sol"],
+      st: ["Oblikuj"],
+    }).data;
+    d = saveRecipe(d, {
+      id: "r-pire-1",
+      n: "Čufte s pireom",
+      c: "Krumpir",
+      d: "",
+      use: {},
+      extra: [],
+      st: [],
+      parts: { "r-cufta-1": 1 },
+    }).data;
+    d = addSlot(d, todayKey(), { r: "r-cufta-1" });
+    const res = recipeToPrep(d, "r-cufta-1");
+    const pid = res.prepId!;
+    d = res.data;
+    expect(prepOf(d, pid)).toMatchObject({ n: "Čufta", time: "30 min", use: { [meso.id]: 450 } });
+    expect(d.recipes.map((r) => r.id)).toEqual(["r-pire-1"]);
+    expect(d.recipes[0].prep).toEqual({ [pid]: 1.5 });
+    expect(d.plan.slots[todayKey()]).toBeUndefined();
+    expect(prepInv(d, pid)).toMatchObject({ make: 1.5, unit: "porcija" });
+    d = makePrep(d, pid, 1).data;
+    expect(pc(d, pid)).toBe(1.5);
+  });
+});
