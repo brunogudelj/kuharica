@@ -5,8 +5,8 @@ import { useApp } from "../state/AppContext";
 import { clone, cycleIx, daySlots } from "../state/model";
 import { dayDate, dayLabel, dayName, todayKey, windowKeys } from "../logic/dates";
 import type { AppData, Slot } from "../state/model";
-import { dayCost, pc, qty, shopping, slotUse, weekNeeds } from "../logic/inventory";
-import { allPreps, prepInv } from "../logic/preps";
+import { dayCost, pc, planDetail, qty, shopping, slotUse, weekNeeds } from "../logic/inventory";
+import { allPreps, prepInv, prepName } from "../logic/preps";
 import type { NeedRow } from "../logic/inventory";
 import {
   addSlot,
@@ -357,6 +357,7 @@ export function PlanTab() {
     dayTotals.length ? Math.round(dayTotals.reduce((a, t) => a + f(t), 0) / dayTotals.length) : 0;
   const planCost = horizon.reduce((t, k) => t + dayCost(data, k).c, 0);
   const shop = shopping(data).length;
+  const batches = planDetail(data).batches.filter((b) => b.ture > 0);
   const cyc = cycleIx(plan, today);
 
   const tab = data.ui.planView ?? "cal";
@@ -457,6 +458,24 @@ export function PlanTab() {
             <dt>Plan košta</dt>
             <dd>{planCost > 0 ? <b>{eur(planCost)}</b> : <small>upiši cijene u Zalihi</small>}</dd>
           </div>
+          {batches.length > 0 && (
+            <div>
+              <dt>Prep za napraviti</dt>
+              <dd>
+                {batches.map((b) => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    className="linkbtn block"
+                    onClick={() => open({ t: "prep", id: b.id })}
+                  >
+                    {prepName(data, b.id)}: {b.ture === 1 ? "1 tura" : `${b.ture} ture`} (
+                    {pfmt(b.ture * b.make, prepInv(data, b.id)?.unit ?? "porcija")})
+                  </button>
+                ))}
+              </dd>
+            </div>
+          )}
           <div>
             <dt>Za kupiti</dt>
             <dd>

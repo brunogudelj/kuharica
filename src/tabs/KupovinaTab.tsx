@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type { CatId, GrpId, Item } from "../data";
 import { useApp } from "../state/AppContext";
+import { prepName } from "../logic/preps";
 import { price, shopping } from "../logic/inventory";
 import type { ShopRow } from "../logic/inventory";
 import { allItems } from "../logic/items";
@@ -136,7 +137,13 @@ function ShopTr({ x, hide }: { x: ShopRow; hide?: "shop" | "cat" }) {
       </td>
       <td className="sticky namecell stack" style={{ minWidth: 170 }}>
         <span className="iname">{x.i.n}</span>
-        <small className={x.forPlan ? "tag-plan" : "muted"}>{x.forPlan ? "za plan" : "dopuna zalihe"}</small>
+        <small className={x.forPlan ? "tag-plan" : "muted"}>
+          {x.forPrep.length
+            ? `za prep: ${x.forPrep.map((p) => prepName(data, p)).join(", ")}`
+            : x.forPlan
+              ? "za plan"
+              : "dopuna zalihe"}
+        </small>
       </td>
       {hide !== "shop" && <td className="muted">{shopName(data, x.i.src)}</td>}
       {hide !== "cat" && (

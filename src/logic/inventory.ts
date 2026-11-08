@@ -125,13 +125,58 @@ export function slotUse(
 }
 
 /** Potreba za razdoblje popisa za kupovinu: svi nepojedeni obroci u planu */
-export function planNeeds(d: AppData, now = Date.now()): Use {
+/** Prep koji treba napraviti za razdoblje popisa: kuha se cijela tura, ne samo ono što se pojede */
+export interface PrepBatch {
+  id: string;
+  /** potrebno za obroke u razdoblju (u jedinicama prepa) */
+  need: number;
+  have: number;
+  /** koliko tura treba napraviti */
+  ture: number;
+  make: number;
+}
+
+/**
+ * Potreba za razdoblje popisa za kupovinu. Recepti i namirnice u obrocima troše se kako su planirani,
+ * a za prep (bolonjez, čufte…) koji nemaš dovoljno pripremljenog kupuje se za cijele ture: ako treba
+ * 1 porcija bolonjeza, a tura daje 4, kupuje se za 4.
+ */
+export function planDetail(
+  d: AppData,
+  now = Date.now(),
+): { need: Use; batches: PrepBatch[]; byItem: Record<string, string[]> } {
   const need: Use = {};
-  const pcopy = { ...d.prepStock };
+  const prepNeed: Record<string, number> = {};
+  // prep se ovdje računa kao da ga ima: njegove namirnice idu niže, po cijelim turama
+  const all: Record<string, number> = new Proxy({}, { get: () => Infinity });
   for (const k of aheadKeys(now, d.settings.shopDays || 7))
-    for (const x of daySlots(d.plan, k))
-      if (!x.done) for (const [id, a] of Object.entries(slotUse(d, x, pcopy).use)) need[id] = (need[id] || 0) + a;
-  return need;
+    for (const x of daySlots(d.plan, k)) {
+      if (x.done) continue;
+      const eff = slotUse(d, x, all);
+      for (const [id, a] of Object.entries(eff.use)) need[id] = (need[id] || 0) + a;
+      for (const p of eff.prep) prepNeed[p.id] = (prepNeed[p.id] || 0) + p.need;
+    }
+  const batches: PrepBatch[] = [];
+  const byItem: Record<string, string[]> = {};
+  for (const [pid, n] of Object.entries(prepNeed)) {
+    const inv = prepInv(d, pid);
+    if (!inv) continue;
+    const have = d.prepStock[pid] || 0;
+    const short = n - have;
+    const make = inv.make > 0 ? inv.make : 1;
+    const ture = short > 1e-9 ? Math.ceil(short / make - 1e-9) : 0;
+    batches.push({ id: pid, need: n, have, ture, make });
+    if (!ture) continue;
+    for (const [id, a] of Object.entries(inv.per)) {
+      need[id] = (need[id] || 0) + a * make * ture;
+      (byItem[id] ??= []).push(pid);
+    }
+  }
+  return { need, batches, byItem };
+}
+
+export function planNeeds(d: AppData, now = Date.now()): Use {
+  return planDetail(d, now).need;
 }
 
 /** Prep koji traži tekući plan (od danas do kraja prozora): id → potrebne jedinice */
@@ -149,12 +194,14 @@ export interface ShopRow {
   packs: number;
   cost: number | null;
   forPlan: boolean;
+  /** prep za koji se kupuje (cijela tura) */
+  forPrep: string[];
 }
 
 /** Popis za kupovinu: potreba + minimum − zaliha, zaokruženo na cijela pakiranja.
  * Skrivene namirnice nemaju minimum, ali ulaze u popis ako ih traži planirani recept ili omlet. */
 export function shopping(d: AppData): ShopRow[] {
-  const pn = planNeeds(d);
+  const { need: pn, byItem } = planDetail(d);
   return allItems(d)
     .map((i): ShopRow | null => {
       const min = d.items.hidden.includes(i.id) ? 0 : i.min;
@@ -163,7 +210,14 @@ export function shopping(d: AppData): ShopRow[] {
       if (short <= 0.0001) return null;
       const packs = Math.max(1, Math.ceil(short / i.pack - 1e-9));
       const p = price(d, i.id);
-      return { i, short, packs, cost: p != null ? packs * p : null, forPlan: (pn[i.id] || 0) > qty(d, i.id) };
+      return {
+        i,
+        short,
+        packs,
+        cost: p != null ? packs * p : null,
+        forPlan: (pn[i.id] || 0) > qty(d, i.id),
+        forPrep: byItem[i.id] ?? [],
+      };
     })
     .filter((x): x is ShopRow => x !== null);
 }

@@ -175,9 +175,9 @@ describe("prep u planu", () => {
     const conv = recipeToPrep(d, "r-c");
     const pid = conv.prepId!;
     d = conv.data;
-    // tura = 1,5 porcija = 450 g → 1 porcija prepa = 300 g mesa
+    // 1 porcija čufti u planu, a za kupovinu cijela tura (1,5 porcija = 450 g mesa)
     d = addSlot(d, todayKey(), { p: pid });
-    expect(planNeeds(d)[meso.id]).toBeCloseTo(300);
+    expect(planNeeds(d)[meso.id]).toBeCloseTo(450);
     d = makePrep(d, pid, 1).data;
     expect(planNeeds(d)[meso.id] ?? 0).toBe(0);
     const sid = daySlots(d.plan, todayKey())[0].id;
@@ -188,5 +188,56 @@ describe("prep u planu", () => {
     const back = prepToRecipe(d, pid);
     const s1 = daySlots(back.data.plan, addDays(todayKey(), 1))[0];
     expect(s1).toMatchObject({ r: back.recipeId, s: 1.5 });
+  });
+});
+
+describe("kupovina za cijele ture prepa", () => {
+  it("1 porcija bolonjeza u planu kupuje za cijelu turu od 4", async () => {
+    const { addSlot } = await import("./actions");
+    const { saveCustomPrep } = await import("./preps");
+    const { planDetail, planNeeds, shopping } = await import("./inventory");
+    const { todayKey, addDays } = await import("./dates");
+    let d = wipeState(defaultData());
+    const meso = newCustomItem({ n: "Meso", cat: "fri", src: "K", u: "g", pack: 500, min: 0 });
+    const pasta = newCustomItem({ n: "Špagete", cat: "pan", src: "K", u: "g", pack: 500, min: 0 });
+    d = addItem(d, meso, 0).data;
+    d = addItem(d, pasta, 0).data;
+    d = saveCustomPrep(d, {
+      id: "pp-bolonjez-1",
+      n: "Bolonjez",
+      k: "Gotovo",
+      time: "",
+      keep: "",
+      make: 4,
+      unit: "porcija",
+      use: { [meso.id]: 400 },
+      extra: [],
+      st: [],
+    }).data;
+    d = saveRecipe(d, {
+      id: "r-spag",
+      n: "Špagete bolonjez",
+      c: "Tjestenina",
+      d: "",
+      use: { [pasta.id]: 120 },
+      prep: { "pp-bolonjez-1": 1.5 },
+      extra: [],
+      st: [],
+    }).data;
+    d = addSlot(d, todayKey(), { r: "r-spag" });
+    // jedan obrok: 80 g špageta, a meso za cijelu turu bolonjeza
+    expect(planNeeds(d)[pasta.id]).toBeCloseTo(80);
+    expect(planNeeds(d)[meso.id]).toBeCloseTo(400);
+    const row = shopping(d).find((x) => x.i.id === meso.id)!;
+    expect(row.forPrep).toEqual(["pp-bolonjez-1"]);
+    expect(planDetail(d).batches[0]).toMatchObject({ need: 1, ture: 1, make: 4 });
+    // pet obroka (5 porcija) = 2 ture
+    for (let i = 1; i < 5; i++) d = addSlot(d, addDays(todayKey(), i), { p: "pp-bolonjez-1" });
+    expect(planNeeds(d)[meso.id]).toBeCloseTo(800);
+    // s 4 pripremljene porcije fali 1 → još jedna tura
+    d.prepStock["pp-bolonjez-1"] = 4;
+    expect(planNeeds(d)[meso.id]).toBeCloseTo(400);
+    d.prepStock["pp-bolonjez-1"] = 5;
+    expect(planNeeds(d)[meso.id] ?? 0).toBe(0);
   });
 });

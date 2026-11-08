@@ -3625,3 +3625,7 @@ ul.parts li {
   color: var(--muted);
   font-weight: 400;
 }
+.linkbtn.block {
+  display: block;
+  text-align: left;
+}
