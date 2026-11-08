@@ -241,3 +241,39 @@ describe("kupovina za cijele ture prepa", () => {
     expect(planNeeds(d)[meso.id] ?? 0).toBe(0);
   });
 });
+
+describe("napravit ću prep", () => {
+  it("4 porcije bolonjeza idu na popis, Napravio sam ih skida", async () => {
+    const { setPrepTodo, makePrep } = await import("./actions");
+    const { saveCustomPrep } = await import("./preps");
+    const { planNeeds, shopping } = await import("./inventory");
+    let d = wipeState(defaultData());
+    const meso = newCustomItem({ n: "Meso", cat: "fri", src: "K", u: "g", pack: 500, min: 0 });
+    const pasata = newCustomItem({ n: "Pasata", cat: "pan", src: "K", u: "g", pack: 400, min: 0 });
+    d = addItem(d, meso, 100).data;
+    d = addItem(d, pasata, 0).data;
+    d = saveCustomPrep(d, {
+      id: "pp-bol",
+      n: "Bolonjez",
+      k: "Gotovo",
+      time: "",
+      keep: "",
+      make: 2,
+      unit: "porcija",
+      use: { [meso.id]: 200, [pasata.id]: 160 },
+      extra: [],
+      st: [],
+    }).data;
+    d = setPrepTodo(d, "pp-bol", 4).data;
+    expect(planNeeds(d)[meso.id]).toBeCloseTo(400);
+    expect(planNeeds(d)[pasata.id]).toBeCloseTo(320);
+    const row = shopping(d).find((x) => x.i.id === meso.id)!;
+    expect(row.short).toBeCloseTo(300);
+    expect(row.forPrep).toEqual(["pp-bol"]);
+    d = makePrep(d, "pp-bol", 1).data;
+    expect(d.prepTodo["pp-bol"]).toBe(2);
+    d = makePrep(d, "pp-bol", 1).data;
+    expect(d.prepTodo["pp-bol"]).toBeUndefined();
+    expect(setPrepTodo(d, "pp-bol", 0).data.prepTodo).toEqual({});
+  });
+});

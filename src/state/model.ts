@@ -93,6 +93,8 @@ export interface AppData {
   updatedAt: number;
   stock: Record<string, StockEntry>;
   prepStock: Record<string, number>;
+  /** prep koji ću napraviti (u jedinicama prepa, npr. 4 porcije): ide na popis za kupovinu */
+  prepTodo: Record<string, number>;
   plan: Plan;
   hist: { r: string; t: number }[];
   /** ključ "YYYY-MM" */
@@ -189,6 +191,7 @@ export function wipeState(src: AppData, now = Date.now()): AppData {
   d.items = { v: 2, custom: [], hidden: [], over: {} };
   d.stock = {};
   d.prepStock = {};
+  d.prepTodo = {};
   d.recipes = [];
   d.preps = [];
   d.plan = emptyPlan(now);
@@ -207,6 +210,7 @@ export function defaultData(): AppData {
     updatedAt: 0,
     stock: {},
     prepStock: {},
+    prepTodo: {},
     plan: defaultPlan(),
     hist: [],
     costs: {},

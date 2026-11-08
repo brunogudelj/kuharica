@@ -55,7 +55,25 @@ export function makePrep(src: AppData, pid: string, t = 1): Result {
   const eff = prepEff(src, p, t, { ...src.prepStock });
   consume(d, eff.use, eff.consumed);
   d.prepStock[pid] = round(pc(d, pid) + inv.make * t);
+  // napravljeno se skida s onoga što si planirao napraviti
+  const left = round((d.prepTodo[pid] ?? 0) - inv.make * t);
+  if (left > 0) d.prepTodo[pid] = left;
+  else delete d.prepTodo[pid];
   return { data: d, msg: `${p.n}: +${pfmt(inv.make * t, inv.unit)} u pripremljenom.` };
+}
+
+/** Napravit ću `n` jedinica prepa (npr. 4 porcije bolonjeza): namirnice idu na popis za kupovinu. 0 miče s popisa. */
+export function setPrepTodo(src: AppData, pid: string, n: number): Result {
+  const d = clone(src);
+  const p = prepOf(src, pid);
+  const inv = prepInv(src, pid);
+  if (!p || !inv) return { data: src, msg: "Prep ne postoji." };
+  if (n > 0) d.prepTodo[pid] = round(n);
+  else delete d.prepTodo[pid];
+  return {
+    data: d,
+    msg: n > 0 ? `${p.n}: ${pfmt(n, inv.unit)} ide na popis za kupovinu.` : `${p.n} je maknut s popisa za kupovinu.`,
+  };
 }
 
 /** Kupio: povećaj zalihu i zabilježi procjenu troška ako je cijena poznata */

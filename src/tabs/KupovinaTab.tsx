@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type { CatId, GrpId, Item } from "../data";
 import { useApp } from "../state/AppContext";
-import { prepName } from "../logic/preps";
+import { prepInv, prepName } from "../logic/preps";
 import { price, shopping } from "../logic/inventory";
 import type { ShopRow } from "../logic/inventory";
 import { allItems } from "../logic/items";
-import { purchase, undoPurchase } from "../logic/actions";
+import { purchase, setPrepTodo, undoPurchase } from "../logic/actions";
+import { usePanel } from "../components/Panel";
 import { shopIndex, shopName } from "../logic/shops";
 import { clone } from "../state/model";
 import { SortTh } from "../components/Cells";
@@ -15,7 +16,7 @@ import { FCheck, FGroup, FSearch, Page, toggle } from "../components/Page";
 import type { Chip } from "../components/Page";
 
 const CAT_ORDER: CatId[] = ["fre", "fri", "frz", "dry"];
-import { eur, fmt, monthKey, round, sameDay, stavki } from "../logic/format";
+import { eur, fmt, monthKey, pfmt, round, sameDay, stavki } from "../logic/format";
 import { ItemForm } from "../components/ItemForm";
 import { Icon } from "../components/icons";
 
@@ -361,7 +362,8 @@ type SK = "n" | "shop" | "cat" | "short" | "cost";
 type KTab = "list" | "today";
 
 export function KupovinaTab() {
-  const { data, update } = useApp();
+  const { data, update, apply } = useApp();
+  const { open } = usePanel();
   const [copyMsg, setCopyMsg] = useState("");
   const [sort, setSort] = useState<{ k: SK; dir: 1 | -1 }>({ k: "n", dir: 1 });
   const [tab, setTab] = useState<KTab>("list");
@@ -602,6 +604,31 @@ export function KupovinaTab() {
       }
     >
       <Extra open={extra} setOpen={setExtra} />
+      {tab === "list" && Object.keys(data.prepTodo ?? {}).length > 0 && (
+        <div className="prepbanner">
+          <b>Prep koji ćeš napraviti:</b>
+          {Object.entries(data.prepTodo).map(([pid, n]) => (
+            <span key={pid} className="chip">
+              <button type="button" className="linkbtn" onClick={() => open({ t: "prep", id: pid })}>
+                {prepName(data, pid)}
+              </button>{" "}
+              {pfmt(n, prepInv(data, pid)?.unit ?? "porcija")}
+              <button
+                type="button"
+                className="mini"
+                aria-label={`Makni ${prepName(data, pid)} s popisa`}
+                onClick={() => {
+                  const r = setPrepTodo(data, pid, 0);
+                  apply(r.data, r.msg);
+                }}
+              >
+                <Icon name="close" size={12} />
+              </button>
+            </span>
+          ))}
+          <small className="muted">Namirnice za njih su u popisu ispod, s oznakom „za prep”.</small>
+        </div>
+      )}
       {tab === "today" ? (
         <Basket />
       ) : list.length ? (

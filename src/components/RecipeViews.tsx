@@ -13,7 +13,7 @@ import { dayDate, dayLabel, dayName, todayKey, windowKeys } from "../logic/dates
 import type { AppData } from "../state/model";
 import { effUse, pc, portionF, prepEff, prepUsedIn, qty } from "../logic/inventory";
 import type { EffUse } from "../logic/inventory";
-import { addSlot, cook, makePrep, removeRecipe, removeSlot } from "../logic/actions";
+import { addSlot, cook, makePrep, removeRecipe, removeSlot, setPrepTodo } from "../logic/actions";
 import { recipeName, recipeOf, toCustom, usedIn } from "../logic/recipes";
 import { itemOf } from "../logic/items";
 import { KIND_LABEL, mealEntry, prepEntry } from "../logic/feed";
@@ -395,8 +395,12 @@ export function PrepView({ id }: { id: string }) {
   const p = prepOf(data, id);
   const e = prepEntry(data, id);
   if (!p || !e) return <p className="sub">Prep više ne postoji.</p>;
-  const t = data.ui.ture[id] ?? 1;
   const inv = prepInv(data, id) ?? { make: 1, unit: "porcija" as const, per: {} };
+  // koliko ću napraviti (u jedinicama prepa); ako je na popisu za kupovinu, to je ta količina
+  const todo = data.prepTodo?.[id] ?? 0;
+  const amount = todo || round((data.ui.ture[id] ?? 1) * inv.make);
+  const t = amount / inv.make;
+  const step = inv.make >= 4 ? 1 : 0.5;
   const have = pc(data, id);
   const eff = prepEff(data, p, t, { ...data.prepStock });
   const users = prepUsedIn(data, id);
@@ -423,13 +427,74 @@ export function PrepView({ id }: { id: string }) {
       </div>
       <section className="psec">
         <div className="rowspread">
-          <h3>Koliko tura</h3>
+          <h3>Napravit ću</h3>
           <Stepper
-            label="ture"
-            value={`× ${t.toLocaleString("hr-HR")}`}
-            onDec={() => change((n) => (n.ui.ture[id] = Math.max(0.5, t - 0.5)))}
-            onInc={() => change((n) => (n.ui.ture[id] = Math.min(5, t + 0.5)))}
+            label="koliko"
+            value={pfmt(amount, inv.unit)}
+            onDec={() =>
+              change((n) => {
+                const v = Math.max(step, round(amount - step));
+                n.ui.ture[id] = v / inv.make;
+                if (n.prepTodo[id]) n.prepTodo[id] = v;
+              })
+            }
+            onInc={() =>
+              change((n) => {
+                const v = round(amount + step);
+                n.ui.ture[id] = v / inv.make;
+                if (n.prepTodo[id]) n.prepTodo[id] = v;
+              })
+            }
           />
+        </div>
+        <div className="todobox">
+          {todo ? (
+            <>
+              <p>
+                <b>Na popisu za kupovinu: {pfmt(todo, inv.unit)}.</b>{" "}
+                {Object.keys(eff.use).some((iid) => qty(data, iid) + 1e-9 < eff.use[iid])
+                  ? "Ono što fali (tablica ispod) je u Kupovini."
+                  : "Sve namirnice imaš, ništa ne treba kupiti."}
+              </p>
+              <div className="btnrow">
+                <button
+                  type="button"
+                  className="btn ghost small"
+                  onClick={() => {
+                    update((d) => {
+                      const n = clone(d);
+                      n.ui.tab = "kupovina";
+                      return n;
+                    });
+                    close();
+                  }}
+                >
+                  Otvori popis za kupovinu
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost small"
+                  onClick={() => {
+                    const r = setPrepTodo(data, id, 0);
+                    apply(r.data, r.msg);
+                  }}
+                >
+                  Makni s popisa
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                const r = setPrepTodo(data, id, amount);
+                apply(r.data, r.msg);
+              }}
+            >
+              <Icon name="kupovina" size={18} /> Pošalji {pfmt(amount, inv.unit)} na popis za kupovinu
+            </button>
+          )}
         </div>
         <div className="rowspread">
           <h3>Pripremljeno na zalihi</h3>
@@ -443,11 +508,11 @@ export function PrepView({ id }: { id: string }) {
       </section>
       <Parts preps={eff.prep} />
       <section className="psec">
-        <h3>Iz zalihe</h3>
+        <h3>Namirnice za {pfmt(amount, inv.unit)}</h3>
         <StockList data={data} use={eff.use} />
       </section>
       <section className="psec">
-        <h3>Sastojci{t !== 1 ? ` za ${t.toLocaleString("hr-HR")} ture` : ""}</h3>
+        <h3>Sastojci za {pfmt(amount, inv.unit)}</h3>
         <ul className="ing">
           {p.ing.map((i, k) => (
             <Html key={k} as="li" html={scaleText(i, t)} />

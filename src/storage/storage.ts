@@ -190,6 +190,7 @@ export function migrate(raw: unknown): AppData {
     d.stock[id] = { qty: Math.max(0, num(e.qty, 0)), price: typeof e.price === "number" ? e.price : null };
   }
   for (const [id, v] of Object.entries(obj(r.prepStock))) d.prepStock[id] = Math.max(0, num(v, 0));
+  for (const [id, v] of Object.entries(obj(r.prepTodo))) if (num(v, 0) > 0) d.prepTodo[id] = num(v, 0);
 
   d.plan = parsePlan(obj(r.plan), num(r.updatedAt, 0));
 

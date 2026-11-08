@@ -147,6 +147,8 @@ export function planDetail(
 ): { need: Use; batches: PrepBatch[]; byItem: Record<string, string[]> } {
   const need: Use = {};
   const prepNeed: Record<string, number> = {};
+  const batches: PrepBatch[] = [];
+  const byItem: Record<string, string[]> = {};
   // prep se ovdje računa kao da ga ima: njegove namirnice idu niže, po cijelim turama
   const all: Record<string, number> = new Proxy({}, { get: () => Infinity });
   for (const k of aheadKeys(now, d.settings.shopDays || 7))
@@ -156,11 +158,19 @@ export function planDetail(
       for (const [id, a] of Object.entries(eff.use)) need[id] = (need[id] || 0) + a;
       for (const p of eff.prep) prepNeed[p.id] = (prepNeed[p.id] || 0) + p.need;
     }
-  const batches: PrepBatch[] = [];
-  const byItem: Record<string, string[]> = {};
+  // prep koji si sam odlučio napraviti (npr. 4 porcije bolonjeza) ide na popis točno tako
+  const todo = d.prepTodo ?? {};
+  for (const [pid, n] of Object.entries(todo)) {
+    const inv = prepInv(d, pid);
+    if (!inv || !(n > 0)) continue;
+    for (const [id, a] of Object.entries(inv.per)) {
+      need[id] = (need[id] || 0) + a * n;
+      (byItem[id] ??= []).push(pid);
+    }
+  }
   for (const [pid, n] of Object.entries(prepNeed)) {
     const inv = prepInv(d, pid);
-    if (!inv) continue;
+    if (!inv || todo[pid]) continue;
     const have = d.prepStock[pid] || 0;
     const short = n - have;
     const make = inv.make > 0 ? inv.make : 1;
