@@ -59,11 +59,14 @@ function Row({
   onOpen,
   kindN,
   prepCells,
+  showCarb = true,
 }: {
   e: FeedEntry;
   onOpen: () => void;
   kindN: (id: string) => string;
   prepCells?: ReactNode;
+  /** kolona Prilog (popis recepata) */
+  showCarb?: boolean;
 }) {
   const all = e.total > 0 && e.have >= e.total;
   const approx = e.macKnown > 0 && e.macKnown < e.items.length ? "≈ " : "";
@@ -94,6 +97,7 @@ function Row({
       </td>
       <td data-l="Vrsta">
         <div className="chips">
+          {isPrep && <span className="chip mine">prep</span>}
           {isPrep && <span className="chip">{e.method}</span>}
           {e.kinds.map((k) => (
             <span key={k} className="chip kind">
@@ -105,7 +109,7 @@ function Row({
       <td data-l="Način" className="muted">
         {e.tags.filter((t) => t !== "2 u 1").join(", ")}
       </td>
-      {!isPrep && (
+      {showCarb && (
         <td data-l="Prilog">{e.carb && <span className={`chip carb-chip ${carbCls(e.carb)}`}>{e.carb}</span>}</td>
       )}
       <td data-l="Protein">
@@ -167,9 +171,12 @@ export function RecipeList({
   const [fHave, setFHave] = useState(false);
   const [fPlan, setFPlan] = useState(false);
 
-  const all = useMemo(() => (isPrep ? prepFeed(data) : feed(data)), [data, isPrep]);
-  const inPlan = useMemo(() => (isPrep ? planPreps(data) : {}), [data, isPrep]);
+  // Recepti: svi recepti, i oni koji su prep; stranica Prep: samo prep
+  const all = useMemo(() => (isPrep ? prepFeed(data) : [...feed(data), ...prepFeed(data)]), [data, isPrep]);
+  const inPlan = useMemo(() => planPreps(data), [data]);
+  const [fType, setFType] = useState<"" | "meal" | "prep">("");
   const prepPass = (e: FeedEntry, skip?: "k" | "keep" | "have" | "plan") => {
+    if (fType && (fType === "prep") !== (e.kind === "prep")) return false;
     if (!isPrep) return true;
     const p = prepOf(data, e.id);
     if (!p) return false;
@@ -230,6 +237,7 @@ export function RecipeList({
     ...(fHave ? [["Već pripremljeno", () => setFHave(false)] as Chip] : []),
     ...(f.time ? [[`do ${f.time} min`, () => set({ time: 0 })] as Chip] : []),
     ...(f.mine ? [[isPrep ? "Moj prep" : "Moji recepti", () => set({ mine: false })] as Chip] : []),
+    ...(fType ? [[fType === "prep" ? "Samo prep" : "Samo obroci", () => setFType("")] as Chip] : []),
   ];
   const clearAll = () => {
     setF({ ...emptyFilter(), q: f.q });
@@ -237,6 +245,7 @@ export function RecipeList({
     setFKeep([]);
     setFHave(false);
     setFPlan(false);
+    setFType("");
   };
 
   const openEntry = (e: FeedEntry) => {
@@ -253,8 +262,30 @@ export function RecipeList({
     />
   );
 
+  const typeCount = (t: "meal" | "prep") =>
+    all.filter((e) => (t === "prep") === (e.kind === "prep") && matches(e, f, data)).length;
   const filters = (
     <>
+      {!isPrep && (
+        <FGroup title="Recept ili prep" count={fType ? 1 : 0}>
+          {(
+            [
+              ["", "Svi"],
+              ["meal", "Obroci (kuhaš prije jela)"],
+              ["prep", "Prep (radiš unaprijed)"],
+            ] as ["" | "meal" | "prep", string][]
+          ).map(([k, l]) => (
+            <FCheck
+              key={k || "svi"}
+              radio
+              on={fType === k}
+              label={l}
+              count={k ? typeCount(k) : all.filter((e) => matches(e, f, data)).length}
+              onChange={() => setFType(k)}
+            />
+          ))}
+        </FGroup>
+      )}
       <FGroup title="Vrsta jela" count={f.kinds.length}>
         {kindOpts(data)
           .filter(([k]) => all.some((e) => e.kinds.includes(k)) || f.kinds.includes(k))
@@ -480,6 +511,7 @@ export function RecipeList({
                   <th className="num">Cijena</th>
                   <th className="num">Vrijeme</th>
                   <th>Sastojci</th>
+                  {!isPrep && <th className="num">Pripremljeno</th>}
                   {isPrep && (
                     <>
                       <th>Čuvanje</th>
@@ -496,7 +528,18 @@ export function RecipeList({
                     e={e}
                     kindN={kindN}
                     onOpen={() => openEntry(e)}
-                    prepCells={isPrep ? <PrepCells id={e.id} need={inPlan[e.id] ?? 0} /> : undefined}
+                    showCarb={!isPrep}
+                    prepCells={
+                      isPrep ? (
+                        <PrepCells id={e.id} need={inPlan[e.id] ?? 0} />
+                      ) : (
+                        <td data-l="Pripremljeno" className="num strong">
+                          {e.kind === "prep" && pc(data, e.id) > 0
+                            ? pfmt(pc(data, e.id), prepInv(data, e.id)?.unit ?? "porcija")
+                            : "–"}
+                        </td>
+                      )
+                    }
                   />
                 ))}
               </tbody>
@@ -505,7 +548,7 @@ export function RecipeList({
               <span>
                 {isPrep
                   ? "Brojke su za jednu turu. Klik otvara prep sa strane."
-                  : "Brojke su po obroku, za doručak (omlet) po porciji. Klik na recept otvara ga sa strane."}
+                  : "Brojke su po porciji, za prep po turi. Klik na recept otvara ga sa strane."}
               </span>
             </div>
           </div>

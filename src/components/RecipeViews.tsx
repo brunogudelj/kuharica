@@ -13,7 +13,7 @@ import { dayDate, dayLabel, dayName, todayKey, windowKeys } from "../logic/dates
 import type { AppData } from "../state/model";
 import { effUse, pc, portionF, prepEff, prepUsedIn, qty } from "../logic/inventory";
 import type { EffUse } from "../logic/inventory";
-import { addSlot, cook, makePrep, prepToRecipe, recipeToPrep, removeRecipe, removeSlot } from "../logic/actions";
+import { addSlot, cook, makePrep, removeRecipe, removeSlot } from "../logic/actions";
 import { recipeName, recipeOf, toCustom, usedIn } from "../logic/recipes";
 import { itemOf } from "../logic/items";
 import { KIND_LABEL, mealEntry, prepEntry } from "../logic/feed";
@@ -360,21 +360,6 @@ export function MealView({ id, day }: { id: string; day?: string }) {
           <button type="button" className="btn ghost" onClick={() => open({ t: "editRecipe", id: r.id })}>
             <Icon name="edit" size={16} /> Uredi recept
           </button>
-          {r.custom && !r.edited && (
-            <button
-              type="button"
-              className="btn ghost"
-              title="Radiš ga unaprijed, a napravljeno vidiš u Zalihi pod Pripremljeno"
-              onClick={() => {
-                const res = recipeToPrep(data, r.id);
-                if (!res.prepId) return;
-                apply(res.data, res.msg);
-                open({ t: "editPrep", id: res.prepId });
-              }}
-            >
-              <Icon name="prep" size={16} /> Prebaci u prep
-            </button>
-          )}
           {!r.custom ? null : confirmDel ? (
             <>
               <button
@@ -515,23 +500,8 @@ export function PrepView({ id }: { id: string }) {
       </div>
       <div className="btnrow">
         <button type="button" className="btn ghost" onClick={() => open({ t: "editPrep", id })}>
-          <Icon name="edit" size={16} /> Uredi prep
+          <Icon name="edit" size={16} /> Uredi recept
         </button>
-        {isCustomPrep(id) && (
-          <button
-            type="button"
-            className="btn ghost"
-            title="Jede se kao obrok i ide u plan; ne vodi se kao pripremljeno"
-            onClick={() => {
-              const res = prepToRecipe(data, id);
-              if (!res.recipeId) return;
-              apply(res.data, res.msg);
-              open({ t: "meal", id: res.recipeId });
-            }}
-          >
-            <Icon name="recepti" size={16} /> Prebaci u recept
-          </button>
-        )}
         {!own ? null : confirm ? (
           <>
             <button

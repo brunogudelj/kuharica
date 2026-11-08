@@ -3607,3 +3607,18 @@ ul.parts li {
 .bulktable tr.off td {
   opacity: 0.5;
 }
+.prepflag {
+  align-items: flex-start;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+}
+.prepflag span {
+  display: grid;
+  gap: 2px;
+}
+.prepflag small {
+  color: var(--muted);
+  font-weight: 400;
+}

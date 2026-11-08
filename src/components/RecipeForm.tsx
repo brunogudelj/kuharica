@@ -11,7 +11,7 @@ import { useApp } from "../state/AppContext";
 import { allItems, itemOf } from "../logic/items";
 import { catOpts, kindOpts } from "../logic/lists";
 import { allRecipes, newRecipeId, recipeName } from "../logic/recipes";
-import { addSlot, saveRecipe } from "../logic/actions";
+import { addSlot, prepToRecipe, recipeToPrep, saveRecipe } from "../logic/actions";
 import { BASE_SERVINGS } from "../logic/inventory";
 import { ItemForm } from "./ItemForm";
 
@@ -56,13 +56,18 @@ type Props =
 
 export function RecipeForm(props: Props) {
   const { existing, draft, onDone, planDay } = props;
-  const isPrep = props.mode === "prep";
+  // je li ono što uređujemo bilo prep (za prebacivanje recept ↔ prep pri spremanju)
+  const wasPrep = props.mode === "prep";
   const { data, apply } = useApp();
   const init = existing ?? draft;
-  const meal = (isPrep ? undefined : init) as CustomRecipe | undefined;
-  const prepInit = (isPrep ? init : undefined) as CustomPrep | undefined;
+  const meal = (wasPrep ? undefined : init) as CustomRecipe | undefined;
+  const prepInit = (wasPrep ? init : undefined) as CustomPrep | undefined;
+  // prep je recept koji radiš unaprijed i čuvaš pripremljen
+  const [isPrep, setIsPrep] = useState(wasPrep);
   // recept: količine za 1 porciju (sprema se za 1,5); prep: za jednu turu
-  const f = isPrep || meal?.side ? 1 : BASE_SERVINGS;
+  const fFor = (prep: boolean) => (prep || meal?.side ? 1 : BASE_SERVINGS);
+  const f = fFor(isPrep);
+  const f0 = fFor(wasPrep);
 
   const [n, setN] = useState(init?.n ?? "");
   const [c, setC] = useState<Carb>(meal?.c ?? "Riža");
@@ -70,19 +75,19 @@ export function RecipeForm(props: Props) {
   const [k, setK] = useState<PrepCat>(prepInit?.k ?? "Umaci");
   const [time, setTime] = useState(prepInit?.time ?? "");
   const [keep, setKeep] = useState(prepInit?.keep ?? "Hladnjak 1 tjedan");
-  const [make, setMake] = useState(show(prepInit?.make ?? 1));
+  const [make, setMake] = useState(show(prepInit?.make ?? 1.5));
   const [unit, setUnit] = useState<UnitId>(prepInit?.unit ?? "porcija");
   const [rows, setRows] = useState<Row[]>(() =>
     init && Object.keys(init.use).length
-      ? Object.entries(init.use).map(([id, a], i) => ({ key: i, id, amt: show(a / f) }))
+      ? Object.entries(init.use).map(([id, a], i) => ({ key: i, id, amt: show(a / f0) }))
       : [{ key: 0, id: "", amt: "" }],
   );
   const [kinds, setKinds] = useState<string[]>(init?.kinds ?? []);
   const [parts, setParts] = useState<Row[]>(() =>
     [
       ...Object.entries(meal?.parts ?? {}).map(([id, x]): [string, string] => [id, show(x)]),
-      ...Object.entries(init?.prep ?? {}).map(([id, x]): [string, string] => ["p:" + id, show(x / f)]),
-      ...Object.entries(meal?.prepIn ?? {}).map(([id, x]): [string, string] => ["pi:" + id, show(x / f)]),
+      ...Object.entries(init?.prep ?? {}).map(([id, x]): [string, string] => ["p:" + id, show(x / f0)]),
+      ...Object.entries(meal?.prepIn ?? {}).map(([id, x]): [string, string] => ["pi:" + id, show(x / f0)]),
     ].map(([id, amt], i) => ({ key: i, id, amt })),
   );
   const [extra, setExtra] = useState(init?.extra.join("\n") ?? "");
@@ -104,6 +109,16 @@ export function RecipeForm(props: Props) {
   const prepParts = allPreps(data)
     .filter((p) => p.id !== selfId && !(selfId && p.prep?.some(([x]) => x === selfId)))
     .sort((a, b) => a.n.localeCompare(b.n, "hr"));
+  const togglePrep = (on: boolean) => {
+    const k = fFor(!on) / fFor(on);
+    const conv = (r: Row) => {
+      const a = parse(r.amt);
+      return isNaN(a) ? r : { ...r, amt: show(a * k) };
+    };
+    setRows((rs) => rs.map(conv));
+    setParts((ps) => ps.map((p) => (p.id.startsWith("p:") || p.id.startsWith("pi:") ? conv(p) : p)));
+    setIsPrep(on);
+  };
   const setRow = (key: number, patch: Partial<Row>) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   const setPart = (key: number, patch: Partial<Row>) =>
@@ -141,8 +156,20 @@ export function RecipeForm(props: Props) {
     if (isPrep) {
       const m = parse(make);
       if (!(m > 0)) return setErr("Upiši koliko jedinica daje jedna tura.");
+      if (Object.keys(partMap).length)
+        return setErr("Prep kao dio može imati samo drugi prep. Recepte makni iz dijelova ili isključi Prep.");
+      // recept koji postaje prep: dobiva novi id, a recepti koji ga koriste prelaze na prep
+      let base = data;
+      let id = existing && wasPrep ? existing.id : newPrepId(n);
+      if (existing && !wasPrep) {
+        const conv = recipeToPrep(data, existing.id);
+        if (conv.prepId) {
+          base = conv.data;
+          id = conv.prepId;
+        }
+      }
       const p: CustomPrep = {
-        id: init?.id ?? newPrepId(n),
+        id,
         n: n.trim(),
         k,
         time: time.trim(),
@@ -156,13 +183,23 @@ export function RecipeForm(props: Props) {
         ...(Object.keys(prep).length ? { prep } : {}),
         ...(prepInit?.tip ? { tip: prepInit.tip } : {}),
       };
-      const r = saveCustomPrep(data, p);
-      apply(r.data, r.msg);
+      const r = saveCustomPrep(base, p);
+      apply(r.data, existing && !wasPrep ? `${p.n} je sada prep.` : r.msg);
       return onDone(p.id);
     }
 
+    // prep koji postaje recept
+    let base = data;
+    let rid = existing && !wasPrep ? existing.id : ((draft && !wasPrep ? draft.id : undefined) ?? newRecipeId(n));
+    if (existing && wasPrep) {
+      const conv = prepToRecipe(data, existing.id);
+      if (conv.recipeId) {
+        base = conv.data;
+        rid = conv.recipeId;
+      }
+    }
     const r: CustomRecipe = {
-      id: init?.id ?? newRecipeId(n),
+      id: rid,
       n: n.trim(),
       c,
       d: dtext.trim() || "Vlastiti recept",
@@ -176,18 +213,28 @@ export function RecipeForm(props: Props) {
       ...(meal?.side ? { side: meal.side } : {}),
       ...(meal?.two ? { two: true } : {}),
     };
-    const res = saveRecipe(data, r);
+    const res = saveRecipe(base, r);
     if (planDay != null && !existing)
       apply(addSlot(res.data, planDay, { r: r.id }), `${r.n} je dodan i stavljen na ${dayLabel(planDay)}.`);
     else apply(res.data, res.msg);
     onDone(r.id);
   };
 
-  const what = isPrep ? "prep" : "recept";
+  const what = isPrep ? "recept (prep)" : "recept";
   return (
     <>
       <form className="confirm" onSubmit={submit} aria-label={existing ? `Uredi ${what}` : `Novi ${what}`}>
         <b>{existing ? `Uredi ${what}` : `Novi ${what}`}</b>
+        <label className="checkrow prepflag">
+          <input type="checkbox" checked={isPrep} onChange={(e) => togglePrep(e.target.checked)} />
+          <span>
+            <b>Prep: radim unaprijed</b>
+            <small>
+              Napravljeno se čuva i vidi u Zalihi pod Pripremljeno; drugi recepti ga troše kao dio (npr. čufte za čufte
+              s pireom).
+            </small>
+          </span>
+        </label>
         <div className="edit">
           <label htmlFor="rfName">
             Naziv
