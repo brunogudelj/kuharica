@@ -35,13 +35,14 @@ const OM_OPTS: ["" | "prot" | "veg", string][] = [
 const BUILTIN_OM = new Set(OM_FILL.flatMap((f) => Object.keys(f.use)));
 const ST_ORDER: Record<Status, number> = { out: 0, low: 1, ok: 2, none: 3 };
 
-/** Pripremljeno: svi prep recepti, prvo oni kojih imaš; količinu upisuješ ili klikneš Napravio sam */
+/** Pripremljeno: prep koji imaš na zalihi; količinu upisuješ ili klikneš Napravio sam */
 function PrepStock({ data, update }: { data: AppData; update: (fn: (d: AppData) => AppData) => void }) {
   const { apply } = useApp();
   const { open } = usePanel();
+  // samo ono što stvarno imaš pripremljeno
   const have = allPreps(data)
-    .slice()
-    .sort((a, b) => Number(pc(data, b.id) > 0) - Number(pc(data, a.id) > 0) || a.n.localeCompare(b.n, "hr"));
+    .filter((p) => pc(data, p.id) > 0)
+    .sort((a, b) => a.n.localeCompare(b.n, "hr"));
   if (!have.length) return null;
   const set = (id: string, v: number) =>
     update((d) => {
@@ -534,18 +535,18 @@ export function ZalihaTab() {
       {adding && <ItemForm initialName={q.trim()} onDone={() => setAdding(false)} />}
 
       {tab === "prep" &&
-        (allPreps(data).length ? (
+        (prepHave.length ? (
           <>
             <PrepStock data={data} update={update} />
             <p className="sub">
-              Koliko imaš upiši izravno ili klikni „Napravio sam”, što skida namirnice sa zalihe i dodaje jednu turu.
-              Novi prep dodaješ u Prepu, a postojeći recept prebaciš gumbom „Prebaci u prep” na receptu.
+              Ovdje je samo prep koji imaš pripremljen. Kad nešto skuhaš unaprijed, na tom receptu (Prep) klikni
+              „Napravio sam”.
             </p>
           </>
         ) : (
           <Note>
-            Još nemaš nijedan prep. Na receptu klikni „Prebaci u prep” ili dodaj novi u Prepu; ovdje onda upisuješ
-            koliko ga imaš pripremljenog.
+            Trenutno nemaš ništa pripremljeno. Kad skuhaš recept označen kao Prep, na njemu klikni „Napravio sam” i
+            pojavit će se ovdje.
           </Note>
         ))}
 
