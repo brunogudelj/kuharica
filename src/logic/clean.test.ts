@@ -100,3 +100,64 @@ describe("recept u prep", () => {
     expect(pc(d, pid)).toBe(1.5);
   });
 });
+
+describe("prep u recept i složeni obrok", () => {
+  it("čufte (prep) + pire (recept) = čufte s pireom; prep se može vratiti u recept", async () => {
+    const { recipeToPrep, prepToRecipe, makePrep, cook } = await import("./actions");
+    const { recipeOf } = await import("./recipes");
+    const { pc, qty, effUse } = await import("./inventory");
+    let d = wipeState(defaultData());
+    const meso = newCustomItem({ n: "Meso", cat: "fri", src: "K", u: "g", pack: 500, min: 0 });
+    const krumpir = newCustomItem({ n: "Krumpir", cat: "pan", src: "K", u: "g", pack: 2000, min: 0 });
+    d = addItem(d, meso, 1000).data;
+    d = addItem(d, krumpir, 2000).data;
+    d = saveRecipe(d, {
+      id: "r-cufta",
+      n: "Čufta",
+      c: "Ostalo",
+      d: "",
+      use: { [meso.id]: 450 },
+      extra: [],
+      st: [],
+    }).data;
+    const res = recipeToPrep(d, "r-cufta");
+    const pid = res.prepId!;
+    d = res.data;
+    d = saveRecipe(d, {
+      id: "r-pire",
+      n: "Pire",
+      c: "Krumpir",
+      d: "",
+      use: { [krumpir.id]: 300 },
+      extra: [],
+      st: [],
+    }).data;
+    d = saveRecipe(d, {
+      id: "r-cp",
+      n: "Čufte s pireom",
+      c: "Krumpir",
+      d: "",
+      use: {},
+      prep: { [pid]: 1.5 },
+      extra: [],
+      st: [],
+      parts: { "r-pire": 1 },
+    }).data;
+    // bez pripremljenih čufti troši meso, s njima samo krumpir
+    const r = recipeOf(d, "r-cp")!;
+    expect(effUse(r, {}, false, 1, d).use[meso.id]).toBeCloseTo(450);
+    d = makePrep(d, pid, 1).data;
+    expect(pc(d, pid)).toBe(1.5);
+    const after = cook(d, "r-cp", null, 1.5).data;
+    expect(pc(after, pid)).toBe(0);
+    expect(qty(after, meso.id)).toBe(qty(d, meso.id));
+    expect(qty(after, krumpir.id)).toBe(qty(d, krumpir.id) - 300);
+    // natrag u recept: složeni obrok sada ima čufte kao dio-recept
+    const back = prepToRecipe(d, pid);
+    const rid = back.recipeId!;
+    const cp = back.data.recipes.find((x) => x.id === "r-cp")!;
+    expect(cp.parts).toEqual({ "r-pire": 1, [rid]: 1 });
+    expect(cp.prep).toEqual({});
+    expect(recipeOf(back.data, "r-cp")!.use[meso.id]).toBeCloseTo(450);
+  });
+});

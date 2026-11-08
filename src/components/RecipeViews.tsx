@@ -13,7 +13,7 @@ import { dayDate, dayLabel, dayName, todayKey, windowKeys } from "../logic/dates
 import type { AppData } from "../state/model";
 import { effUse, pc, portionF, prepEff, prepUsedIn, qty } from "../logic/inventory";
 import type { EffUse } from "../logic/inventory";
-import { addSlot, cook, makePrep, recipeToPrep, removeRecipe, removeSlot } from "../logic/actions";
+import { addSlot, cook, makePrep, prepToRecipe, recipeToPrep, removeRecipe, removeSlot } from "../logic/actions";
 import { recipeName, recipeOf, toCustom, usedIn } from "../logic/recipes";
 import { itemOf } from "../logic/items";
 import { KIND_LABEL, mealEntry, prepEntry } from "../logic/feed";
@@ -517,6 +517,21 @@ export function PrepView({ id }: { id: string }) {
         <button type="button" className="btn ghost" onClick={() => open({ t: "editPrep", id })}>
           <Icon name="edit" size={16} /> Uredi prep
         </button>
+        {isCustomPrep(id) && (
+          <button
+            type="button"
+            className="btn ghost"
+            title="Jede se kao obrok i ide u plan; ne vodi se kao pripremljeno"
+            onClick={() => {
+              const res = prepToRecipe(data, id);
+              if (!res.recipeId) return;
+              apply(res.data, res.msg);
+              open({ t: "meal", id: res.recipeId });
+            }}
+          >
+            <Icon name="recepti" size={16} /> Prebaci u recept
+          </button>
+        )}
         {!own ? null : confirm ? (
           <>
             <button
