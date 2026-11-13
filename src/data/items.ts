@@ -69,6 +69,19 @@ export const ITEMS: Item[] = [
     hint: "",
   },
   {
+    id: "tuna-steak",
+    n: "Tuna steak",
+    cat: "frz",
+    src: "K",
+    u: "g",
+    min: 0,
+    pack: 400,
+    step: 250,
+    hint: "odmrzni u hladnjaku noć prije",
+    kcal: 108,
+    prot: 24,
+  },
+  {
     id: "kozice",
     n: "Kozice",
     cat: "frz",
@@ -915,7 +928,7 @@ export const ITEMS: Item[] = [
 ];
 
 /** Ugrađene namirnice dodane nakon prvog izdanja (sakrivaju se ako je korisnik ispraznio zalihu) */
-export const NEW_ITEMS = ["banana", "naranca", "kivi", "kruska", "mandarina", "borovnice"];
+export const NEW_ITEMS = ["banana", "naranca", "kivi", "kruska", "mandarina", "borovnice", "tuna-steak"];
 
 /** Skupine namirnica */
 export const GROUPS: Record<GrpId, string> = {
@@ -938,7 +951,7 @@ export const GRP_OF: Record<string, GrpId> = {
     (
       [
         ["meso", "piletina pur-prsa pur-mlj junetina svinjetina sunka spek kobasice"],
-        ["riba", "losos kozice plodovi tuna dim-losos"],
+        ["riba", "losos kozice plodovi tuna tuna-steak dim-losos"],
         [
           "povrce",
           "grasak mahune brokula dumbir kimchi mrkva kupus luk cesnjak salata krastavci rajcice paprike tikvice gljive klice mladi-luk karfiol patlidzan spinat meksicko rikola wakame",

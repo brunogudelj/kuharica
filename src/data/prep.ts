@@ -585,6 +585,7 @@ export const REC_PREP: Record<string, string[]> = {
   champon: ["povrce-wok", "dumbir-kocke"],
   gulas: ["gulas-batch", "krumpir"],
   tuna: ["kiseli", "azijski-dresing"],
+  "tuna-papar": ["riza"],
 };
 
 export const UNITS: Record<UnitId, [string, string, string]> = {
@@ -814,6 +815,7 @@ export const REC_USE_PREP: Record<string, [string, number][]> = {
     ["azijski-dresing", 1],
     ["kiseli", 1],
   ],
+  "tuna-papar": [["riza", 1]],
 };
 
 export const DAILY_PREP: [string, number][] = [
